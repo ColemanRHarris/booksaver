@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="search-container">
+    <h2>Search for Books</h2>
+    
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="{{ url_for('search') }}" class="search-form">
+        <div class="form-group">
+            <label for="query">Book Title or ISBN:</label>
+            <input type="text" 
+                   id="query" 
+                   name="query" 
+                   placeholder="Enter book title or ISBN..." 
+                   value="{{ request.form.query if request.form else '' }}"
+                   required>
+        </div>
+        <button type="submit" class="search-btn">Search Books</button>
+    </form>
+    
+    <div class="instructions">
+        <h3>How it works:</h3>
+        <ol>
+            <li>Enter a book title or ISBN in the search box</li>
+            <li>Browse the search results from Google Books</li>
+            <li>Click "Add to Amazon Wishlist" to save books you want</li>
+        </ol>
+    </div>
+</div>
+{% endblock %}

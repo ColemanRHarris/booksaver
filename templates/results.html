@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="results-container">
+    <div class="search-header">
+        <h2>Search Results for "{{ query }}"</h2>
+        <a href="{{ url_for('index') }}" class="back-btn">← New Search</a>
+    </div>
+    
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    {% if books %}
+    <div class="books-grid">
+        {% for book in books %}
+        <div class="book-card">
+            {% if book.thumbnail %}
+            <img src="{{ book.thumbnail }}" alt="{{ book.title }}" class="book-cover">
+            {% else %}
+            <div class="no-cover">No Cover</div>
+            {% endif %}
+            
+            <div class="book-info">
+                <h3 class="book-title">{{ book.title }}</h3>
+                <p class="book-authors">by {{ book.authors | join(', ') }}</p>
+                
+                {% if book.published_date %}
+                <p class="book-date">Published: {{ book.published_date }}</p>
+                {% endif %}
+                
+                {% if book.isbn %}
+                <p class="book-isbn">ISBN: {{ book.isbn }}</p>
+                {% endif %}
+                
+                {% if book.description %}
+                <p class="book-description">{{ book.description[:150] }}{% if book.description|length > 150 %}...{% endif %}</p>
+                {% endif %}
+                
+                <div class="book-actions">
+                    <div class="purchase-links">
+                        {% if book.purchase_links %}
+                        <div class="buy-label">Buy from:</div>
+                        <div class="retailer-links">
+                            {% if book.purchase_links.amazon %}
+                            <a href="{{ book.purchase_links.amazon }}" 
+                               target="_blank" 
+                               class="retailer-btn amazon-btn">
+                                Amazon
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.barnes_noble %}
+                            <a href="{{ book.purchase_links.barnes_noble }}" 
+                               target="_blank" 
+                               class="retailer-btn bn-btn">
+                                B&N
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.bookshop %}
+                            <a href="{{ book.purchase_links.bookshop }}" 
+                               target="_blank" 
+                               class="retailer-btn bookshop-btn">
+                                Bookshop
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.google_books %}
+                            <a href="{{ book.purchase_links.google_books }}" 
+                               target="_blank" 
+                               class="retailer-btn google-btn">
+                                Google
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if book.preview_link %}
+                    <a href="{{ book.preview_link }}" 
+                       target="_blank" 
+                       class="preview-btn">
+                        Preview
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-results">
+        <h3>No books found</h3>
+        <p>Try searching with a different title or ISBN.</p>
+        <a href="{{ url_for('index') }}" class="search-again-btn">Search Again</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
