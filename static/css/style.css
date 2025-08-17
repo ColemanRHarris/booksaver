@@ -1,0 +1,923 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f4 50%, #e8eaed 100%);
+    min-height: 100vh;
+}
+
+/* Header */
+header {
+    background: linear-gradient(135deg, #8B0000 0%, #DC143C 25%, #FF4500 75%, #FF6347 100%);
+    color: white;
+    padding: 2rem 0;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(139, 0, 0, 0.3);
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+header h1 a {
+    color: white;
+    text-decoration: none;
+}
+
+header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+/* Main content */
+main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+/* Search container */
+.search-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: transparent;
+    padding: 2rem;
+}
+
+.search-container h2 {
+    margin-bottom: 1.5rem;
+    color: #333;
+    text-align: center;
+}
+
+.search-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    margin-bottom: 3rem;
+}
+
+.search-box {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #e0e0e0;
+    position: relative;
+    overflow: hidden;
+}
+
+.search-box:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+}
+
+.search-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    border-radius: 20px 20px 0 0;
+    z-index: 1;
+}
+/*
+.book-search::before {
+    background: linear-gradient(90deg, #8B0000 0%, #DC143C 50%, #CD5C5C 100%);
+}
+
+.tiktok-search::before {
+    background: linear-gradient(90deg, #FF4500 0%, #FF6347 50%, #FF8C00 100%);
+}
+*/
+.search-box-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.search-box-header h3 {
+    margin-bottom: 0.5rem;
+    color: #333;
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.search-box-header p {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+    font-style: italic;
+}
+
+.box-instructions {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid #f0f0f0;
+    background: rgba(248, 249, 250, 0.3);
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+}
+
+.box-instructions h4 {
+    margin-bottom: 1rem;
+    color: #333;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.box-instructions ol {
+    padding-left: 1.2rem;
+    margin: 0;
+}
+
+.box-instructions li {
+    margin-bottom: 0.5rem;
+    color: #555;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* Remove search divider - no longer needed */
+
+.book-search-btn {
+    background: linear-gradient(135deg, #8B0000 0%, #DC143C 50%, #CD5C5C 100%);
+    border: 2px solid #8B0000;
+}
+
+.book-search-btn:hover {
+    background: linear-gradient(135deg, #DC143C 0%, #8B0000 50%, #A52A2A 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(139, 0, 0, 0.4);
+}
+
+.tiktok-search-btn {
+    background: linear-gradient(135deg, #FF4500 0%, #FF6347 50%, #FF8C00 100%);
+    border: 2px solid #FF4500;
+}
+
+.tiktok-search-btn:hover {
+    background: linear-gradient(135deg, #FF6347 0%, #FF4500 50%, #FF7F50 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(255, 69, 0, 0.4);
+}
+
+/* Form styles */
+.search-form {
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #555;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e1e5e9;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.search-btn {
+    width: 100%;
+    color: white;
+    border: none;
+    padding: 1rem 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Hover effects now defined per button type */
+
+/* Instructions */
+.instructions {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 5px;
+    border-left: 4px solid #667eea;
+}
+
+.instructions h3 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.instructions ol {
+    padding-left: 1.5rem;
+}
+
+.instructions li {
+    margin-bottom: 0.5rem;
+}
+
+.instruction-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.instruction-column h4 {
+    margin-bottom: 0.5rem;
+    color: #333;
+    font-size: 1rem;
+}
+
+.instruction-column ol {
+    padding-left: 1.2rem;
+}
+
+/* Results container */
+.results-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.search-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.search-header h2 {
+    color: #333;
+}
+
+.tiktok-query {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 0.5rem;
+    word-break: break-all;
+    background: #f8f9fa;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    border-left: 4px solid #ff0050;
+}
+
+.back-btn {
+    background: #6c757d;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.back-btn:hover {
+    background: #5a6268;
+}
+
+/* Books grid */
+.books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.book-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.book-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.book-cover {
+    width: 100%;
+    max-width: 128px;
+    height: auto;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.no-cover {
+    width: 128px;
+    height: 160px;
+    background: #e9ecef;
+    border: 2px dashed #adb5bd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    border-radius: 5px;
+    margin: 0 auto 1rem;
+    font-size: 0.9rem;
+}
+
+.book-title {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+    line-height: 1.4;
+}
+
+.book-authors {
+    color: #666;
+    margin-bottom: 0.5rem;
+    font-style: italic;
+}
+
+.book-date, .book-isbn {
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 0.5rem;
+}
+
+.book-description {
+    color: #555;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.book-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.purchase-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.buy-label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.retailer-links {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.retailer-btn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+    text-align: center;
+    min-width: 60px;
+}
+
+.amazon-btn {
+    background: #ff9900;
+    color: white;
+}
+
+.amazon-btn:hover {
+    background: #e88900;
+}
+
+.audible-btn {
+    background: #f46500;
+    color: white;
+}
+
+.audible-btn:hover {
+    background: #d4570a;
+}
+
+.bn-btn {
+    background: #00704a;
+    color: white;
+}
+
+.bn-btn:hover {
+    background: #005c3d;
+}
+
+.bookshop-btn {
+    background: #664228;
+    color: white;
+}
+
+.bookshop-btn:hover {
+    background: #553620;
+}
+
+.google-btn {
+    background: #4285f4;
+    color: white;
+}
+
+.google-btn:hover {
+    background: #3367d6;
+}
+
+.reader-app-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.add-label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.app-links {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.app-btn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+    text-align: center;
+    min-width: 70px;
+}
+
+.goodreads-btn {
+    background: #8d6748;
+    color: white;
+}
+
+.goodreads-btn:hover {
+    background: #73553b;
+}
+
+.overdrive-btn {
+    background: #003d71;
+    color: white;
+}
+
+.overdrive-btn:hover {
+    background: #002a4d;
+}
+
+.storygraph-btn {
+    background: #f05237;
+    color: white;
+}
+
+.storygraph-btn:hover {
+    background: #d13d23;
+}
+
+.preview-btn {
+    background: #28a745;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+    text-align: center;
+}
+
+.preview-btn:hover {
+    background: #218838;
+}
+
+/* No results */
+.no-results {
+    text-align: center;
+    background: white;
+    padding: 3rem 2rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.no-results h3 {
+    margin-bottom: 1rem;
+    color: #666;
+}
+
+.search-again-btn {
+    background: linear-gradient(135deg, #8B0000 0%, #DC143C 50%, #FF4500 100%);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-block;
+    margin-top: 1rem;
+    transition: transform 0.3s ease;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.search-again-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Error messages */
+.error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    border: 1px solid #f5c6cb;
+}
+
+/* Footer */
+footer {
+    background: #343a40;
+    color: white;
+    text-align: center;
+    padding: 1rem;
+    margin-top: 3rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    header {
+        padding: 1.5rem 1rem;
+    }
+    
+    header h1 {
+        font-size: 1.8rem;
+        line-height: 1.2;
+    }
+    
+    header p {
+        font-size: 1rem;
+    }
+    
+    main {
+        padding: 1rem 0.5rem;
+    }
+    
+    .search-container {
+        margin: 0.5rem;
+        padding: 1.5rem 1rem;
+    }
+    
+    .search-options {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    
+    .search-box {
+        padding: 2rem 1.5rem;
+        border-radius: 15px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .search-box-header h3 {
+        font-size: 1.2rem;
+    }
+    
+    .search-box:hover {
+        transform: translateY(-5px);
+    }
+    
+    .box-instructions {
+        margin-left: -0.25rem;
+        margin-right: -0.25rem;
+        padding: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .box-instructions h4 {
+        font-size: 0.9rem;
+    }
+    
+    .box-instructions li {
+        font-size: 0.85rem;
+    }
+    
+    .search-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .search-header h2 {
+        font-size: 1.3rem;
+    }
+    
+    .books-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .book-card {
+        padding: 1rem;
+    }
+    
+    .book-title {
+        font-size: 1.1rem;
+        line-height: 1.3;
+    }
+    
+    .book-description {
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+    
+    .purchase-links, .reader-app-links {
+        gap: 0.75rem;
+    }
+    
+    .buy-label, .add-label {
+        font-size: 0.85rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .retailer-links, .app-links {
+        justify-content: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .retailer-btn, .app-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+        min-width: 70px;
+        flex: none;
+    }
+    
+    .preview-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        align-self: flex-start;
+    }
+    
+    /* Stack buttons vertically on very small screens */
+    @media (max-width: 480px) {
+        .retailer-links, .app-links {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .retailer-btn, .app-btn {
+            width: 100%;
+            text-align: center;
+            min-width: unset;
+        }
+        
+        .search-container {
+            margin: 0.25rem;
+            padding: 1rem 0.75rem;
+        }
+        
+        .book-card {
+            padding: 0.75rem;
+        }
+    }
+}
+
+/* Processing page styles */
+.processing-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.processing-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.processing-header h2 {
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.processing-url {
+    color: #666;
+    font-size: 0.9rem;
+    word-break: break-all;
+}
+
+.progress-section {
+    margin-bottom: 2rem;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 50%, #ffeaa7 100%);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.processing-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.info-item {
+    color: #555;
+}
+
+.info-item strong {
+    color: #333;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.info-item ul {
+    margin: 0;
+    padding-left: 1.2rem;
+}
+
+.info-item li {
+    margin-bottom: 0.3rem;
+}
+
+.found-books h3 {
+    margin-bottom: 1.5rem;
+    color: #333;
+    text-align: center;
+}
+
+.no-books {
+    text-align: center;
+    padding: 2rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.no-books h3 {
+    margin-bottom: 1rem;
+    color: #666;
+}
+
+.try-again {
+    text-align: center;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.error-section {
+    text-align: center;
+    padding: 2rem;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+    color: #721c24;
+}
+
+.error-section h3 {
+    margin-bottom: 1rem;
+}
+
+/* Ad placement areas */
+.ad-placement {
+    margin: 2rem 0;
+    text-align: center;
+}
+
+.ad-banner-top {
+    margin-bottom: 2rem;
+}
+
+.ad-square {
+    margin: 2rem auto;
+    max-width: 300px;
+}
+
+.ad-placeholder {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px dashed #adb5bd;
+    border-radius: 10px;
+    padding: 2rem;
+    color: #6c757d;
+    font-family: 'Courier New', monospace;
+}
+
+.ad-banner-top .ad-placeholder {
+    min-height: 90px;
+    max-width: 728px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.ad-square .ad-placeholder {
+    min-height: 250px;
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.ad-placeholder p {
+    margin: 0 0 0.5rem 0;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.ad-placeholder small {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    font-style: italic;
+    max-width: 250px;
+    line-height: 1.3;
+}
+
+/* Responsive processing page */
+@media (max-width: 768px) {
+    .processing-info {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 1rem;
+    }
+    
+    .processing-container {
+        margin: 0.5rem;
+        padding: 1.5rem 1rem;
+    }
+    
+    .ad-banner-top .ad-placeholder {
+        min-height: 70px;
+        max-width: 100%;
+        padding: 1.5rem 1rem;
+    }
+    
+    .ad-square .ad-placeholder {
+        min-height: 200px;
+        width: 250px;
+    }
+    
+    .ad-placeholder p {
+        font-size: 0.9rem;
+    }
+    
+    .ad-placeholder small {
+        font-size: 0.75rem;
+    }
+}

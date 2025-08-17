@@ -1,45 +1,41 @@
-# Book Finder Web App - MVP Development Plan (`claude.md`)
+# TikTok Book Finder – MVP+TikTok Development Plan (`claude.md`)
 
-## 1. MVP Goal
-Build a minimal web application that lets a user **type a book title or ISBN** into a search bar, displays matching books via the **Google Books API**, and provides a one-click **“Add to Amazon wish-list”** link for each result.
-
-*(No TikTok downloading, no video processing—keep the first release laser-focused.)*
+## 1. New MVP Goal
+Extend the **existing Python-only web app** (search-only) to let a user **paste a TikTok URL** and receive a list of books detected in the video.
 
 ---
 
-## 2. Core Modules & Flow
-1. **Search Input** → 2. **Google Books Query** → 3. **Display Results** → 4. **Amazon Redirect**
+## 2. Core Flow (Updated)
+1. **TikTok Ingestion**  
+   - Input: TikTok share-link  
+   - Output: `video.mp4` saved to **local tmp**  
+   - Method: `yt-dlp` (community downloader) wrapped in **Celery** task
 
-| Module              | Responsibility                                                                 |
-|---------------------|--------------------------------------------------------------------------------|
-| Search Bar          | HTML form + server-side validation (Flask-WTF).                             |
-| Google Books Client | Python `requests` calling Google Books REST API.                              |
-| Result Renderer     | Server-side Jinja2 template listing cover, title, author, Amazon link.         |
-| Amazon Link Builder | Construct search URL: `https://www.amazon.com/s?k=<ISBN>` or `&field-keywords=<Title+Author>` |
-| Error Handler       | If Google Books returns 0 hits, show “Book not found” message.                 |
+2. **Book Detection (CV)**  
+   - Extract 1 fps frames with **FFmpeg** → `opencv-python`  
+   - Run **YOLOv8-s** model fine-tuned on ~1 k book images → bounding boxes
 
----
-
-## 3. Tech Stack (Minimal Python-Only)
-- **Backend / Frontend**: **Flask** (micro-framework) + **Jinja2** templates  
-- **Styling**: Vanilla CSS (single `style.css` file)  
-- **HTTP Client**: `requests` library  
-- **Development Runner**: `python -m flask run`  
-- **Hosting**: **Render** (free Python web service) or **PythonAnywhere**  
-- **Environment**: `.env` file storing `GOOGLE_BOOKS_KEY`
+3. **OCR & Title/Author Extraction**  
+   - Crop bounding boxes → **Tesseract** OCR  
+   - Clean & fuzzy-deduplicate titles → Google Books API → canonical title + **ASIN**
 
 ---
 
-## 4. API Sketch
-### Google Books endpoint (called from Flask)
-```python
-import requests, os
+## 3. Tech Stack (Additions)
+| Component        | Library / Service                         |
+|------------------|------------------------------------------|
+| Video download   | `yt-dlp`, `ffmpeg-python`                |
+| CV + ML          | `ultralytics==8.0.200`, `opencv-python`, `pytesseract` |
+| Async processing | **Celery**                   |
+| Object storage   | local `/tmp`                             |
+| Framework        | **Flask** (kept from previous MVP)       |
 
-def search_books(query: str):
-    url = &quot;https://www.googleapis.com/books/v1/volumes&quot;
-    params = {
-        &quot;q&quot;: f&quot;intitle:{query}&quot;,
-        &quot;maxResults&quot;: 10,
-        &quot;key&quot;: os.getenv(&quot;GOOGLE_BOOKS_KEY&quot;)
-    }
-    return requests.get(url, params=params).json()
+---
+
+## 4. Privacy & Compliance (TikTok + Amazon)
+- **TikTok Terms**: store only the video ID, no user data; respect rate limits.  
+- **GDPR / CCPA**: add cookie banner for Amazon tracking cookies.  
+- **Amazon Associates**:  
+  - Display **prominent disclosure** on every page:  
+    “As an Amazon Associate I earn from qualifying purchases.”  
+  - Link to Amazon Privacy Policy.  
