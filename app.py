@@ -41,4 +41,4 @@ def search():
         return render_template('index.html', error="Something went wrong. Please try again later.")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=10000, debug=True)
