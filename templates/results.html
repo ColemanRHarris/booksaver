@@ -3,8 +3,13 @@
 {% block content %}
 <div class="results-container">
     <div class="search-header">
+        {% if is_tiktok %}
+        <h2>Books Found in TikTok Video</h2>
+        <p class="tiktok-query">{{ query }}</p>
+        {% else %}
         <h2>Search Results for "{{ query }}"</h2>
-        <a href="{{ url_for('index') }}" class="back-btn">← New Search</a>
+        {% endif %}
+        <a href="{{ url_for('index') }}" class="back-btn">← {% if is_tiktok %}Process Another Video{% else %}New Search{% endif %}</a>
     </div>
     
     {% if error %}

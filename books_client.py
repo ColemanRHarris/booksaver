@@ -9,20 +9,20 @@ class GoogleBooksClient:
     
     def search_books(self, query: str, max_results: int = 10) -> List[Dict]:
         """Search for books using Google Books API"""
-        if not self.api_key:
-            raise ValueError("Google Books API key not found in environment variables")
-        
+        # Try with API key first, then fallback to public access
         params = {
             "q": f"intitle:{query}",
-            "maxResults": max_results,
-            "key": self.api_key
+            "maxResults": max_results
         }
+        
+        if self.api_key:
+            params["key"] = self.api_key
         
         try:
             response = requests.get(self.base_url, params=params, timeout=10)
             
             # If API key fails (403), fallback to public access
-            if response.status_code == 403:
+            if response.status_code == 403 and self.api_key:
                 print("API key access failed, falling back to public access")
                 params_public = {
                     "q": f"intitle:{query}",

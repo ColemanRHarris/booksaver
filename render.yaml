@@ -1,0 +1,47 @@
+services:
+  # Redis service for Celery broker
+  - type: redis
+    name: booksaver-redis
+    ipAllowList: []
+    plan: free
+
+  # Main Flask web application
+  - type: web
+    name: booksaver-web
+    runtime: python3
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: booksaver-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GOOGLE_BOOKS_KEY
+        sync: false  # You'll set this manually in Render dashboard
+    healthCheckPath: /health
+
+  # Celery worker for background tasks
+  - type: worker
+    name: booksaver-worker
+    runtime: python3
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A celery_app worker --loglevel=info --concurrency=1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: booksaver-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GOOGLE_BOOKS_KEY
+        sync: false
