@@ -40,6 +40,7 @@ class GoogleBooksClient:
             
             for item in items:
                 volume_info = item.get('volumeInfo', {})
+                access_info = item.get('accessInfo', {})
                 
                 book = {
                     'title': volume_info.get('title', 'Unknown Title'),
@@ -49,7 +50,9 @@ class GoogleBooksClient:
                     'isbn': self._extract_isbn(volume_info.get('industryIdentifiers', [])),
                     'thumbnail': volume_info.get('imageLinks', {}).get('thumbnail', ''),
                     'preview_link': volume_info.get('previewLink', ''),
-                    'info_link': volume_info.get('infoLink', '')
+                    'info_link': volume_info.get('infoLink', ''),
+                    'canonical_link': volume_info.get('canonicalVolumeLink', ''),
+                    'web_reader_link': access_info.get('webReaderLink', '')
                 }
                 books.append(book)
             
@@ -84,14 +87,52 @@ def build_purchase_links(book: Dict) -> Dict[str, str]:
         # Amazon - use book-specific search with title + author
         links['amazon'] = f"https://www.amazon.com/s?k={encoded_term}&i=stripbooks"
         
+        # Audible - audiobook search
+        links['audible'] = f"https://www.audible.com/search?keywords={encoded_term}"
+        
         # Barnes & Noble
         links['barnes_noble'] = f"https://www.barnesandnoble.com/s/{encoded_term}"
         
-        # Google Books (for purchasing)
-        links['google_books'] = f"https://books.google.com/books?q={encoded_term}"
+        # Google Books - use direct link if available, otherwise search
+        if book.get('canonical_link'):
+            links['google_books'] = book['canonical_link']
+        elif book.get('info_link'):
+            links['google_books'] = book['info_link']
+        else:
+            links['google_books'] = f"https://books.google.com/books?q={encoded_term}"
         
         # Bookshop.org (supports independent bookstores)
         links['bookshop'] = f"https://bookshop.org/search?keywords={encoded_term}"
+    
+    return links
+
+def build_reader_app_links(book: Dict) -> Dict[str, str]:
+    """Build links for popular reader apps"""
+    title = book.get('title', '')
+    authors = book.get('authors', [])
+    author = authors[0] if authors else ''
+    isbn = book.get('isbn', '')
+    
+    # Clean up title for search
+    clean_title = title.split(':')[0].strip()
+    search_term = f"{clean_title} {author}".strip()
+    encoded_term = search_term.replace(' ', '+')
+    
+    links = {}
+    
+    if search_term:
+        # Goodreads - try ISBN first, fallback to search
+        if isbn:
+            # Goodreads has predictable ISBN-based URLs
+            links['goodreads'] = f"https://www.goodreads.com/book/isbn/{isbn}"
+        else:
+            links['goodreads'] = f"https://www.goodreads.com/search?q={encoded_term}"
+        
+        # OverDrive (library system) - search only
+        links['overdrive'] = f"https://www.overdrive.com/search?q={encoded_term}"
+        
+        # StoryGraph - search only
+        links['storygraph'] = f"https://app.thestorygraph.com/browse?search_term={encoded_term}"
     
     return links
 

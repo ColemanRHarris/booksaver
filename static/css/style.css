@@ -271,6 +271,15 @@ main {
     background: #e88900;
 }
 
+.audible-btn {
+    background: #f46500;
+    color: white;
+}
+
+.audible-btn:hover {
+    background: #d4570a;
+}
+
 .bn-btn {
     background: #00704a;
     color: white;
@@ -296,6 +305,62 @@ main {
 
 .google-btn:hover {
     background: #3367d6;
+}
+
+.reader-app-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.add-label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.app-links {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.app-btn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+    text-align: center;
+    min-width: 70px;
+}
+
+.goodreads-btn {
+    background: #8d6748;
+    color: white;
+}
+
+.goodreads-btn:hover {
+    background: #73553b;
+}
+
+.overdrive-btn {
+    background: #003d71;
+    color: white;
+}
+
+.overdrive-btn:hover {
+    background: #002a4d;
+}
+
+.storygraph-btn {
+    background: #f05237;
+    color: white;
+}
+
+.storygraph-btn:hover {
+    background: #d13d23;
 }
 
 .preview-btn {
@@ -381,11 +446,11 @@ footer {
         gap: 1.5rem;
     }
     
-    .retailer-links {
+    .retailer-links, .app-links {
         justify-content: center;
     }
     
-    .retailer-btn {
+    .retailer-btn, .app-btn {
         flex: 1;
         min-width: 50px;
     }

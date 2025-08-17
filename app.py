@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for
 from dotenv import load_dotenv
 import os
-from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links
+from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
 
 load_dotenv()
 
@@ -24,9 +24,10 @@ def search():
     try:
         books = books_client.search_books(query)
         
-        # Add purchase links to each book
+        # Add purchase and reader app links to each book
         for book in books:
             book['purchase_links'] = build_purchase_links(book)
+            book['reader_app_links'] = build_reader_app_links(book)
             book['amazon_link'] = build_amazon_link(book)  # Keep for backward compatibility
         
         if not books:

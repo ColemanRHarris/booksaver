@@ -50,6 +50,14 @@
                             </a>
                             {% endif %}
                             
+                            {% if book.purchase_links.audible %}
+                            <a href="{{ book.purchase_links.audible }}" 
+                               target="_blank" 
+                               class="retailer-btn audible-btn">
+                                Audible
+                            </a>
+                            {% endif %}
+                            
                             {% if book.purchase_links.barnes_noble %}
                             <a href="{{ book.purchase_links.barnes_noble }}" 
                                target="_blank" 
@@ -71,6 +79,37 @@
                                target="_blank" 
                                class="retailer-btn google-btn">
                                 Google
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="reader-app-links">
+                        {% if book.reader_app_links %}
+                        <div class="add-label">Add to:</div>
+                        <div class="app-links">
+                            {% if book.reader_app_links.goodreads %}
+                            <a href="{{ book.reader_app_links.goodreads }}" 
+                               target="_blank" 
+                               class="app-btn goodreads-btn">
+                                Goodreads
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.reader_app_links.overdrive %}
+                            <a href="{{ book.reader_app_links.overdrive }}" 
+                               target="_blank" 
+                               class="app-btn overdrive-btn">
+                                OverDrive
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.reader_app_links.storygraph %}
+                            <a href="{{ book.reader_app_links.storygraph }}" 
+                               target="_blank" 
+                               class="app-btn storygraph-btn">
+                                StoryGraph
                             </a>
                             {% endif %}
                         </div>
