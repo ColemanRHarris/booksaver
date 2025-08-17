@@ -29,7 +29,7 @@ services:
   # Celery worker for background tasks
   - type: worker
     name: booksaver-worker
-    runtime: python3
+    runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A celery_app worker --loglevel=info --concurrency=1
