@@ -10,7 +10,7 @@ services:
     name: booksaver-web
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: ./build.sh
     startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app
     envVars:
       - key: PYTHON_VERSION
@@ -31,7 +31,7 @@ services:
     name: booksaver-worker
     runtime: python
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    buildCommand: ./build.sh
     startCommand: celery -A celery_app worker --loglevel=info --concurrency=1
     envVars:
       - key: PYTHON_VERSION

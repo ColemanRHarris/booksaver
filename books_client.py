@@ -1,42 +1,145 @@
 import requests
 import os
+import time
+import random
 from typing import List, Dict, Optional
 
 class GoogleBooksClient:
     def __init__(self):
         self.api_key = os.getenv('GOOGLE_BOOKS_KEY')
         self.base_url = "https://www.googleapis.com/books/v1/volumes"
+        self.last_request_time = 0
+        self.min_request_interval = 0.2  # 200ms between requests (more conservative)
+        self.max_retries = 3
+        self.cache = {}  # Simple in-memory cache
+        self.cache_ttl = 300  # 5 minutes
     
+    def _rate_limit_delay(self):
+        """Implement rate limiting between requests"""
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        
+        if time_since_last < self.min_request_interval:
+            sleep_time = self.min_request_interval - time_since_last
+            time.sleep(sleep_time)
+        
+        self.last_request_time = time.time()
+
+    def _make_request_with_retry(self, params: dict) -> requests.Response:
+        """Make API request with exponential backoff retry logic"""
+        for attempt in range(self.max_retries):
+            try:
+                # Rate limiting
+                self._rate_limit_delay()
+                
+                # Make the request
+                response = requests.get(self.base_url, params=params, timeout=15)
+                
+                # Handle rate limiting
+                if response.status_code == 429:
+                    if attempt < self.max_retries - 1:
+                        # Exponential backoff with jitter
+                        wait_time = (2 ** attempt) + random.uniform(0, 1)
+                        print(f"Rate limited, waiting {wait_time:.1f}s before retry {attempt + 1}/{self.max_retries}")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        print("Max retries reached for rate limiting")
+                        raise requests.exceptions.RequestException("Rate limit exceeded after retries")
+                
+                # Handle quota exceeded
+                if response.status_code == 403:
+                    error_data = response.json() if response.content else {}
+                    error_reason = error_data.get('error', {}).get('errors', [{}])[0].get('reason', '')
+                    
+                    if 'quotaExceeded' in error_reason or 'dailyLimitExceeded' in error_reason:
+                        print("API quota exceeded, falling back to public access")
+                        return self._fallback_public_request(params)
+                    
+                    # For other 403 errors, try public access
+                    if self.api_key and 'key' in params:
+                        print("API key access failed, trying public access")
+                        return self._fallback_public_request(params)
+                
+                # Raise for other HTTP errors
+                response.raise_for_status()
+                return response
+                
+            except requests.exceptions.Timeout:
+                if attempt < self.max_retries - 1:
+                    wait_time = (2 ** attempt)
+                    print(f"Timeout, retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                raise
+            except requests.exceptions.RequestException as e:
+                if attempt < self.max_retries - 1:
+                    wait_time = (2 ** attempt)
+                    print(f"Request error: {e}, retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                raise
+
+    def _fallback_public_request(self, original_params: dict) -> requests.Response:
+        """Fallback to public API access without key"""
+        public_params = {k: v for k, v in original_params.items() if k != 'key'}
+        
+        # Rate limit for public access
+        self._rate_limit_delay()
+        
+        response = requests.get(self.base_url, params=public_params, timeout=15)
+        response.raise_for_status()
+        return response
+
+    def _get_cache_key(self, query: str, max_results: int) -> str:
+        """Generate cache key for query"""
+        return f"{query.lower().strip()}:{max_results}"
+
+    def _is_cache_valid(self, timestamp: float) -> bool:
+        """Check if cache entry is still valid"""
+        return time.time() - timestamp < self.cache_ttl
+
     def search_books(self, query: str, max_results: int = 10) -> List[Dict]:
-        """Search for books using Google Books API"""
-        # Try with API key first, then fallback to public access
+        """Search for books using Google Books API with rate limiting and retry logic"""
+        if not query or not query.strip():
+            return []
+        
+        # Check cache first
+        cache_key = self._get_cache_key(query, max_results)
+        if cache_key in self.cache:
+            cached_data, timestamp = self.cache[cache_key]
+            if self._is_cache_valid(timestamp):
+                print(f"📋 Using cached result for: '{query}'")
+                return cached_data
+            else:
+                # Remove expired cache entry
+                del self.cache[cache_key]
+        
+        # Limit max_results to avoid hitting quotas too quickly
+        max_results = min(max_results, 3)  # Further reduced
+        
+        # Build query parameters
         params = {
-            "q": f"intitle:{query}",
-            "maxResults": max_results
+            "q": f"intitle:{query.strip()}",
+            "maxResults": max_results,
+            "printType": "books",  # Only books, not magazines
+            "orderBy": "relevance"  # Most relevant first
         }
         
+        # Add API key if available
         if self.api_key:
             params["key"] = self.api_key
         
         try:
-            response = requests.get(self.base_url, params=params, timeout=10)
+            print(f"🔍 Searching Google Books for: '{query}' (max: {max_results})")
             
-            # If API key fails (403), fallback to public access
-            if response.status_code == 403 and self.api_key:
-                print("API key access failed, falling back to public access")
-                params_public = {
-                    "q": f"intitle:{query}",
-                    "maxResults": max_results
-                }
-                response = requests.get(self.base_url, params=params_public, timeout=10)
-                response.raise_for_status()
-            else:
-                response.raise_for_status()
-            
+            response = self._make_request_with_retry(params)
             data = response.json()
             
             books = []
             items = data.get('items', [])
+            
+            print(f"📚 Google Books returned {len(items)} results")
             
             for item in items:
                 volume_info = item.get('volumeInfo', {})
@@ -56,10 +159,16 @@ class GoogleBooksClient:
                 }
                 books.append(book)
             
+            # Cache the results
+            self.cache[cache_key] = (books, time.time())
+            
             return books
             
         except requests.RequestException as e:
-            print(f"Error fetching books: {e}")
+            print(f"❌ Error fetching books for '{query}': {e}")
+            return []
+        except Exception as e:
+            print(f"❌ Unexpected error searching for '{query}': {e}")
             return []
     
     def _extract_isbn(self, identifiers: List[Dict]) -> Optional[str]:
