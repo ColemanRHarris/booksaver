@@ -30,7 +30,7 @@ services:
   - type: worker
     name: booksaver-worker
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A celery_app worker --loglevel=info --concurrency=1
     envVars:
