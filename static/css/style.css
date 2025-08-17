@@ -14,7 +14,7 @@ body {
 
 /* Header */
 header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 50%, #ffeaa7 100%);
     color: white;
     padding: 2rem 0;
     text-align: center;
@@ -90,7 +90,7 @@ main {
 
 .search-btn {
     width: 100%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 50%, #ffeaa7 100%);
     color: white;
     border: none;
     padding: 0.75rem 1.5rem;
@@ -392,7 +392,7 @@ main {
 }
 
 .search-again-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 50%, #ffeaa7 100%);
     color: white;
     padding: 0.75rem 1.5rem;
     border-radius: 5px;
@@ -427,18 +427,36 @@ footer {
 
 /* Responsive design */
 @media (max-width: 768px) {
+    header {
+        padding: 1.5rem 1rem;
+    }
+    
     header h1 {
-        font-size: 2rem;
+        font-size: 1.8rem;
+        line-height: 1.2;
+    }
+    
+    header p {
+        font-size: 1rem;
+    }
+    
+    main {
+        padding: 1rem 0.5rem;
     }
     
     .search-container {
-        margin: 1rem;
-        padding: 1.5rem;
+        margin: 0.5rem;
+        padding: 1.5rem 1rem;
     }
     
     .search-header {
         flex-direction: column;
         text-align: center;
+        gap: 1rem;
+    }
+    
+    .search-header h2 {
+        font-size: 1.3rem;
     }
     
     .books-grid {
@@ -446,12 +464,67 @@ footer {
         gap: 1.5rem;
     }
     
+    .book-card {
+        padding: 1rem;
+    }
+    
+    .book-title {
+        font-size: 1.1rem;
+        line-height: 1.3;
+    }
+    
+    .book-description {
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+    
+    .purchase-links, .reader-app-links {
+        gap: 0.75rem;
+    }
+    
+    .buy-label, .add-label {
+        font-size: 0.85rem;
+        margin-bottom: 0.25rem;
+    }
+    
     .retailer-links, .app-links {
-        justify-content: center;
+        justify-content: flex-start;
+        gap: 0.75rem;
     }
     
     .retailer-btn, .app-btn {
-        flex: 1;
-        min-width: 50px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+        min-width: 70px;
+        flex: none;
+    }
+    
+    .preview-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        align-self: flex-start;
+    }
+    
+    /* Stack buttons vertically on very small screens */
+    @media (max-width: 480px) {
+        .retailer-links, .app-links {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .retailer-btn, .app-btn {
+            width: 100%;
+            text-align: center;
+            min-width: unset;
+        }
+        
+        .search-container {
+            margin: 0.25rem;
+            padding: 1rem 0.75rem;
+        }
+        
+        .book-card {
+            padding: 0.75rem;
+        }
     }
 }
