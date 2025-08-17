@@ -9,33 +9,6 @@
     {% endif %}
     
     <div class="search-options">
-        <div class="search-box book-search">
-            <div class="search-box-header">
-                <h3>📚 Search Books</h3>
-                <p>Find books by title or ISBN</p>
-            </div>
-            <form method="POST" action="{{ url_for('search') }}" class="search-form">
-                <div class="form-group">
-                    <input type="text" 
-                           id="query" 
-                           name="query" 
-                           placeholder="Enter book title or ISBN..." 
-                           value="{{ request.form.query if request.form else '' }}"
-                           required>
-                </div>
-                <button type="submit" class="search-btn book-search-btn">Search Books</button>
-            </form>
-            
-            <div class="box-instructions">
-                <h4>How it works:</h4>
-                <ol>
-                    <li>Enter a book title or ISBN</li>
-                    <li>Browse results from Google Books</li>
-                    <li>Buy from your favorite retailer</li>
-                </ol>
-            </div>
-        </div>
-        
         <div class="search-box tiktok-search">
             <div class="search-box-header">
                 <h3>🎥 TikTok Book Finder</h3>
@@ -65,6 +38,34 @@
                 </ol>
             </div>
         </div>
+        
+        <div class="search-box book-search">
+            <div class="search-box-header">
+                <h3>📚 Search Books</h3>
+                <p>Find books by title or ISBN</p>
+            </div>
+            <form method="POST" action="{{ url_for('search') }}" class="search-form">
+                <div class="form-group">
+                    <input type="text" 
+                           id="query" 
+                           name="query" 
+                           placeholder="Enter book title or ISBN..." 
+                           value="{{ request.form.query if request.form else '' }}"
+                           required>
+                </div>
+                <button type="submit" class="search-btn book-search-btn">Search Books</button>
+            </form>
+            
+            <div class="box-instructions">
+                <h4>How it works:</h4>
+                <ol>
+                    <li>Enter a book title or ISBN</li>
+                    <li>Browse results from Google Books</li>
+                    <li>Buy from your favorite retailer</li>
+                </ol>
+            </div>
+        </div>
+        
     </div>
 </div>
 {% endblock %}
