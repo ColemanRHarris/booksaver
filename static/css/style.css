@@ -44,6 +44,44 @@ main {
     padding: 2rem 1rem;
 }
 
+/* Page header */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.page-header h2 {
+    color: #333;
+    font-size: 2rem;
+    margin: 0;
+}
+
+.nav-links {
+    display: flex;
+    gap: 1rem;
+}
+
+.recommendations-link {
+    background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
+    color: white;
+    text-decoration: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(139, 0, 0, 0.2);
+}
+
+.recommendations-link:hover {
+    background: linear-gradient(135deg, #A00000 0%, #F01456 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(139, 0, 0, 0.3);
+}
+
 /* Search container */
 .search-container {
     max-width: 1000px;

@@ -1,5 +1,6 @@
 celery>=5.5.3
 easyocr>=1.7.0
+python-bidi>=0.4.2
 ffmpeg-python>=0.2.0
 flask>=3.1.1
 fuzzywuzzy>=0.18.0
@@ -16,5 +17,3 @@ torch<2.6
 torchvision<0.20
 ultralytics==8.0.200
 yt-dlp>=2025.8.11
-paddleocr>=3.1.1
-paddlepaddle>=3.1.0

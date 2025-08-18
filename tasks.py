@@ -35,6 +35,7 @@ import time
 from typing import List, Dict, Any
 import numpy as np
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Initialize YOLO model (will download on first use)
 model = None
@@ -66,16 +67,12 @@ def process_video(self, video_url: str, video_type: str):
     """
     print(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
     try:
-        # Log available OCR backends to confirm if PaddleOCR is loaded
+        # Log available OCR backends
         print("ℹ️  Initializing OCR engine to check for available backends...")
         ocr_engine = get_ocr_engine()
         if ocr_engine and ocr_engine.available_backends:
             backend_names = [b.name for b in ocr_engine.available_backends]
             print(f"ℹ️  Available OCR backends: {backend_names}")
-            if "PaddleOCR" in backend_names:
-                print("✅ PaddleOCR is successfully implemented and available.")
-            else:
-                print("⚠️  PaddleOCR is not available. Check dependencies (paddlepaddle, paddleocr).")
         else:
             print("❌ No OCR backends available. Text extraction will fail.")
 
@@ -90,16 +87,41 @@ def process_video(self, video_url: str, video_type: str):
             video_path = download_video(video_url, temp_dir)
             print(f"✅ Video downloaded successfully: {video_path}")
             
-            debug_dir_name = f"{video_type}_{uuid.uuid4().hex[:8]}"
-            debug_dir = Path(os.getcwd()) / "debug_output" / debug_dir_name
-            debug_dir.mkdir(parents=True, exist_ok=True)
-            print(f"🗂️  Debug output will be saved to: {debug_dir}")
+            # Only create debug dir in development
+            debug_dir = None
+            if os.getenv('FLASK_ENV') == 'development' or os.getenv('DEBUG', '').lower() == 'true':
+                debug_dir_name = f"{video_type}_{uuid.uuid4().hex[:8]}"
+                debug_dir = Path(os.getcwd()) / "debug_output" / debug_dir_name
+                debug_dir.mkdir(parents=True, exist_ok=True)
+                print(f"🗂️  Debug output will be saved to: {debug_dir}")
+            else:
+                print("🚀 Production mode: Skipping debug output for faster processing")
+            
+            # Set performance mode based on environment
+            performance_mode = os.getenv('PERFORMANCE_MODE', 'fast').lower()
+            print(f"⚡ Performance mode: {performance_mode}")
             
             self.update_state(state='PROGRESS', meta={'step': 'Extracting frames', 'progress': 30})
             print("🖼️  Starting frame extraction...")
             
-            frames = extract_frames(video_path)
-            print(f"✅ Extracted {len(frames)} frames")
+            # Use simple frame extraction for better reliability
+            try:
+                from simple_frame_extractor import SimpleFrameExtractor
+                extractor = SimpleFrameExtractor()
+                frames = extractor.extract_optimal_frames(video_path, output_dir=str(debug_dir) if debug_dir else None)
+                print(f"✅ Extracted {len(frames)} optimized frames")
+                
+                # If we got too few frames, fall back to uniform extraction
+                if len(frames) < 3:
+                    print("⚠️ Too few frames from smart extraction, falling back to uniform extraction")
+                    frames = extract_frames(video_path, num_frames=12)
+                    print(f"✅ Fallback: Extracted {len(frames)} uniform frames")
+                    
+            except Exception as e:
+                print(f"⚠️ Simple frame extraction failed: {e}")
+                print("🔄 Falling back to uniform frame extraction")
+                frames = extract_frames(video_path, num_frames=12)
+                print(f"✅ Fallback: Extracted {len(frames)} uniform frames")
             
             self.update_state(state='PROGRESS', meta={'step': 'Detecting objects', 'progress': 50})
             
@@ -109,7 +131,7 @@ def process_video(self, video_url: str, video_type: str):
             self.update_state(state='PROGRESS', meta={'step': 'Extracting text', 'progress': 70})
             print("📝 Starting text extraction...")
             
-            prioritized_detections = prioritize_forward_facing_detections(book_detections, max_total=20)
+            prioritized_detections = prioritize_forward_facing_detections(book_detections, max_total=12)
             
             book_texts = extract_text_from_detections(frames, prioritized_detections, debug_dir=str(debug_dir))
             print(f"✅ Text extraction completed: {len(book_texts)} texts found")
@@ -155,6 +177,10 @@ def download_video(url: str, output_dir: str) -> str:
         'outtmpl': os.path.join(output_dir, 'video.%(ext)s'),
         'quiet': False,
         'no_warnings': False,
+        'format': 'worst[height<=480]/best[height<=480]/worst',  # Lower quality for faster download
+        'prefer_ffmpeg': True,
+        'writesubtitles': False,
+        'writeautomaticsub': False,
     }
     
     try:
@@ -197,9 +223,16 @@ def extract_frames(video_path: str, num_frames: int = 30) -> List[np.ndarray]:
         return []
 
     # Calculate frame indices to extract evenly
-    # Exclude the very first and last frame to avoid potential black frames or transitions
-    # Use total_frames - 1 to get the last valid frame index
-    frame_indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)
+    # Skip first 10% and last 10% to avoid black frames or transitions
+    start_frame = max(1, int(total_frames * 0.1))
+    end_frame = max(start_frame + 1, int(total_frames * 0.9))
+    
+    # Ensure we have enough frames to extract from
+    if end_frame - start_frame < num_frames:
+        start_frame = 1
+        end_frame = total_frames - 1
+    
+    frame_indices = np.linspace(start_frame, end_frame, num_frames, dtype=int)
     
     selected_frames = []
     
@@ -320,7 +353,7 @@ def calculate_forward_facing_score(width: float, height: float, aspect_ratio: fl
            position_score * 0.25 + confidence_score * 0.2)
 
 def detect_books_in_frames(frames: List[np.ndarray], debug_dir: str = None) -> List[List[Dict]]:
-    """Detect objects (potentially books) in frames using YOLO"""
+    """Detect objects (potentially books) in frames using YOLO with batch processing"""
     print(f"🤖 Loading YOLO model...")
     model = get_yolo_model()
     print(f"✅ YOLO model loaded successfully")
@@ -331,12 +364,22 @@ def detect_books_in_frames(frames: List[np.ndarray], debug_dir: str = None) -> L
         debug_frames_dir.mkdir(parents=True, exist_ok=True)
         print(f"🖼️  Debug frames will be saved to: {debug_frames_dir}")
     
+    print(f"🚀 Processing {len(frames)} frames with batch inference...")
+    
+    # Batch process all frames at once for better efficiency
+    try:
+        results_batch = model(frames, verbose=False)
+    except Exception as e:
+        print(f"⚠️  Batch processing failed, falling back to individual processing: {e}")
+        # Fallback to individual processing
+        results_batch = []
+        for frame in frames:
+            results_batch.append(model(frame, verbose=False))
+    
     all_detections = []
     
-    for frame_idx, frame in enumerate(frames):
-        print(f"🔍 Processing frame {frame_idx+1}/{len(frames)}")
-        # Run YOLO detection
-        results = model(frame, verbose=False)
+    for frame_idx, (frame, results) in enumerate(zip(frames, results_batch)):
+        print(f"🔍 Processing detections for frame {frame_idx+1}/{len(frames)}")
         
         frame_detections = []
         debug_frame = frame.copy() if debug_dir else None
@@ -525,9 +568,10 @@ def extract_text_from_detections(frames: List[np.ndarray], detections: List[List
                 # Enhance image for better OCR
                 enhanced = enhance_image_for_ocr(crop)
                 
-                # OCR approach using pytesseract
-                raw_text = pytesseract.image_to_string(enhanced, config='--psm 6')
-                debug_info = {'best_backend': 'pytesseract', 'best_score': 1.0, 'all_results': {'pytesseract': raw_text}}
+                # Multi-backend OCR for better results
+                ocr_engine = get_ocr_engine()
+                debug_info = {}
+                raw_text = ocr_engine.extract_text_multi_backend(enhanced, debug_info)
                 
                 if raw_text.strip():
                     cleaned_text = clean_ocr_text(raw_text)

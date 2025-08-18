@@ -69,16 +69,18 @@ class TesseractOCR(OCRBackend):
         else:
             image_rgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
         
-        # Try multiple Tesseract configurations for book titles
+        # Optimized Tesseract configurations for book titles
         configs = [
-            # Best for book titles (mixed case, preserve spaces)
-            '--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\\ \\-\\\'',
-            # Sparse text (good for isolated titles)
-            '--oem 3 --psm 8 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\\ \\-\\\'',
-            # Single text line
-            '--oem 3 --psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\\ \\-\\\'',
-            # Default with character whitelist
+            # Best for book titles (mixed case, preserve spaces and common punctuation)
+            '--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -:.,!\'"',
+            # Single uniform block of text
             '--oem 3 --psm 6',
+            # Sparse text (good for isolated titles)
+            '--oem 3 --psm 8 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -:.,',
+            # Single text line
+            '--oem 3 --psm 7',
+            # Raw line without specific assumptions
+            '--oem 3 --psm 13',
         ]
         
         best_text = ""
@@ -146,19 +148,37 @@ class EasyOCRBackend(OCRBackend):
     
     def initialize(self):
         try:
+            # Check for EasyOCR dependencies first
             import easyocr
+            
             # Force single-threaded execution to prevent semaphore leaks
             import torch
             torch.set_num_threads(1)
-            self.reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+            
+            # Initialize with error handling for common issues
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                
+                # Try to initialize EasyOCR reader
+                self.reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+                
             self.available = True
             print(f"✅ {self.name} initialized successfully")
+            
+        except ImportError as e:
+            if "bidi" in str(e).lower():
+                print(f"⚠️ {self.name} skipped: bidi dependency issue. This is common and Tesseract will work fine.")
+            else:
+                print(f"⚠️ {self.name} skipped: missing dependency - {e}")
+            self.available = False
         except Exception as e:
             print(f"❌ {self.name} initialization failed: {e}")
+            print(f"   Note: EasyOCR has complex dependencies. Tesseract will be used instead.")
             self.available = False
     
     def extract_text(self, image: np.ndarray) -> Tuple[str, float]:
-        """Extract text using EasyOCR"""
+        """Extract text using EasyOCR with optimized settings for book covers"""
         if not self.available:
             return "", 0.0
         
@@ -169,27 +189,51 @@ class EasyOCRBackend(OCRBackend):
             else:
                 image_rgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
             
-            # Run EasyOCR
-            results = self.reader.readtext(image_rgb, detail=1, paragraph=False)
+            # Run EasyOCR with optimized parameters for book titles
+            results = self.reader.readtext(
+                image_rgb, 
+                detail=1, 
+                paragraph=False,
+                width_ths=0.7,    # Slightly more aggressive text line detection
+                height_ths=0.7,   # Better for book title text
+                text_threshold=0.7,  # Higher threshold for better quality
+                low_text=0.4      # Lower threshold for text detection
+            )
             
             if not results:
                 return "", 0.0
             
-            # Combine all detected text with confidence weighting
+            # Process results with more lenient confidence threshold
             texts = []
             confidences = []
             
             for (bbox, text, confidence) in results:
-                if confidence > 0.3:  # Filter low-confidence detections
-                    texts.append(text.strip())
+                text_clean = text.strip()
+                # More lenient filtering - accept lower confidence for longer text
+                min_confidence = 0.2 if len(text_clean) >= 8 else 0.4
+                
+                if confidence > min_confidence and len(text_clean) >= 2:
+                    texts.append(text_clean)
                     confidences.append(confidence)
             
             if not texts:
                 return "", 0.0
             
-            # Join texts and calculate weighted confidence
-            combined_text = " ".join(texts)
-            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+            # Smart text combination - prefer longer single results over multiple short ones
+            if len(texts) == 1:
+                combined_text = texts[0]
+                avg_confidence = confidences[0]
+            else:
+                # If multiple results, find the longest one or combine if they seem related
+                longest_text = max(texts, key=len)
+                if len(longest_text) >= 8:  # Prefer single long result
+                    idx = texts.index(longest_text)
+                    combined_text = longest_text
+                    avg_confidence = confidences[idx]
+                else:
+                    # Combine all results
+                    combined_text = " ".join(texts)
+                    avg_confidence = sum(confidences) / len(confidences)
             
             return combined_text, avg_confidence
             
@@ -197,195 +241,104 @@ class EasyOCRBackend(OCRBackend):
             print(f"EasyOCR error: {e}")
             return "", 0.0
 
-class PaddleOCRBackend(OCRBackend):
-    """PaddleOCR backend - very accurate for printed text"""
-    
-    def initialize(self):
-        try:
-            # First check if paddle is available
-            try:
-                import paddle
-            except ImportError:
-                raise ImportError("PaddlePaddle not installed. Install with: pip install paddlepaddle")
-            
-            # Enable paddle logging to stderr for better debugging
-            import os
-            os.environ['FLAGS_logtostderr'] = '1'
-            os.environ['FLAGS_eager_delete_tensor_gb'] = '0'
-            
-            # Import and initialize PaddleOCR with minimal config
-            from paddleocr import PaddleOCR
-            
-            print("⏳ Initializing PaddleOCR backend...")
-            
-            # Force CPU to avoid GPU conflicts
-            paddle.set_device('cpu')
-            # Force single-threaded execution to prevent semaphore leaks
-            paddle.set_num_threads(1)
-            
-            # Initialize with conservative settings and explicit CPU mode
-            # This will also trigger model downloads on first run, which may be slow
-            self.ocr = PaddleOCR(
-                use_angle_cls=True, 
-                lang='en'
-            )
-            self.available = True
-            print(f"✅ {self.name} initialized successfully (CPU mode)")
-            
-        except ImportError as e:
-            print(f"⚠️ {self.name} initialization failed - missing dependency: {e}")
-            self.available = False
-        except Exception as e:
-            print(f"❌ {self.name} initialization failed: {e}")
-            print(f"   Note: PaddleOCR can be resource intensive. EasyOCR and Tesseract are still available.")
-            self.available = False
-    
-    def extract_text(self, image: np.ndarray) -> Tuple[str, float]:
-        """Extract text using PaddleOCR"""
-        if not self.available:
-            return "", 0.0
-        
-        try:
-            # Suppress PaddleOCR warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                
-                # Ensure image is in BGR format (PaddleOCR expects BGR)
-                if image.ndim == 2:  # Grayscale
-                    image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-                else:
-                    image_bgr = image
-                
-                # PaddleOCR works with BGR images (OpenCV format)
-                result = self.ocr.ocr(image_bgr)
-                
-                if not result or not result[0]:
-                    return "", 0.0
-                
-                # Extract text and confidence
-                texts = []
-                confidences = []
-                
-                for line in result[0]:
-                    # Ensure the structure of the detection is as expected: [bbox_coords, (text_str, confidence_float)]
-                    if isinstance(line, list) and len(line) >= 2:
-                        text_conf_data = line[1]
-                        # Ensure the second element is a tuple/list containing (text, confidence)
-                        if isinstance(text_conf_data, (tuple, list)) and len(text_conf_data) >= 2:
-                            text = text_conf_data[0] # Get the text string
-                            confidence = text_conf_data[1] # Get the confidence float
-                            
-                            # Clean and validate text/confidence before appending
-                            if isinstance(text, str) and isinstance(confidence, (float, int)):
-                                text = text.strip()
-                                # Filter based on confidence and length of the extracted text
-                                if confidence > 0.3 and len(text) > 1:
-                                    texts.append(text)
-                                    confidences.append(confidence)
-                
-                if not texts:
-                    return "", 0.0
-                
-                # Join texts and calculate confidence
-                combined_text = " ".join(texts)
-                avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-                
-                return combined_text, avg_confidence
-                
-        except Exception as e:
-            print(f"PaddleOCR error: {e}")
-            return "", 0.0
 
 class MultiOCREngine:
-    """OCR engine that tries multiple backends for best results"""
+    """OCR engine with EasyOCR as primary backend and Tesseract as fallback"""
     
     def __init__(self):
-        # Initialize core backends (always try these)
+        # Initialize core backends with EasyOCR as primary choice
         self.backends = [
-            EasyOCRBackend("EasyOCR"),          # Most reliable, good for scene text
-            TesseractOCR("Tesseract"),          # Always available fallback
+            EasyOCRBackend("EasyOCR"),          # PRIMARY: Best for scene text and book covers
+            TesseractOCR("Tesseract"),          # FALLBACK: Always available backup
         ]
-        
-        # Try to add PaddleOCR if dependencies are available (completely optional)
-        try:
-            # Check for paddlepaddle and paddleocr libraries
-            import paddle
-            from paddleocr import PaddleOCR # Attempt to import PaddleOCR directly
-
-            # If imports succeed, then try to initialize the backend
-            paddle_backend = PaddleOCRBackend("PaddleOCR")
-            if paddle_backend.available:
-                self.backends.insert(1, paddle_backend)  # Insert after EasyOCR but before Tesseract
-                print("ℹ️  PaddleOCR successfully added as optional backend")
-            else:
-                # If backend initialized but reported not available (e.g., internal Paddle error)
-                print(f"⚠️  PaddleOCR backend reported not available after initialization.")
-
-        except ImportError as e:
-            # Differentiate between paddle and paddleocr import issues
-            if "paddleocr" in str(e):
-                print("ℹ️  PaddleOCR skipped - 'paddleocr' library not installed (this is optional). Install with: pip install paddleocr")
-            else:
-                print("ℹ️  PaddleOCR skipped - 'paddlepaddle' library not installed (this is optional). Install with: pip install paddlepaddle")
-        except Exception as e:
-            # Catch any other runtime issues during PaddleOCR setup
-            print(f"❌ PaddleOCR initialization encountered an unexpected error and will be skipped: {e}")
-            print(f"   Note: This might be due to a complex environment or resource issue. EasyOCR and Tesseract are still available.")
         
         self.available_backends = [b for b in self.backends if b.available]
         
         if self.available_backends:
-            backend_names = [b.name for b in self.available_backends]
-            print(f"🔤 OCR Engine initialized with {len(self.available_backends)} backends: {backend_names}")
+            # Show EasyOCR as primary if available
+            easyocr_available = any(b.name == "EasyOCR" for b in self.available_backends)
+            tesseract_available = any(b.name == "Tesseract" for b in self.available_backends)
+            
+            if easyocr_available and tesseract_available:
+                print(f"🔤 OCR Engine: EasyOCR (PRIMARY) + Tesseract (fallback)")
+            elif easyocr_available:
+                print(f"🔤 OCR Engine: EasyOCR only (recommended setup)")
+            elif tesseract_available:
+                print(f"🔤 OCR Engine: Tesseract only (EasyOCR unavailable)")
             
             # Show which backends failed (if any)
             failed_backends = [b.name for b in self.backends if not b.available]
             if failed_backends:
-                print(f"⚠️  Failed backends (will be skipped): {failed_backends}")
+                if "EasyOCR" in failed_backends:
+                    print(f"⚠️  EasyOCR unavailable (falling back to Tesseract): {failed_backends}")
+                else:
+                    print(f"⚠️  Failed backends: {failed_backends}")
         else:
             print("❌ No OCR backends available!")
-            print("   Try installing dependencies: pip install easyocr pytesseract paddlepaddle paddleocr")
+            print("   Try installing dependencies: pip install easyocr pytesseract")
     
     def extract_text_multi_backend(self, image: np.ndarray, debug_info: dict = None) -> str:
-        """Extract text using multiple backends and return best result"""
+        """Extract text using EasyOCR first, Tesseract as fallback"""
         if not self.available_backends:
             return ""
         
-        results = []
+        # Find EasyOCR backend
+        easyocr_backend = None
+        tesseract_backend = None
         
-        # Try each available backend
         for backend in self.available_backends:
+            if backend.name == "EasyOCR":
+                easyocr_backend = backend
+            elif backend.name == "Tesseract":
+                tesseract_backend = backend
+        
+        # Try EasyOCR first (primary method)
+        if easyocr_backend:
             try:
-                text, confidence = backend.extract_text(image)
-                if text and len(text.strip()) > 0:
-                    results.append({
-                        'backend': backend.name,
-                        'text': text.strip(),
-                        'confidence': confidence,
-                        'quality_score': self._score_result_quality(text.strip(), confidence)
-                    })
-                    
+                text, confidence = easyocr_backend.extract_text(image)
+                if text and len(text.strip()) >= 3:  # Require at least 3 characters
+                    print(f"🎯 EasyOCR result: '{text.strip()}' (confidence: {confidence:.3f})")
                     if debug_info:
-                        debug_info[f'{backend.name.lower()}_result'] = f"{text.strip()} (conf: {confidence:.2f})"
-                        
+                        debug_info['easyocr_result'] = f"{text.strip()} (conf: {confidence:.2f})"
+                        debug_info['best_backend'] = 'EasyOCR'
+                        debug_info['best_confidence'] = confidence
+                    return text.strip()
+                else:
+                    print(f"⚠️ EasyOCR returned short/empty result: '{text.strip()}'")
+                    if debug_info:
+                        debug_info['easyocr_result'] = f"Short result: '{text.strip()}' (conf: {confidence:.2f})"
             except Exception as e:
-                print(f"Backend {backend.name} failed: {e}")
-                continue
+                print(f"❌ EasyOCR failed: {e}")
+                if debug_info:
+                    debug_info['easyocr_error'] = str(e)
         
-        if not results:
-            return ""
+        # Fallback to Tesseract if EasyOCR didn't work
+        if tesseract_backend:
+            try:
+                text, confidence = tesseract_backend.extract_text(image)
+                if text and len(text.strip()) >= 3:
+                    print(f"🔄 Tesseract fallback: '{text.strip()}' (confidence: {confidence:.3f})")
+                    if debug_info:
+                        debug_info['tesseract_result'] = f"{text.strip()} (conf: {confidence:.2f})"
+                        debug_info['best_backend'] = 'Tesseract'
+                        debug_info['best_confidence'] = confidence
+                    return text.strip()
+                else:
+                    print(f"⚠️ Tesseract returned short/empty result: '{text.strip()}'")
+                    if debug_info:
+                        debug_info['tesseract_result'] = f"Short result: '{text.strip()}' (conf: {confidence:.2f})"
+            except Exception as e:
+                print(f"❌ Tesseract failed: {e}")
+                if debug_info:
+                    debug_info['tesseract_error'] = str(e)
         
-        # Sort by quality score and return best
-        results.sort(key=lambda x: x['quality_score'], reverse=True)
-        best_result = results[0]
-        
+        # No usable results from either backend
+        print("❌ No OCR backend produced usable results")
         if debug_info:
-            debug_info['best_backend'] = best_result['backend']
-            debug_info['best_score'] = best_result['quality_score']
-            debug_info['all_results'] = {r['backend']: r['text'] for r in results}
+            debug_info['best_backend'] = 'None'
+            debug_info['best_confidence'] = 0.0
         
-        print(f"🏆 Best OCR result: {best_result['backend']} -> '{best_result['text']}' (score: {best_result['quality_score']:.2f})")
-        return best_result['text']
+        return ""
     
     def _score_result_quality(self, text: str, confidence: float) -> float:
         """Score the quality of an OCR result for book titles"""

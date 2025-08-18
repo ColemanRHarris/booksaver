@@ -1,84 +1,69 @@
 # OCR Backend Setup
 
-The TikTok Book Finder uses a multi-backend OCR system for optimal text extraction. Here's how the backends work:
+The TikTok Book Finder uses a dual-backend OCR system for optimal text extraction from book covers.
 
-## Default Backends (Always Available)
+## Available Backends
 
-### ✅ EasyOCR 
+### ✅ EasyOCR (Primary)
 - **Status**: Always installed and available
 - **Best for**: Scene text, various fonts, angles, lighting conditions
-- **Performance**: Good accuracy, reasonable speed
+- **Performance**: High accuracy, good speed
+- **Use case**: Primary OCR engine for book title detection
 
-### ✅ Tesseract OCR
+### ✅ Tesseract OCR (Fallback)
 - **Status**: Always installed and available  
-- **Best for**: Clean printed text, fallback option
-- **Performance**: Fast, reliable for standard text
+- **Best for**: Clean printed text, reliable fallback
+- **Performance**: Fast, good accuracy for standard text
+- **Use case**: Backup when EasyOCR fails or for validation
 
-## Optional Backend
-
-### ⚠️ PaddleOCR (Optional)
-- **Status**: Optional due to complex dependencies
-- **Best for**: Printed text, often most accurate when working
-- **Installation**: `uv sync --extra paddle` or `pip install paddlepaddle-cpu paddleocr`
-
-## Installation Notes
+## Installation
 
 ### Standard Installation
 ```bash
-# Installs EasyOCR + Tesseract (recommended)
+# Installs EasyOCR + Tesseract (everything you need)
 uv sync
 ```
 
-### With PaddleOCR (Advanced Users Only)
-```bash
-# Standard installation (recommended)
-uv sync
-
-# If you want to try PaddleOCR manually (optional):
-pip install paddlepaddle paddleocr
-# or for CPU-only: pip install paddlepaddle-cpu paddleocr
-```
-
-**Note**: PaddleOCR has complex dependencies and may not install cleanly on all systems. The system works excellently with just EasyOCR + Tesseract, so this is completely optional.
+No additional setup required! The system automatically detects and uses both backends.
 
 ## System Behavior
 
-1. **Automatic Backend Detection**: The system detects which backends are available at runtime
-2. **Graceful Degradation**: If PaddleOCR isn't installed or fails, continues with EasyOCR + Tesseract
-3. **No Impact on Functionality**: Missing PaddleOCR does not affect the core book detection functionality
-4. **Smart Fallback**: Always ensures at least 2 working OCR backends (EasyOCR + Tesseract)
-
-## Troubleshooting
-
-### PaddleOCR Messages
-If you see `"PaddleOCR skipped - paddlepaddle not installed (this is optional)"`, this is completely normal and expected. The application works perfectly without it.
-
-### Adding PaddleOCR Later (Optional)
-If you want to experiment with PaddleOCR later:
-```bash
-# Try the standard package first
-pip install paddlepaddle paddleocr
-
-# If that fails, try CPU-only version
-pip install paddlepaddle-cpu paddleocr
-```
-
-**Important**: PaddleOCR installation success varies by system. Don't worry if it doesn't work - EasyOCR + Tesseract provide excellent results.
-
-### System Requirements
-- **EasyOCR**: Works on all systems with Python 3.11+
-- **Tesseract**: Requires tesseract binary (usually auto-installed)
-- **PaddleOCR**: Requires paddlepaddle framework (heavyweight)
-- **OpenCV**: Uses opencv-python-headless + opencv-python (handled automatically)
+1. **Automatic Backend Detection**: System detects available backends at runtime
+2. **Multi-backend Processing**: Tries both EasyOCR and Tesseract for each detection
+3. **Best Result Selection**: Automatically selects the highest quality result
+4. **Graceful Degradation**: If one backend fails, continues with the other
+5. **Optimized Performance**: Streamlined for speed without sacrificing accuracy
 
 ## Performance Comparison
 
 | Backend | Speed | Accuracy | Reliability | Book Titles |
 |---------|-------|----------|-------------|-------------|
 | EasyOCR | Medium | High | Excellent | Excellent |
-| Tesseract | Fast | Medium | Excellent | Good |
-| PaddleOCR | Slow | Very High | Variable | Excellent |
+| Tesseract | Fast | Good | Excellent | Good |
+
+## System Requirements
+
+- **EasyOCR**: Works on all systems with Python 3.11+
+- **Tesseract**: Requires tesseract binary (auto-installed via system packages)
+- **OpenCV**: Uses opencv-python-headless (handled automatically)
+
+## Troubleshooting
+
+### Backend Initialization
+The system logs which backends are available at startup:
+```
+🔤 OCR Engine initialized with 2 backends: ['EasyOCR', 'Tesseract']
+```
+
+### Common Issues
+- **Tesseract not found**: Ensure system has tesseract installed (handled by build.sh)
+- **EasyOCR loading**: First run downloads models automatically
+- **Performance**: Both backends are optimized for book title detection
 
 ## Recommendation
 
-For most users, the default installation with **EasyOCR + Tesseract** provides excellent results without the complexity of PaddleOCR dependencies.
+The default installation provides excellent results with optimal performance. The two-backend system offers:
+- **High accuracy** from EasyOCR for complex scene text
+- **Fast processing** from Tesseract for clean text
+- **Reliability** through automatic fallback mechanisms
+- **Optimized speed** for production deployment

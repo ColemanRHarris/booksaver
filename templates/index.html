@@ -2,7 +2,12 @@
 
 {% block content %}
 <div class="search-container">
-    <h2>Search for Books</h2>
+    <div class="page-header">
+        <h2>Search for Books</h2>
+        <div class="nav-links">
+            <a href="{{ url_for('recommendations') }}" class="recommendations-link">📖 Our Recommendations</a>
+        </div>
+    </div>
     
     <!-- AdSense Banner Ad - Top of page -->
     <div class="ad-container" style="text-align: center; margin: 20px 0;">
