@@ -852,7 +852,7 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
             break
             
         try:
-            print(f"\n🔮 Fuzzy search {i+1}/{len(cleaned_texts)}: '{clean_text}'")
+            print(f"\n🔮 Fuzzy search {i+1}/{len(search_queries)}: '{clean_text}'")
             
             # Add delay between searches (except first one)
             if i > 0:
