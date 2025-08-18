@@ -55,6 +55,18 @@ def process_video(self, video_url: str, video_type: str):
     """
     print(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
     try:
+        # Log available OCR backends to confirm if PaddleOCR is loaded
+        ocr_engine = get_ocr_engine()
+        if ocr_engine and ocr_engine.available_backends:
+            backend_names = [b.name for b in ocr_engine.available_backends]
+            print(f"ℹ️  Available OCR backends: {backend_names}")
+            if "PaddleOCR" in backend_names:
+                print("✅ PaddleOCR is successfully implemented and available.")
+            else:
+                print("⚠️  PaddleOCR is not available. Check dependencies (paddlepaddle, paddleocr).")
+        else:
+            print("❌ No OCR backends available. Text extraction will fail.")
+
         self.update_state(state='PROGRESS', meta={'step': 'Downloading video', 'progress': 10})
         
         temp_dir_prefix = f"{video_type}_{uuid.uuid4().hex}_"
