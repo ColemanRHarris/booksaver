@@ -3,16 +3,19 @@ import os
 import time
 import random
 from typing import List, Dict, Optional
+from google_books_filter import create_google_books_filter
 
 class GoogleBooksClient:
     def __init__(self):
-        self.api_key = os.getenv('GOOGLE_BOOKS_KEY')
+        # Use public API by default to avoid quota issues
+        self.api_key = None  # Disabled API key to use public access
         self.base_url = "https://www.googleapis.com/books/v1/volumes"
         self.last_request_time = 0
-        self.min_request_interval = 0.2  # 200ms between requests (more conservative)
+        self.min_request_interval = 0.5  # 500ms between requests for public API
         self.max_retries = 3
         self.cache = {}  # Simple in-memory cache
         self.cache_ttl = 300  # 5 minutes
+        print("📚 Using Google Books public API (no key) to avoid quota limits")
     
     def _rate_limit_delay(self):
         """Implement rate limiting between requests"""
@@ -47,19 +50,17 @@ class GoogleBooksClient:
                         print("Max retries reached for rate limiting")
                         raise requests.exceptions.RequestException("Rate limit exceeded after retries")
                 
-                # Handle quota exceeded
+                # Handle 403 errors (should be rare with public access)
                 if response.status_code == 403:
-                    error_data = response.json() if response.content else {}
-                    error_reason = error_data.get('error', {}).get('errors', [{}])[0].get('reason', '')
-                    
-                    if 'quotaExceeded' in error_reason or 'dailyLimitExceeded' in error_reason:
-                        print("API quota exceeded, falling back to public access")
-                        return self._fallback_public_request(params)
-                    
-                    # For other 403 errors, try public access
-                    if self.api_key and 'key' in params:
-                        print("API key access failed, trying public access")
-                        return self._fallback_public_request(params)
+                    print("Access denied (403) - may need to reduce request rate")
+                    if attempt < self.max_retries - 1:
+                        wait_time = (2 ** attempt) + 2  # Extra delay for 403s
+                        print(f"Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        print("Max retries reached for 403 errors")
+                        raise requests.exceptions.RequestException("Access denied after retries")
                 
                 # Raise for other HTTP errors
                 response.raise_for_status()
@@ -81,7 +82,8 @@ class GoogleBooksClient:
                 raise
 
     def _fallback_public_request(self, original_params: dict) -> requests.Response:
-        """Fallback to public API access without key"""
+        """Fallback method - same as main request since we're already using public API"""
+        # This method is kept for compatibility but should not be needed
         public_params = {k: v for k, v in original_params.items() if k != 'key'}
         
         # Rate limit for public access
@@ -118,17 +120,30 @@ class GoogleBooksClient:
         # Limit max_results to avoid hitting quotas too quickly
         max_results = min(max_results, 3)  # Further reduced
         
-        # Build query parameters
+        # Build enhanced query parameters for public API
+        # Add filters to reduce weird results
+        enhanced_query = f"intitle:{query.strip()}"
+        
+        # Add negative filters to exclude common junk
+        exclusions = [
+            "-intitle:summary", "-intitle:study", "-intitle:guide", 
+            "-intitle:manual", "-intitle:handbook", "-intitle:proceedings",
+            "-intitle:journal", "-intitle:report", "-intitle:analysis",
+            "-subject:academic", "-subject:textbook", "-subject:government"
+        ]
+        
+        # Add some exclusions (not too many to avoid over-filtering)
+        enhanced_query += " " + " ".join(exclusions[:6])
+        
         params = {
-            "q": f"intitle:{query.strip()}",
+            "q": enhanced_query,
             "maxResults": max_results,
             "printType": "books",  # Only books, not magazines
-            "orderBy": "relevance"  # Most relevant first
+            "orderBy": "relevance",  # Most relevant first
+            "langRestrict": "en|es"  # Prefer English/Spanish
         }
         
-        # Add API key if available
-        if self.api_key:
-            params["key"] = self.api_key
+        # Note: Not using API key to avoid quota issues with public access
         
         try:
             print(f"🔍 Searching Google Books for: '{query}' (max: {max_results})")
@@ -159,10 +174,18 @@ class GoogleBooksClient:
                 }
                 books.append(book)
             
-            # Cache the results
-            self.cache[cache_key] = (books, time.time())
+            # Apply Google Books result filtering to remove weird results
+            try:
+                books_filter = create_google_books_filter()
+                filtered_books = books_filter.filter_google_books_results(books, query)
+            except Exception as e:
+                print(f"Warning: Google Books filtering failed: {e}")
+                filtered_books = books  # Fallback to unfiltered results
             
-            return books
+            # Cache the filtered results
+            self.cache[cache_key] = (filtered_books, time.time())
+            
+            return filtered_books
             
         except requests.RequestException as e:
             print(f"❌ Error fetching books for '{query}': {e}")
