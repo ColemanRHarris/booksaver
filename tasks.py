@@ -24,7 +24,7 @@ except Exception as e:
 
 from ultralytics import YOLO
 from celery_app import celery_app
-from books_client import GoogleBooksClient, build_purchase_links, build_reader_app_links
+from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
 from ocr_backends import get_ocr_engine
 from fuzzy_search import create_fuzzy_searcher
 from book_filters import create_book_filter, create_trending_detector
@@ -62,7 +62,7 @@ def get_yolo_model():
 @celery_app.task(bind=True)
 def process_video(self, video_url: str, video_type: str):
     """
-    Celery task to process a video (e.g., TikTok, Instagram Reel) and extract books.
+    Celery task to process a video (TikTok, Instagram Reel) and extract books.
     """
     print(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
     try:
@@ -101,8 +101,7 @@ def process_video(self, video_url: str, video_type: str):
             frames = extract_frames(video_path)
             print(f"✅ Extracted {len(frames)} frames")
             
-            self.update_state(state='PROGRESS', meta={'step': 'Detecting objects', 'progress': 50})
-            print("🔍 Starting object detection...")
+            self.update_state(state='PROGRESS', meta={'step': 'Detecting objects', 'progress': 50🔍 Starting object detection...")
             
             book_detections = detect_books_in_frames(frames, debug_dir=str(debug_dir))
             print(f"✅ Object detection completed: {len(book_detections)} frame detections")
@@ -262,7 +261,7 @@ def is_likely_forward_facing_book(width: float, height: float, aspect_ratio: flo
     center_distance = ((relative_x - 0.5) ** 2 + (relative_y - 0.5) ** 2) ** 0.5
     if center_distance < 0.2:  # Very central
         position_score = 1.0
-    elif center_distance < 0.4:  # Reasonably central
+    elif:  # Reasonably central
         position_score = 0.8
     else:  # Peripheral
         position_score = 0.6
@@ -439,8 +438,7 @@ def detect_books_in_frames(frames: List[np.ndarray], debug_dir: str = None) -> L
     
     return all_detections
 
-def enhance_image_for_ocr(image: np.ndarray) -> np.ndarray:
-    """Apply optimized image enhancement for better OCR results"""
+def enhance_image_for_ocr(image: np.ndarray) -> np.ndarray """Apply optimized image enhancement for better OCR results"""
     # Convert to grayscale if needed
     if len(image.shape) == 3:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -499,69 +497,7 @@ def prioritize_forward_facing_detections(detections: List[List[Dict]], max_total
     
     return prioritized_detections
 
-def extract_text_from_detections(frames: List[np.ndarray], detections: List[List[Dict]], debug_dir: str = None) -> List[str]:
-    """Extract text from detected regions using simple, fast OCR"""
-    texts = []
-    
-    # Create debug directory for cropped regions if specified
-    if debug_dir:
-        debug_crops_dir = Path(debug_dir) / "debug_crops"
-        debug_crops_dir.mkdir(parents=True, exist_ok=True)
-        print(f"✂️  Debug crops will be saved to: {debug_crops_dir}")
-    
-    for frame_idx, (frame, frame_detections) in enumerate(zip(frames, detections)):
-        print(f"🔍 Processing frame {frame_idx + 1} with {len(frame_detections)} detections")
-        
-        for det_idx, detection in enumerate(frame_detections):
-            x1, y1, x2, y2 = detection['bbox']
-            
-            # Add padding around detection for better context
-            padding = 10
-            h, w = frame.shape[:2]
-            x1 = max(0, x1 - padding)
-            y1 = max(0, y1 - padding)
-            x2 = min(w, x2 + padding)
-            y2 = min(h, y2 + padding)
-            
-            # Crop the detected region
-            cropped = frame[y1:y2, x1:x2]
-            
-            # Skip very small detections
-            if cropped.shape[0] < 20 or cropped.shape[1] < 20:
-                continue
-            
-            # Save original cropped region for debug
-            if debug_dir:
-                crop_filename = debug_crops_dir / f"frame_{frame_idx:03d}_det_{det_idx:02d}_original.jpg"
-                cv2.imwrite(str(crop_filename), cropped)
-            
-            # Resize if too small (OCR works better on larger images)
-            if cropped.shape[0] < 50 or cropped.shape[1] < 50:
-                scale_factor = max(50 / cropped.shape[0], 50 / cropped.shape[1])
-                new_width = int(cropped.shape[1] * scale_factor)
-                new_height = int(cropped.shape[0] * scale_factor)
-                cropped = cv2.resize(cropped, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
-            
-            try:
-                # Apply image enhancement for OCR
-                enhanced_img = enhance_image_for_ocr(cropped)
-                
-                # Save enhanced version for debug
-                if debug_dir:
-                    enhanced_filename = debug_crops_dir / f"frame_{frame_idx:03d}_det_{det_idx:02d}_enhanced.jpg"
-                    cv2.imwrite(str(enhanced_filename), enhanced_img)
-                
-                # Use multi-backend OCR system
-                ocr_engine = get_ocr_engine()
-                debug_info = {}
-                
-                # Extract text using multiple OCR backends
-                raw_text = ocr_engine.extract_text_multi_backend(enhanced_img, debug_info)
-                cleaned_text = clean_ocr_text(raw_text) if raw_text else ""
-                
-                # Debug: Show all OCR results
-                if raw_text.strip():
-                    print(f"🔤 Frame {frame_idx+1} Det {det_idx+1}: Multi-OCR -> '{cleaned_text}'")
+def extract_text_from_detections(frames: List[np                    Det {det_idx+1}: Multi-OCR -> '{cleaned_text}'")
                     print(f"   Best: {debug_info.get('best_backend', 'None')} (score: {debug_info.get('best_score', 0):.2f})")
                 
                 # Save comprehensive OCR debug info
@@ -886,7 +822,7 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
                     # Add fuzzy match info if available
                     if 'fuzzy_match_score' in book:
                         book['match_info'] = {
-                            'ocr_text': clean_text,
+ 'ocr_text': clean_text,
                             'fuzzy_score': book['fuzzy_match_score'],
                             'fuzzy_query': book.get('fuzzy_query', clean_text)
                         }
@@ -914,42 +850,15 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
     
     print(f"\n🎯 Fuzzy search found {len(found_books)} books, now filtering for quality...")
     
-    # Apply quality filtering for TikTok trending books
+    # Instead of filtering, simply sort by popularity_score if available
     if found_books:
-        book_filter = create_book_filter()
-        trending_detector = create_trending_detector()
-        
-        # Apply popularity/quality filtering
-        filtered_books = book_filter.filter_books(found_books)
-        
-        # Apply trending book boosts
-        trending_books = trending_detector.boost_trending_books(filtered_books)
-        
-        # Apply language filtering (English/Spanish only)
-        language_filter = create_language_filter()
-        final_books = language_filter.filter_books_by_language(trending_books)
-        
-        print(f"\n🏆 Final result: {len(final_books)} high-quality English/Spanish books")
-        
-        # Show final results with scores
-        for i, book in enumerate(final_books):
-            title = book.get('title', 'Unknown')[:35]
-            pop_score = book.get('popularity_score', 0)
-            trending_boost = book.get('trending_boost', '')
-            detected_lang = book.get('detected_language', '?')
-            lang_confidence = book.get('language_confidence', 0)
-            
-            boost_indicator = f" [{trending_boost}]" if trending_boost else ""
-            lang_indicator = f" [{detected_lang}:{lang_confidence:.1f}]"
-            
-            if 'match_info' in book:
-                ocr = book['match_info']['ocr_text']
-                fuzzy_score = book['match_info']['fuzzy_score']
-                print(f"  {i+1}. '{title}' (fuzzy: {fuzzy_score:.2f}, pop: {pop_score:.2f}){boost_indicator}{lang_indicator}")
-                print(f"      OCR: '{ocr}'")
-            else:
-                print(f"  {i+1}. '{title}' (pop: {pop_score:.2f}){boost_indicator}{lang_indicator}")
-        
-        return final_books
+        # Ensure each book has a popularity_score; if missing, default to 0
+        for book in found_books:
+            if 'popularity_score' not in book:
+                book['popularity_score'] = 0.0
+        # Sort descending by popularity_score
+        found_books.sort(key=lambda b: b.get('popularity_score', 0.0), reverse=True)
+        print(f"🏆 Final sorted books by popularity: {len(found_books)} entries")
+        return found_books
     
     return found_books
