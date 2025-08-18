@@ -743,6 +743,79 @@ def is_likely_book_title(text: str) -> bool:
     
     return False
 
+def _is_all_caps(s: str) -> bool:
+    """Checks if a string is all uppercase and has more than one letter."""
+    return len(s) > 1 and s.isupper()
+
+def preprocess_and_extract_candidates(text: str) -> List[str]:
+    """
+    Preprocesses a raw OCR text string to extract multiple candidate queries
+    for book titles and authors. Aims to split up cluttered OCR results.
+    """
+    import re
+
+    # First, apply basic cleaning.
+    text = clean_ocr_text(text)
+
+    # Remove common marketing phrases and noise from book covers.
+    noise_patterns = [
+        r'new york times best ?selling( author)?',
+        r'usa today best ?selling( author)?',
+        r'(international|sunday times) best ?seller',
+        r'best ?selling author',
+        r'the number one',
+        r'a novel',
+        r'book (\w+ )?of the',
+    ]
+    processed_text = text
+    for pattern in noise_patterns:
+        processed_text = re.sub(pattern, ' ', processed_text, flags=re.IGNORECASE)
+
+    # Normalize whitespace after removals
+    processed_text = re.sub(r'\s+', ' ', processed_text).strip()
+
+    candidates = []
+    
+    # The whole cleaned text is a candidate itself
+    if processed_text:
+        candidates.append(processed_text)
+        
+    words = processed_text.split()
+    
+    # Heuristic: Find a split between a run of all-caps words (author)
+    # and what follows (title).
+    author_end_idx = -1
+    if len(words) > 1:
+        for i in range(len(words) - 1):
+            # Find the end of the first run of 2+ all-caps words
+            if _is_all_caps(words[i]) and _is_all_caps(words[i+1]):
+                author_end_idx = i + 1
+            elif author_end_idx != -1:
+                # The run of all-caps words has ended
+                break
+    
+    if author_end_idx != -1:
+        # We found a potential split
+        author_candidate = ' '.join(words[:author_end_idx + 1])
+        title_candidate = ' '.join(words[author_end_idx + 1:])
+        
+        if author_candidate:
+            candidates.append(author_candidate)
+        if title_candidate:
+            candidates.append(title_candidate)
+
+    # Deduplicate and clean final candidates
+    unique_candidates = []
+    seen = set()
+    for cand in candidates:
+        # Further clean each candidate
+        cand = clean_ocr_text(cand)
+        if len(cand) > 3 and cand.lower() not in seen:
+            unique_candidates.append(cand)
+            seen.add(cand.lower())
+            
+    return unique_candidates
+
 def search_books_from_text(texts: List[str]) -> List[Dict]:
     """Search for books using extracted text with fuzzy matching for near-misses"""
     print(f"📚 Starting fuzzy book search with {len(texts)} text extractions")
@@ -753,26 +826,27 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
     seen_titles = set()
     processed_queries = set()
     
-    # Clean and filter texts more aggressively to reduce API calls
-    cleaned_texts = []
+    # Preprocess texts to extract candidate queries (authors, titles)
+    candidate_queries = []
     for text in texts:
-        clean_text = clean_ocr_text(text)
-        if is_likely_book_title(clean_text) and clean_text.lower() not in processed_queries:
-            # Additional filtering for production
-            if len(clean_text) >= 3 and len(clean_text.split()) >= 1:  # More lenient for fuzzy
-                cleaned_texts.append(clean_text)
-                processed_queries.add(clean_text.lower())
+        # Extract multiple candidates (e.g., author, title) from a single OCR block
+        candidates = preprocess_and_extract_candidates(text)
+        for cand in candidates:
+            if is_likely_book_title(cand) and cand.lower() not in processed_queries:
+                if len(cand) >= 3 and len(cand.split()) >= 1:
+                    candidate_queries.append(cand)
+                    processed_queries.add(cand.lower())
+
+    # Limit the number of searches to avoid excessive API calls
+    max_searches = min(len(candidate_queries), 15)
+    search_queries = candidate_queries[:max_searches]
     
-    # Limit the number of searches, but allow more now that we fetch more per search
-    max_searches = min(len(cleaned_texts), 10)
-    cleaned_texts = cleaned_texts[:max_searches]
-    
-    print(f"📝 Will fuzzy search for {len(cleaned_texts)} book titles: {cleaned_texts}")
+    print(f"📝 Will fuzzy search for {len(search_queries)} candidates: {search_queries}")
     
     # Add delay between searches to avoid rate limiting (fuzzy does multiple calls)
     search_delay = 1.0  # Longer delay since fuzzy search is more intensive
     
-    for i, clean_text in enumerate(cleaned_texts):
+    for i, clean_text in enumerate(search_queries):
         if len(found_books) >= 15:  # Increased limit to collect more unique books
             print(f"📚 Reached book limit (15), stopping search")
             break
