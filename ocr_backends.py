@@ -7,7 +7,7 @@ try:
     import cv2
     # Fix common OpenCV threading issues  
     if hasattr(cv2, 'setNumThreads'):
-        cv2.setNumThreads(1)  # Prevent threading issues
+        cv2.setNumThreads(0)  # Prevent threading issues with multiprocessing
 except Exception as e:
     print(f"Warning: OpenCV import issue in OCR backends: {e}")
     import cv2  # Try again
@@ -139,6 +139,9 @@ class EasyOCRBackend(OCRBackend):
     def initialize(self):
         try:
             import easyocr
+            # Force single-threaded execution to prevent semaphore leaks
+            import torch
+            torch.set_num_threads(1)
             self.reader = easyocr.Reader(['en'], gpu=False, verbose=False)
             self.available = True
             print(f"✅ {self.name} initialized successfully")
@@ -209,6 +212,8 @@ class PaddleOCRBackend(OCRBackend):
             
             # Force CPU to avoid GPU conflicts
             paddle.set_device('cpu')
+            # Force single-threaded execution to prevent semaphore leaks
+            paddle.set_num_threads(1)
             
             # Initialize with conservative settings and explicit CPU mode
             # This will also trigger model downloads on first run, which may be slow

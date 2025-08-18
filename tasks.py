@@ -8,7 +8,7 @@ try:
     import cv2
     # Fix common OpenCV threading issues
     if hasattr(cv2, 'setNumThreads'):
-        cv2.setNumThreads(1)  # Prevent threading issues
+        cv2.setNumThreads(0)  # Prevent threading issues with multiprocessing
 except Exception as e:
     print(f"Warning: OpenCV import issue: {e}")
     import cv2  # Try again
@@ -35,6 +35,8 @@ def get_yolo_model():
     global model
     if model is None:
         import torch
+        # Force single-threaded execution to prevent semaphore leaks in multiprocessing
+        torch.set_num_threads(1)
         # Temporarily set weights_only to False for YOLO loading
         original_setting = getattr(torch, '_global_default_type_conversion', None)
         try:
