@@ -13,15 +13,44 @@ import yt_dlp
 import pytesseract
 
 # Handle OpenCV import conflicts and threading issues
+# IMPORTANT: Must patch OpenCV BEFORE ultralytics imports it
 try:
     import cv2
-    # Fix common OpenCV threading issues
-    if hasattr(cv2, 'setNumThreads'):
-        cv2.setNumThreads(0)  # Prevent threading issues with multiprocessing
+    # Fix common OpenCV threading issues - safely check for setNumThreads
+    try:
+        if hasattr(cv2, 'setNumThreads'):
+            cv2.setNumThreads(0)  # Prevent threading issues with multiprocessing
+        else:
+            # Monkey patch setNumThreads if it doesn't exist to prevent ultralytics crash
+            def dummy_setNumThreads(num_threads):
+                pass
+            cv2.setNumThreads = dummy_setNumThreads
+    except AttributeError:
+        # Monkey patch setNumThreads if it doesn't exist to prevent ultralytics crash
+        def dummy_setNumThreads(num_threads):
+            pass
+        cv2.setNumThreads = dummy_setNumThreads
+    except Exception as cv2_thread_error:
+        print(f"Warning: Could not set OpenCV thread count: {cv2_thread_error}")
+        # Still add the monkey patch as fallback
+        if not hasattr(cv2, 'setNumThreads'):
+            def dummy_setNumThreads(num_threads):
+                pass
+            cv2.setNumThreads = dummy_setNumThreads
 except Exception as e:
     print(f"Warning: OpenCV import issue: {e}")
-    import cv2  # Try again
+    try:
+        import cv2  # Try again
+        # Add monkey patch for safety
+        if not hasattr(cv2, 'setNumThreads'):
+            def dummy_setNumThreads(num_threads):
+                pass
+            cv2.setNumThreads = dummy_setNumThreads
+    except Exception as e2:
+        print(f"Error: Failed to import OpenCV: {e2}")
+        raise
 
+# Now safe to import ultralytics since cv2.setNumThreads exists (real or dummy)
 from ultralytics import YOLO
 from celery_app import celery_app
 from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
