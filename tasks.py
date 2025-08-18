@@ -86,7 +86,7 @@ def process_video(self, video_url: str, video_type: str):
             self.update_state(state='PROGRESS', meta={'step': 'Extracting text', 'progress': 70})
             print("📝 Starting text extraction...")
             
-            prioritized_detections = prioritize_forward_facing_detections(book_detections, max_total=12)
+            prioritized_detections = prioritize_forward_facing_detections(book_detections, max_total=20)
             
             book_texts = extract_text_from_detections(frames, prioritized_detections, debug_dir=str(debug_dir))
             print(f"✅ Text extraction completed: {len(book_texts)} texts found")
@@ -750,8 +750,8 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
                 cleaned_texts.append(clean_text)
                 processed_queries.add(clean_text.lower())
     
-    # Limit the number of searches
-    max_searches = min(len(cleaned_texts), 6)  # Reduced since fuzzy search does more work
+    # Limit the number of searches, but allow more now that we fetch more per search
+    max_searches = min(len(cleaned_texts), 10)
     cleaned_texts = cleaned_texts[:max_searches]
     
     print(f"📝 Will fuzzy search for {len(cleaned_texts)} book titles: {cleaned_texts}")
@@ -760,8 +760,8 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
     search_delay = 1.0  # Longer delay since fuzzy search is more intensive
     
     for i, clean_text in enumerate(cleaned_texts):
-        if len(found_books) >= 8:  # Reduced limit since fuzzy search is more thorough
-            print(f"📚 Reached book limit (8), stopping search")
+        if len(found_books) >= 15:  # Increased limit to collect more unique books
+            print(f"📚 Reached book limit (15), stopping search")
             break
             
         try:

@@ -117,8 +117,8 @@ class GoogleBooksClient:
                 # Remove expired cache entry
                 del self.cache[cache_key]
         
-        # Limit max_results to avoid hitting quotas too quickly
-        max_results = min(max_results, 3)  # Further reduced
+        # Allow more results for better filtering downstream
+        max_results = min(max_results, 20)
         
         params = {
             "q": query.strip(),
