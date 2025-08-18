@@ -62,3 +62,23 @@ uv.lock
 
 # Deployment
 *.pyc
+
+# Debug output directory
+debug_output/
+control/
+.aider*
+
+# ML Models and large files
+yolov8s.pt
+*.pt
+*.pth
+*.onnx
+
+# Render backup
+requirements_uv_backup.txt
+
+# Temporary video files
+*.mp4
+*.avi
+*.mov
+tmp/

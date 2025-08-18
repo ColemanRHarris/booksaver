@@ -4,14 +4,34 @@ import os
 import threading
 import uuid
 import time
+import logging
+from logging.config import dictConfig
 from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
 from celery_app import celery_app
 from tasks import process_video
 
 load_dotenv()
 
+# Configure logging
+dictConfig({
+    'version': 1,
+    'formatters': {'default': {
+        'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+    }},
+    'handlers': {'wsgi': {
+        'class': 'logging.StreamHandler',
+        'stream': 'ext://flask.logging.wsgi_errors_stream',
+        'formatter': 'default'
+    }},
+    'root': {
+        'level': 'INFO',
+        'handlers': ['wsgi']
+    }
+})
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+logger = logging.getLogger(__name__)
 
 books_client = GoogleBooksClient()
 
@@ -45,6 +65,7 @@ def process_video_background(task_id: str, video_url: str, video_type: str):
         }
         
     except Exception as e:
+        logger.error(f"Error processing video in background: {str(e)}")
         task_results[task_id] = {
             'state': 'FAILURE',
             'result': {'error': str(e)}
@@ -150,6 +171,7 @@ def process_tiktok():
         return redirect(url_for('processing_wait', task_id=task_id, url=tiktok_url, type='tiktok'))
         
     except Exception as e:
+        logger.error(f"Failed to start TikTok processing: {str(e)}")
         return render_template('index.html', error=f"Failed to start processing: {str(e)}")
 
 @app.route('/process-instagram-reel', methods=['POST'])

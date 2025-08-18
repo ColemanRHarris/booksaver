@@ -101,7 +101,7 @@ def process_video(self, video_url: str, video_type: str):
             frames = extract_frames(video_path)
             print(f"✅ Extracted {len(frames)} frames")
             
-            self.update_state(state='PROGRESS', meta={'step': 'Detecting objects', 'progress': 50🔍 Starting object detection...")
+            self.update_state(state='PROGRESS', meta={'step': 'Detecting objects', 'progress': 50})
             
             book_detections = detect_books_in_frames(frames, debug_dir=str(debug_dir))
             print(f"✅ Object detection completed: {len(book_detections)} frame detections")
@@ -261,7 +261,7 @@ def is_likely_forward_facing_book(width: float, height: float, aspect_ratio: flo
     center_distance = ((relative_x - 0.5) ** 2 + (relative_y - 0.5) ** 2) ** 0.5
     if center_distance < 0.2:  # Very central
         position_score = 1.0
-    elif:  # Reasonably central
+    elif center_distance < 0.5:  # Reasonably central
         position_score = 0.8
     else:  # Peripheral
         position_score = 0.6
@@ -438,7 +438,8 @@ def detect_books_in_frames(frames: List[np.ndarray], debug_dir: str = None) -> L
     
     return all_detections
 
-def enhance_image_for_ocr(image: np.ndarray) -> np.ndarray """Apply optimized image enhancement for better OCR results"""
+def enhance_image_for_ocr(image: np.ndarray) -> np.ndarray:
+    """Apply optimized image enhancement for better OCR results"""
     # Convert to grayscale if needed
     if len(image.shape) == 3:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -497,34 +498,68 @@ def prioritize_forward_facing_detections(detections: List[List[Dict]], max_total
     
     return prioritized_detections
 
-def extract_text_from_detections(frames: List[np                    Det {det_idx+1}: Multi-OCR -> '{cleaned_text}'")
-                    print(f"   Best: {debug_info.get('best_backend', 'None')} (score: {debug_info.get('best_score', 0):.2f})")
+def extract_text_from_detections(frames: List[np.ndarray], detections: List[List[Dict]], debug_dir: str = None) -> List[str]:
+    """Extract and clean text from detection bounding boxes using OCR"""
+    all_texts = []
+    
+    if debug_dir:
+        debug_dir = Path(debug_dir)
+        debug_crops_dir = debug_dir / "ocr_crops"
+        debug_crops_dir.mkdir(exist_ok=True)
+    
+    for frame_idx, frame_detections in enumerate(detections):
+        if not frame_detections:
+            continue
+            
+        frame = frames[frame_idx]
+        
+        for det_idx, detection in enumerate(frame_detections):
+            x, y, w, h = detection['bbox']
+            
+            # Crop the detection region
+            crop = frame[y:y+h, x:x+w]
+            if crop.size == 0:
+                continue
                 
-                # Save comprehensive OCR debug info
-                if debug_dir:
-                    ocr_filename = debug_crops_dir / f"frame_{frame_idx:03d}_det_{det_idx:02d}_ocr.txt"
-                    with open(ocr_filename, 'w', encoding='utf-8') as f:
-                        f.write(f"Raw Multi-OCR: {raw_text.strip()}\n")
-                        f.write(f"Cleaned: {cleaned_text}\n")
-                        f.write(f"Best Backend: {debug_info.get('best_backend', 'None')}\n")
-                        f.write(f"Best Score: {debug_info.get('best_score', 0):.2f}\n")
-                        f.write(f"\nAll Results:\n")
-                        for backend, result in debug_info.get('all_results', {}).items():
-                            f.write(f"  {backend}: {result}\n")
-                        f.write(f"\nDetection Info:\n")
-                        f.write(f"Class: {detection['class']}\n")
-                        f.write(f"Confidence: {detection['confidence']:.2f}\n")
-                        f.write(f"Forward-facing score: {detection['forward_facing_score']:.2f}\n")
-                        f.write(f"Aspect ratio: {detection['aspect_ratio']:.2f}\n")
-                        f.write(f"Area: {detection['area']:.0f}\n")
-                        f.write(f"Position: x={detection['position']['x']:.2f}, y={detection['position']['y']:.2f}\n")
-                        f.write(f"BBox: {detection['bbox']}\n")
+            try:
+                # Enhance image for better OCR
+                enhanced = enhance_image_for_ocr(crop)
                 
-                if cleaned_text and len(cleaned_text) > 3 and is_likely_book_title(cleaned_text):
-                    texts.append(cleaned_text)
-                    print(f"✅ Accepted as book title: '{cleaned_text}'")
-                elif cleaned_text:
-                    print(f"❌ Rejected as non-book: '{cleaned_text}'")
+                # OCR approach using pytesseract
+                raw_text = pytesseract.image_to_string(enhanced, config='--psm 6')
+                debug_info = {'best_backend': 'pytesseract', 'best_score': 1.0, 'all_results': {'pytesseract': raw_text}}
+                
+                if raw_text.strip():
+                    cleaned_text = clean_ocr_text(raw_text)
+                    if cleaned_text:
+                        print(f"   📖 Frame {frame_idx+1}, Det {det_idx+1}: Multi-OCR -> '{cleaned_text}'")
+                        print(f"   Best: {debug_info.get('best_backend', 'None')} (score: {debug_info.get('best_score', 0):.2f})")
+                        
+                        # Save comprehensive OCR debug info
+                        if debug_dir:
+                            ocr_filename = debug_crops_dir / f"frame_{frame_idx:03d}_det_{det_idx:02d}_ocr.txt"
+                            with open(ocr_filename, 'w', encoding='utf-8') as f:
+                                f.write(f"Raw Multi-OCR: {raw_text.strip()}\n")
+                                f.write(f"Cleaned: {cleaned_text}\n")
+                                f.write(f"Best Backend: {debug_info.get('best_backend', 'None')}\n")
+                                f.write(f"Best Score: {debug_info.get('best_score', 0):.2f}\n")
+                                f.write(f"\nAll Results:\n")
+                                for backend, result in debug_info.get('all_results', {}).items():
+                                    f.write(f"  {backend}: {result}\n")
+                                f.write(f"\nDetection Info:\n")
+                                f.write(f"Class: {detection['class']}\n")
+                                f.write(f"Confidence: {detection['confidence']:.2f}\n")
+                                f.write(f"Forward-facing score: {detection['forward_facing_score']:.2f}\n")
+                                f.write(f"Aspect ratio: {detection['aspect_ratio']:.2f}\n")
+                                f.write(f"Area: {detection['area']:.0f}\n")
+                                f.write(f"Position: x={detection['position']['x']:.2f}, y={detection['position']['y']:.2f}\n")
+                                f.write(f"BBox: {detection['bbox']}\n")
+                
+                        if cleaned_text and len(cleaned_text) > 3 and is_likely_book_title(cleaned_text):
+                            all_texts.append(cleaned_text)
+                            print(f"✅ Accepted as book title: '{cleaned_text}'")
+                        elif cleaned_text:
+                            print(f"❌ Rejected as non-book: '{cleaned_text}'")
                 
             except Exception as e:
                 print(f"❌ OCR error on frame {frame_idx+1} detection {det_idx+1}: {e}")
@@ -533,7 +568,7 @@ def extract_text_from_detections(frames: List[np                    Det {det_idx
     # Remove duplicates while preserving order
     unique_texts = []
     seen = set()
-    for text in texts:
+    for text in all_texts:
         text_lower = text.lower()
         if text_lower not in seen:
             unique_texts.append(text)

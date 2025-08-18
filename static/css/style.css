@@ -91,17 +91,6 @@ main {
     border-radius: 20px 20px 0 0;
     z-index: 1;
 }
-.instagram-search::before {
-    background: linear-gradient(90deg, #833AB4 0%, #FD1D1D 50%, #FCB045 100%); /* Instagram gradient */
-}
-
-.tiktok-search::before {
-    background: linear-gradient(90deg, #FF4500 0%, #FF6347 50%, #FF8C00 100%);
-}
-
-.book-search::before {
-    background: linear-gradient(90deg, #8B0000 0%, #DC143C 50%, #CD5C5C 100%);
-}
 
 .search-box-header {
     text-align: center;
