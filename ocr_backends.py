@@ -1,6 +1,15 @@
 """
 Multi-backend OCR system with fallback support for better text extraction
 """
+import os
+
+# Force single-threaded execution for all underlying libraries
+# to prevent semaphore leaks in multiprocessing environments like Celery.
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
 
 # Handle OpenCV import conflicts and threading issues
 try:
@@ -16,7 +25,6 @@ import numpy as np
 import pytesseract
 from typing import List, Dict, Optional, Tuple
 import warnings
-import os
 from pathlib import Path
 
 class OCRBackend:

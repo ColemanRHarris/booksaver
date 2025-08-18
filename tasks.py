@@ -1,4 +1,13 @@
 import os
+
+# Force single-threaded execution for all underlying libraries
+# to prevent semaphore leaks in multiprocessing environments like Celery.
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
+
 import tempfile
 import yt_dlp
 import pytesseract
