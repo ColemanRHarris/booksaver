@@ -1,16 +1,32 @@
 import os
 import tempfile
-import cv2
 import yt_dlp
 import pytesseract
+
+# Handle OpenCV import conflicts and threading issues
+try:
+    import cv2
+    # Fix common OpenCV threading issues
+    if hasattr(cv2, 'setNumThreads'):
+        cv2.setNumThreads(1)  # Prevent threading issues
+except Exception as e:
+    print(f"Warning: OpenCV import issue: {e}")
+    import cv2  # Try again
+
 from ultralytics import YOLO
 from celery_app import celery_app
 from books_client import GoogleBooksClient, build_purchase_links, build_reader_app_links
+from ocr_backends import get_ocr_engine
+from fuzzy_search import create_fuzzy_searcher
+from book_filters import create_book_filter, create_trending_detector
+from language_filter import create_language_filter
+from smart_frame_extractor import extract_smart_frames_from_video
 import uuid
 import shutil
 import time
 from typing import List, Dict, Any
 import numpy as np
+from pathlib import Path
 
 # Initialize YOLO model (will download on first use)
 model = None
@@ -54,25 +70,33 @@ def process_tiktok_video(self, tiktok_url: str):
             video_path = download_tiktok_video(tiktok_url, temp_dir)
             print(f"✅ Video downloaded successfully: {video_path}")
             
+            # Create persistent debug directory in project root
+            debug_dir = Path(os.getcwd()) / "debug_output" / f"tiktok_{uuid.uuid4().hex[:8]}"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            print(f"🗂️  Debug output will be saved to: {debug_dir}")
+            
             self.update_state(state='PROGRESS', meta={'step': 'Extracting frames', 'progress': 30})
             print("🖼️  Starting frame extraction...")
             
-            # Extract frames from video
-            frames = extract_frames(video_path)
-            print(f"✅ Extracted {len(frames)} frames")
+            # Extract frames from video using smart detection
+            frames = extract_smart_frames_from_video(video_path, debug_dir=str(debug_dir))
+            print(f"✅ Extracted {len(frames)} smart frames")
             
             self.update_state(state='PROGRESS', meta={'step': 'Detecting objects', 'progress': 50})
             print("🔍 Starting object detection...")
             
-            # Detect books in frames using YOLO
-            book_detections = detect_books_in_frames(frames)
+            # Detect books in frames using YOLO (with debug output)
+            book_detections = detect_books_in_frames(frames, debug_dir=str(debug_dir))
             print(f"✅ Object detection completed: {len(book_detections)} frame detections")
             
             self.update_state(state='PROGRESS', meta={'step': 'Extracting text', 'progress': 70})
             print("📝 Starting text extraction...")
             
-            # Extract text from detected book regions
-            book_texts = extract_text_from_detections(frames, book_detections)
+            # Prioritize forward-facing book detections before OCR
+            prioritized_detections = prioritize_forward_facing_detections(book_detections, max_total=12)
+            
+            # Extract text from prioritized detections (with debug output)
+            book_texts = extract_text_from_detections(frames, prioritized_detections, debug_dir=str(debug_dir))
             print(f"✅ Text extraction completed: {len(book_texts)} texts found")
             print(f"📋 Extracted texts: {book_texts[:5]}")  # Show first 5 texts
             
@@ -186,6 +210,110 @@ def extract_frames(video_path: str, fps: float = 0.5) -> List[np.ndarray]:
     print(f"📊 Selected {len(selected_frames)} frames for processing")
     return selected_frames
 
+def is_likely_forward_facing_book(width: float, height: float, aspect_ratio: float, 
+                                 area: float, relative_x: float, relative_y: float, 
+                                 class_name: str, confidence: float) -> bool:
+    """Determine if a detection is likely a forward-facing book (cover) vs spine"""
+    
+    # Basic size filter - must be substantial enough
+    if area < 2000:  # Increased minimum area for book covers
+        return False
+    
+    # Forward-facing books typically have these characteristics:
+    # 1. Aspect ratio closer to book cover proportions (0.6-0.85 typical)
+    # 2. Larger area (covers are more prominent than spines)
+    # 3. More likely to be in center of frame (people show covers intentionally)
+    # 4. Higher confidence if detected as 'book'
+    
+    # Aspect ratio filtering - prioritize book cover proportions
+    if class_name == 'book':
+        # Books should have reasonable cover-like aspect ratios
+        # Typical paperback: 0.65, hardcover: 0.75, avoid very thin spines
+        if not (0.4 < aspect_ratio < 1.2):  # Allow some variation but exclude very thin/wide
+            return False
+        # Prefer more cover-like ratios
+        if 0.6 <= aspect_ratio <= 0.85:  # Sweet spot for book covers
+            aspect_score = 1.0
+        elif 0.5 <= aspect_ratio <= 1.0:  # Still good
+            aspect_score = 0.8
+        else:
+            aspect_score = 0.4  # Less likely but possible
+    else:
+        # For other classes, be more restrictive
+        if not (0.3 < aspect_ratio < 2.0):
+            return False
+        aspect_score = 0.6
+    
+    # Size scoring - larger objects more likely to be covers
+    if area > 10000:  # Large objects
+        size_score = 1.0
+    elif area > 5000:  # Medium objects
+        size_score = 0.8
+    else:  # Smaller objects (might be spines)
+        size_score = 0.5
+    
+    # Position scoring - center objects more likely to be intentionally shown covers
+    center_distance = ((relative_x - 0.5) ** 2 + (relative_y - 0.5) ** 2) ** 0.5
+    if center_distance < 0.2:  # Very central
+        position_score = 1.0
+    elif center_distance < 0.4:  # Reasonably central
+        position_score = 0.8
+    else:  # Peripheral
+        position_score = 0.6
+    
+    # Confidence scoring
+    if class_name == 'book':
+        if confidence > 0.7:
+            confidence_score = 1.0
+        elif confidence > 0.5:
+            confidence_score = 0.8
+        else:
+            confidence_score = 0.6
+    else:
+        # Other classes need higher confidence
+        if confidence > 0.8:
+            confidence_score = 0.7
+        else:
+            confidence_score = 0.5
+    
+    # Combined score
+    total_score = (aspect_score * 0.3 + size_score * 0.25 + 
+                  position_score * 0.25 + confidence_score * 0.2)
+    
+    # Threshold for acceptance
+    return total_score > 0.65
+
+def calculate_forward_facing_score(width: float, height: float, aspect_ratio: float,
+                                 area: float, relative_x: float, relative_y: float,
+                                 class_name: str, confidence: float) -> float:
+    """Calculate a score indicating how likely this is a forward-facing book"""
+    
+    # Reuse logic from is_likely_forward_facing_book but return the score
+    if class_name == 'book':
+        if 0.6 <= aspect_ratio <= 0.85:
+            aspect_score = 1.0
+        elif 0.5 <= aspect_ratio <= 1.0:
+            aspect_score = 0.8
+        elif 0.4 <= aspect_ratio <= 1.2:
+            aspect_score = 0.6
+        else:
+            aspect_score = 0.2
+    else:
+        if 0.5 <= aspect_ratio <= 1.0:
+            aspect_score = 0.6
+        else:
+            aspect_score = 0.3
+    
+    size_score = min(1.0, area / 10000)  # Normalize by large area
+    
+    center_distance = ((relative_x - 0.5) ** 2 + (relative_y - 0.5) ** 2) ** 0.5
+    position_score = max(0.3, 1.0 - center_distance)
+    
+    confidence_score = confidence if class_name == 'book' else confidence * 0.7
+    
+    return (aspect_score * 0.3 + size_score * 0.25 + 
+           position_score * 0.25 + confidence_score * 0.2)
+
 def is_good_frame_for_detection(frame: np.ndarray) -> bool:
     """Check if frame is suitable for book detection"""
     if frame is None or frame.size == 0:
@@ -212,24 +340,32 @@ def is_good_frame_for_detection(frame: np.ndarray) -> bool:
     
     return True
 
-def detect_books_in_frames(frames: List[np.ndarray]) -> List[List[Dict]]:
+def detect_books_in_frames(frames: List[np.ndarray], debug_dir: str = None) -> List[List[Dict]]:
     """Detect objects (potentially books) in frames using YOLO"""
     print(f"🤖 Loading YOLO model...")
     model = get_yolo_model()
     print(f"✅ YOLO model loaded successfully")
     
+    # Create debug directory if specified
+    if debug_dir:
+        debug_frames_dir = Path(debug_dir) / "debug_frames"
+        debug_frames_dir.mkdir(parents=True, exist_ok=True)
+        print(f"🖼️  Debug frames will be saved to: {debug_frames_dir}")
+    
     all_detections = []
     
-    for i, frame in enumerate(frames):
-        print(f"🔍 Processing frame {i+1}/{len(frames)}")
+    for frame_idx, frame in enumerate(frames):
+        print(f"🔍 Processing frame {frame_idx+1}/{len(frames)}")
         # Run YOLO detection
         results = model(frame, verbose=False)
         
         frame_detections = []
+        debug_frame = frame.copy() if debug_dir else None
+        
         for result in results:
             boxes = result.boxes
             if boxes is not None:
-                for i, box in enumerate(boxes):
+                for box_idx, box in enumerate(boxes):
                     # Get confidence and class
                     confidence = float(box.conf[0])
                     class_id = int(box.cls[0])
@@ -253,36 +389,145 @@ def detect_books_in_frames(frames: List[np.ndarray]) -> List[List[Dict]]:
                         aspect_ratio = width / height if height > 0 else 0
                         area = width * height
                         
-                        # Filter by size and aspect ratio (books are usually rectangular)
-                        # Skip very small detections or weird aspect ratios
-                        if area > 1000 and 0.2 < aspect_ratio < 5.0:
-                            frame_detections.append({
+                        # Calculate position in frame (for prioritizing central objects)
+                        frame_height, frame_width = frame.shape[:2]
+                        center_x = (x1 + x2) / 2
+                        center_y = (y1 + y2) / 2
+                        relative_x = center_x / frame_width
+                        relative_y = center_y / frame_height
+                        
+                        # Enhanced filtering for forward-facing books vs spines
+                        is_forward_facing = is_likely_forward_facing_book(
+                            width, height, aspect_ratio, area, relative_x, relative_y, class_name, confidence
+                        )
+                        
+                        if is_forward_facing:
+                            detection = {
                                 'bbox': [int(x1), int(y1), int(x2), int(y2)],
                                 'confidence': confidence,
                                 'class': class_name,
                                 'aspect_ratio': aspect_ratio,
-                                'area': area
-                            })
+                                'area': area,
+                                'forward_facing_score': calculate_forward_facing_score(
+                                    width, height, aspect_ratio, area, relative_x, relative_y, class_name, confidence
+                                ),
+                                'position': {'x': relative_x, 'y': relative_y}
+                            }
+                            frame_detections.append(detection)
+                            
+                            # Draw bounding box on debug frame
+                            if debug_frame is not None:
+                                # Color coding: Green for high-scoring books, yellow for medium, orange for low/other
+                                ff_score = detection['forward_facing_score']
+                                if class_name == 'book' and ff_score > 0.8:
+                                    color = (0, 255, 0)  # Bright green for high-scoring books
+                                elif class_name == 'book' and ff_score > 0.65:
+                                    color = (0, 255, 255)  # Yellow for medium-scoring books
+                                else:
+                                    color = (255, 165, 0)  # Orange for low-scoring or other objects
+                                
+                                cv2.rectangle(debug_frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+                                
+                                # Enhanced label with forward-facing score
+                                label = f"{class_name} {confidence:.2f} (ff:{ff_score:.2f})"
+                                label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)[0]
+                                cv2.rectangle(debug_frame, (int(x1), int(y1) - label_size[1] - 10), 
+                                            (int(x1) + label_size[0], int(y1)), color, -1)
+                                cv2.putText(debug_frame, label, (int(x1), int(y1) - 5), 
+                                          cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+        
+        # Save debug frame if debug directory is specified
+        if debug_dir and debug_frame is not None:
+            debug_filename = debug_frames_dir / f"frame_{frame_idx:03d}_detections_{len(frame_detections)}.jpg"
+            cv2.imwrite(str(debug_filename), debug_frame)
+            print(f"💾 Saved debug frame: {debug_filename}")
+        
+        # Sort detections by forward-facing score (best first)
+        frame_detections.sort(key=lambda d: d['forward_facing_score'], reverse=True)
+        
+        # Limit to top N detections per frame to focus on best candidates
+        max_detections_per_frame = 5  # Reduce noise from too many detections
+        frame_detections = frame_detections[:max_detections_per_frame]
+        
+        if frame_detections:
+            print(f"📊 Top detections for frame {frame_idx+1}:")
+            for i, det in enumerate(frame_detections[:3]):  # Show top 3
+                print(f"   {i+1}. {det['class']} (conf: {det['confidence']:.2f}, "
+                      f"aspect: {det['aspect_ratio']:.2f}, score: {det['forward_facing_score']:.2f})")
         
         all_detections.append(frame_detections)
     
     return all_detections
 
 def enhance_image_for_ocr(image: np.ndarray) -> np.ndarray:
-    """Apply simple, fast image enhancement for OCR"""
-    # Convert to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    """Apply optimized image enhancement for better OCR results"""
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
     
-    # Simple contrast enhancement - much faster than CLAHE
-    alpha = 1.2  # Contrast control
-    beta = 10    # Brightness control
-    enhanced = cv2.convertScaleAbs(gray, alpha=alpha, beta=beta)
+    # Apply multiple enhancement techniques
+    enhanced = gray.copy()
     
-    return enhanced
+    # 1. Noise reduction with bilateral filter
+    enhanced = cv2.bilateralFilter(enhanced, 9, 75, 75)
+    
+    # 2. Contrast enhancement using CLAHE (better than simple scaling)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(enhanced)
+    
+    # 3. Sharpening kernel to enhance text edges
+    kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+    enhanced = cv2.filter2D(enhanced, -1, kernel)
+    
+    # 4. Morphological operations to clean up text
+    # Remove small noise
+    kernel_denoise = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2,2))
+    enhanced = cv2.morphologyEx(enhanced, cv2.MORPH_OPEN, kernel_denoise)
+    
+    # 5. Ensure good contrast for OCR (convert back to BGR for compatibility)
+    enhanced_bgr = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
+    
+    return enhanced_bgr
 
-def extract_text_from_detections(frames: List[np.ndarray], detections: List[List[Dict]]) -> List[str]:
+def prioritize_forward_facing_detections(detections: List[List[Dict]], max_total: int = 15) -> List[List[Dict]]:
+    """Prioritize the best forward-facing book detections across all frames"""
+    # Flatten all detections with frame info
+    all_detections = []
+    for frame_idx, frame_detections in enumerate(detections):
+        for det in frame_detections:
+            det_copy = det.copy()
+            det_copy['frame_idx'] = frame_idx
+            all_detections.append(det_copy)
+    
+    # Sort by forward-facing score
+    all_detections.sort(key=lambda d: d['forward_facing_score'], reverse=True)
+    
+    # Take only the best detections up to max_total
+    best_detections = all_detections[:max_total]
+    
+    print(f"🎯 Selected {len(best_detections)} best forward-facing candidates from {len(all_detections)} total detections")
+    if best_detections:
+        print(f"📊 Score range: {best_detections[-1]['forward_facing_score']:.2f} to {best_detections[0]['forward_facing_score']:.2f}")
+    
+    # Rebuild the frame-based structure
+    prioritized_detections = [[] for _ in detections]
+    for det in best_detections:
+        frame_idx = det.pop('frame_idx')  # Remove the temporary frame index
+        prioritized_detections[frame_idx].append(det)
+    
+    return prioritized_detections
+
+def extract_text_from_detections(frames: List[np.ndarray], detections: List[List[Dict]], debug_dir: str = None) -> List[str]:
     """Extract text from detected regions using simple, fast OCR"""
     texts = []
+    
+    # Create debug directory for cropped regions if specified
+    if debug_dir:
+        debug_crops_dir = Path(debug_dir) / "debug_crops"
+        debug_crops_dir.mkdir(parents=True, exist_ok=True)
+        print(f"✂️  Debug crops will be saved to: {debug_crops_dir}")
     
     for frame_idx, (frame, frame_detections) in enumerate(zip(frames, detections)):
         print(f"🔍 Processing frame {frame_idx + 1} with {len(frame_detections)} detections")
@@ -305,6 +550,11 @@ def extract_text_from_detections(frames: List[np.ndarray], detections: List[List
             if cropped.shape[0] < 20 or cropped.shape[1] < 20:
                 continue
             
+            # Save original cropped region for debug
+            if debug_dir:
+                crop_filename = debug_crops_dir / f"frame_{frame_idx:03d}_det_{det_idx:02d}_original.jpg"
+                cv2.imwrite(str(crop_filename), cropped)
+            
             # Resize if too small (OCR works better on larger images)
             if cropped.shape[0] < 50 or cropped.shape[1] < 50:
                 scale_factor = max(50 / cropped.shape[0], 50 / cropped.shape[1])
@@ -313,24 +563,46 @@ def extract_text_from_detections(frames: List[np.ndarray], detections: List[List
                 cropped = cv2.resize(cropped, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
             
             try:
-                # Apply single, fast image enhancement
+                # Apply image enhancement for OCR
                 enhanced_img = enhance_image_for_ocr(cropped)
                 
-                # Convert to RGB for Tesseract
-                if len(enhanced_img.shape) == 2:  # Grayscale
-                    rgb_img = cv2.cvtColor(enhanced_img, cv2.COLOR_GRAY2RGB)
-                else:
-                    rgb_img = cv2.cvtColor(enhanced_img, cv2.COLOR_BGR2RGB)
+                # Save enhanced version for debug
+                if debug_dir:
+                    enhanced_filename = debug_crops_dir / f"frame_{frame_idx:03d}_det_{det_idx:02d}_enhanced.jpg"
+                    cv2.imwrite(str(enhanced_filename), enhanced_img)
                 
-                # Simple OCR with single, reliable configuration
-                ocr_config = '--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\\ '
+                # Use multi-backend OCR system
+                ocr_engine = get_ocr_engine()
+                debug_info = {}
                 
-                text = pytesseract.image_to_string(rgb_img, config=ocr_config)
-                cleaned_text = clean_ocr_text(text)
+                # Extract text using multiple OCR backends
+                raw_text = ocr_engine.extract_text_multi_backend(enhanced_img, debug_info)
+                cleaned_text = clean_ocr_text(raw_text) if raw_text else ""
                 
                 # Debug: Show all OCR results
-                if text.strip():
-                    print(f"🔤 Raw OCR: '{text.strip()}' -> Cleaned: '{cleaned_text}'")
+                if raw_text.strip():
+                    print(f"🔤 Frame {frame_idx+1} Det {det_idx+1}: Multi-OCR -> '{cleaned_text}'")
+                    print(f"   Best: {debug_info.get('best_backend', 'None')} (score: {debug_info.get('best_score', 0):.2f})")
+                
+                # Save comprehensive OCR debug info
+                if debug_dir:
+                    ocr_filename = debug_crops_dir / f"frame_{frame_idx:03d}_det_{det_idx:02d}_ocr.txt"
+                    with open(ocr_filename, 'w', encoding='utf-8') as f:
+                        f.write(f"Raw Multi-OCR: {raw_text.strip()}\n")
+                        f.write(f"Cleaned: {cleaned_text}\n")
+                        f.write(f"Best Backend: {debug_info.get('best_backend', 'None')}\n")
+                        f.write(f"Best Score: {debug_info.get('best_score', 0):.2f}\n")
+                        f.write(f"\nAll Results:\n")
+                        for backend, result in debug_info.get('all_results', {}).items():
+                            f.write(f"  {backend}: {result}\n")
+                        f.write(f"\nDetection Info:\n")
+                        f.write(f"Class: {detection['class']}\n")
+                        f.write(f"Confidence: {detection['confidence']:.2f}\n")
+                        f.write(f"Forward-facing score: {detection['forward_facing_score']:.2f}\n")
+                        f.write(f"Aspect ratio: {detection['aspect_ratio']:.2f}\n")
+                        f.write(f"Area: {detection['area']:.0f}\n")
+                        f.write(f"Position: x={detection['position']['x']:.2f}, y={detection['position']['y']:.2f}\n")
+                        f.write(f"BBox: {detection['bbox']}\n")
                 
                 if cleaned_text and len(cleaned_text) > 3 and is_likely_book_title(cleaned_text):
                     texts.append(cleaned_text)
@@ -339,7 +611,7 @@ def extract_text_from_detections(frames: List[np.ndarray], detections: List[List
                     print(f"❌ Rejected as non-book: '{cleaned_text}'")
                 
             except Exception as e:
-                print(f"❌ OCR error on detection {det_idx}: {e}")
+                print(f"❌ OCR error on frame {frame_idx+1} detection {det_idx+1}: {e}")
                 continue
     
     # Remove duplicates while preserving order
@@ -503,10 +775,11 @@ def is_likely_book_title(text: str) -> bool:
     return False
 
 def search_books_from_text(texts: List[str]) -> List[Dict]:
-    """Search for books using extracted text with conservative API usage"""
-    print(f"📚 Starting book search with {len(texts)} text extractions")
+    """Search for books using extracted text with fuzzy matching for near-misses"""
+    print(f"📚 Starting fuzzy book search with {len(texts)} text extractions")
     
-    books_client = GoogleBooksClient()
+    # Create fuzzy searcher
+    fuzzy_searcher = create_fuzzy_searcher()
     found_books = []
     seen_titles = set()
     processed_queries = set()
@@ -517,37 +790,37 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
         clean_text = clean_ocr_text(text)
         if is_likely_book_title(clean_text) and clean_text.lower() not in processed_queries:
             # Additional filtering for production
-            if len(clean_text) >= 4 and len(clean_text.split()) >= 2:
+            if len(clean_text) >= 3 and len(clean_text.split()) >= 1:  # More lenient for fuzzy
                 cleaned_texts.append(clean_text)
                 processed_queries.add(clean_text.lower())
     
-    # Limit the number of API calls to avoid rate limits
-    max_searches = min(len(cleaned_texts), 8)  # Reduced from 15 to 8
+    # Limit the number of searches
+    max_searches = min(len(cleaned_texts), 6)  # Reduced since fuzzy search does more work
     cleaned_texts = cleaned_texts[:max_searches]
     
-    print(f"📝 Will search for {len(cleaned_texts)} book titles: {cleaned_texts}")
+    print(f"📝 Will fuzzy search for {len(cleaned_texts)} book titles: {cleaned_texts}")
     
-    # Add delay between searches to avoid rate limiting
-    search_delay = 0.5  # 500ms between searches
+    # Add delay between searches to avoid rate limiting (fuzzy does multiple calls)
+    search_delay = 1.0  # Longer delay since fuzzy search is more intensive
     
     for i, clean_text in enumerate(cleaned_texts):
-        if len(found_books) >= 10:  # Reduced limit to 10 total books
-            print(f"📚 Reached book limit (10), stopping search")
+        if len(found_books) >= 8:  # Reduced limit since fuzzy search is more thorough
+            print(f"📚 Reached book limit (8), stopping search")
             break
             
         try:
-            print(f"🔍 Search {i+1}/{len(cleaned_texts)}: '{clean_text}'")
+            print(f"\n🔮 Fuzzy search {i+1}/{len(cleaned_texts)}: '{clean_text}'")
             
             # Add delay between searches (except first one)
             if i > 0:
                 time.sleep(search_delay)
             
-            # Search for books using the extracted text
-            search_results = books_client.search_books(clean_text, max_results=3)  # Reduced from 5 to 3
+            # Use fuzzy search with fallback
+            search_results = fuzzy_searcher.search_with_fuzzy_fallback(clean_text, max_results=3)
             
             books_added_this_search = 0
             for book in search_results:
-                if len(found_books) >= 10:
+                if len(found_books) >= 8:
                     break
                     
                 book_title = book.get('title', '').lower()
@@ -556,26 +829,73 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
                     book['purchase_links'] = build_purchase_links(book)
                     book['reader_app_links'] = build_reader_app_links(book)
                     
+                    # Add fuzzy match info if available
+                    if 'fuzzy_match_score' in book:
+                        book['match_info'] = {
+                            'ocr_text': clean_text,
+                            'fuzzy_score': book['fuzzy_match_score'],
+                            'fuzzy_query': book.get('fuzzy_query', clean_text)
+                        }
+                    
                     found_books.append(book)
                     seen_titles.add(book_title)
                     books_added_this_search += 1
                     
-                    print(f"✅ Found book: {book.get('title', 'Unknown')}")
+                    match_score = book.get('fuzzy_match_score', 1.0)
+                    fuzzy_info = f" (fuzzy: {match_score:.2f})" if 'fuzzy_match_score' in book else ""
+                    print(f"✅ Found book: {book.get('title', 'Unknown')}{fuzzy_info}")
                     
                     # Limit books per search to 2
                     if books_added_this_search >= 2:
                         break
             
             if not search_results:
-                print(f"❌ No results for: '{clean_text}'")
+                print(f"❌ No fuzzy results for: '{clean_text}'")
                         
         except Exception as e:
-            print(f"❌ Search error for '{clean_text}': {e}")
+            print(f"❌ Fuzzy search error for '{clean_text}': {e}")
             # Add extra delay after errors
-            time.sleep(1.0)
+            time.sleep(2.0)
             continue
     
-    print(f"🎯 Final book search result: {len(found_books)} unique books found")
-    print(f"📊 Books found: {[book.get('title', 'Unknown')[:30] for book in found_books]}")
+    print(f"\n🎯 Fuzzy search found {len(found_books)} books, now filtering for quality...")
+    
+    # Apply quality filtering for TikTok trending books
+    if found_books:
+        book_filter = create_book_filter()
+        trending_detector = create_trending_detector()
+        
+        # Apply popularity/quality filtering
+        filtered_books = book_filter.filter_books(found_books)
+        
+        # Apply trending book boosts
+        trending_books = trending_detector.boost_trending_books(filtered_books)
+        
+        # Apply language filtering (English/Spanish only)
+        language_filter = create_language_filter()
+        final_books = language_filter.filter_books_by_language(trending_books)
+        
+        print(f"\n🏆 Final result: {len(final_books)} high-quality English/Spanish books")
+        
+        # Show final results with scores
+        for i, book in enumerate(final_books):
+            title = book.get('title', 'Unknown')[:35]
+            pop_score = book.get('popularity_score', 0)
+            trending_boost = book.get('trending_boost', '')
+            detected_lang = book.get('detected_language', '?')
+            lang_confidence = book.get('language_confidence', 0)
+            
+            boost_indicator = f" [{trending_boost}]" if trending_boost else ""
+            lang_indicator = f" [{detected_lang}:{lang_confidence:.1f}]"
+            
+            if 'match_info' in book:
+                ocr = book['match_info']['ocr_text']
+                fuzzy_score = book['match_info']['fuzzy_score']
+                print(f"  {i+1}. '{title}' (fuzzy: {fuzzy_score:.2f}, pop: {pop_score:.2f}){boost_indicator}{lang_indicator}")
+                print(f"      OCR: '{ocr}'")
+            else:
+                print(f"  {i+1}. '{title}' (pop: {pop_score:.2f}){boost_indicator}{lang_indicator}")
+        
+        return final_books
     
     return found_books
