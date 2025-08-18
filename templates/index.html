@@ -39,6 +39,36 @@
             </div>
         </div>
         
+        <div class="search-box instagram-search">
+            <div class="search-box-header">
+                <h3>📸 Instagram Reels Book Finder</h3>
+                <p>Extract books from Instagram Reels</p>
+            </div>
+            <form method="POST" action="{{ url_for('process_instagram_reel') }}" class="search-form">
+                <div class="form-group">
+                    <input type="url" 
+                           id="reel_url" 
+                           name="reel_url" 
+                           placeholder="Paste Instagram Reel URL..." 
+                           value="{{ request.form.reel_url if request.form else '' }}"
+                           required>
+                </div>
+                <button type="submit" class="search-btn instagram-search-btn" id="instagram-submit">
+                    <span class="btn-text">Find Books in Reel</span>
+                    <span class="btn-loading" style="display: none;">Processing Reel...</span>
+                </button>
+            </form>
+            
+            <div class="box-instructions">
+                <h4>How it works:</h4>
+                <ol>
+                    <li>Paste an Instagram Reel URL</li>
+                    <li>We'll detect books in the video</li>
+                    <li>Get purchase links for found books</li>
+                </ol>
+            </div>
+        </div>
+
         <div class="search-box book-search">
             <div class="search-box-header">
                 <h3>📚 Search Books</h3>

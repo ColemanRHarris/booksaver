@@ -6,7 +6,7 @@ import uuid
 import time
 from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
 from celery_app import celery_app
-from tasks import process_tiktok_video
+from tasks import process_video
 
 load_dotenv()
 
@@ -18,31 +18,27 @@ books_client = GoogleBooksClient()
 # Simple in-memory task tracking
 task_results = {}
 
-def process_tiktok_background(task_id, tiktok_url):
-    """Process TikTok video in background thread"""
+def process_video_background(task_id: str, video_url: str, video_type: str):
+    """Process video (TikTok/Reel) in background thread for local development"""
     try:
-        # Update progress
         task_results[task_id] = {
             'state': 'PROGRESS',
             'progress': 10,
             'step': 'Starting processing...'
         }
         
-        # Add a small delay to show the waiting page
         time.sleep(2)
         
-        # Update progress
         task_results[task_id] = {
             'state': 'PROGRESS', 
             'progress': 30,
-            'step': 'Processing video...'
+            'step': f'Processing {video_type} video...'
         }
         
         # Call the actual processing function directly
-        from tasks import process_tiktok_video
-        result = process_tiktok_video.apply(args=[tiktok_url]).result
+        from tasks import process_video
+        result = process_video.apply(args=[video_url, video_type]).result
         
-        # Store final result
         task_results[task_id] = {
             'state': 'SUCCESS',
             'result': result
@@ -132,38 +128,73 @@ def process_tiktok():
         
         if redis_url:
             # Production: Use Celery with Redis
-            task = process_tiktok_video.delay(tiktok_url)
+            task = process_video.delay(tiktok_url, 'tiktok')
             task_id = task.id
         else:
             # Local development: Use threading
             task_id = str(uuid.uuid4())
             
-            # Initialize task status
             task_results[task_id] = {
                 'state': 'PENDING',
                 'progress': 0,
                 'step': 'Waiting to start...'
             }
             
-            # Start background processing thread
             thread = threading.Thread(
-                target=process_tiktok_background,
-                args=(task_id, tiktok_url)
+                target=process_video_background,
+                args=(task_id, tiktok_url, 'tiktok')
             )
             thread.daemon = True
             thread.start()
         
-        # Redirect to waiting page with task ID
-        return redirect(url_for('processing_wait', task_id=task_id, url=tiktok_url))
+        return redirect(url_for('processing_wait', task_id=task_id, url=tiktok_url, type='tiktok'))
+        
+    except Exception as e:
+        return render_template('index.html', error=f"Failed to start processing: {str(e)}")
+
+@app.route('/process-instagram-reel', methods=['POST'])
+def process_instagram_reel():
+    reel_url = request.form.get('reel_url', '').strip()
+    
+    if not reel_url:
+        return render_template('index.html', error="Please enter an Instagram Reel URL")
+    
+    if 'instagram.com/reel/' not in reel_url and 'instagr.am/reel/' not in reel_url:
+        return render_template('index.html', error="Please enter a valid Instagram Reel URL")
+    
+    try:
+        redis_url = os.getenv('REDIS_URL')
+        
+        if redis_url:
+            task = process_video.delay(reel_url, 'instagram')
+            task_id = task.id
+        else:
+            task_id = str(uuid.uuid4())
+            
+            task_results[task_id] = {
+                'state': 'PENDING',
+                'progress': 0,
+                'step': 'Waiting to start...'
+            }
+            
+            thread = threading.Thread(
+                target=process_video_background,
+                args=(task_id, reel_url, 'instagram')
+            )
+            thread.daemon = True
+            thread.start()
+        
+        return redirect(url_for('processing_wait', task_id=task_id, url=reel_url, type='instagram'))
         
     except Exception as e:
         return render_template('index.html', error=f"Failed to start processing: {str(e)}")
 
 @app.route('/processing/<task_id>')
 def processing_wait(task_id):
-    """Show waiting page while TikTok video is being processed"""
-    tiktok_url = request.args.get('url', '')
-    return render_template('processing.html', task_id=task_id, tiktok_url=tiktok_url)
+    """Show waiting page while video is being processed"""
+    video_url = request.args.get('url', '')
+    video_type = request.args.get('type', 'Video')
+    return render_template('processing.html', task_id=task_id, video_url=video_url, video_type=video_type)
 
 @app.route('/task-status/<task_id>')
 def task_status(task_id):
@@ -172,7 +203,6 @@ def task_status(task_id):
         redis_url = os.getenv('REDIS_URL')
         
         if redis_url:
-            # Production: Use Celery task status
             task = celery_app.AsyncResult(task_id)
             
             if task.state == 'PENDING':
@@ -201,7 +231,6 @@ def task_status(task_id):
                     'result': {'error': str(task.result)}
                 }
         else:
-            # Local development: Use in-memory task results
             if task_id not in task_results:
                 return jsonify({
                     'state': 'PENDING',
@@ -257,11 +286,9 @@ def cancel_task(task_id):
         redis_url = os.getenv('REDIS_URL')
         
         if redis_url:
-            # Production: Revoke Celery task
             celery_app.control.revoke(task_id, terminate=True)
             message = f"Task {task_id} has been cancelled"
         else:
-            # Local development: Remove from in-memory tracking
             if task_id in task_results:
                 task_results[task_id] = {
                     'state': 'REVOKED',
@@ -284,31 +311,30 @@ def cancel_task(task_id):
 
 @app.route('/tiktok-results/<task_id>')
 def tiktok_results(task_id):
-    """Show results from completed TikTok processing"""
+    """Show results from completed video processing"""
     try:
         redis_url = os.getenv('REDIS_URL')
+        video_url = request.args.get('url', '')
+        video_type = request.args.get('type', 'Video')
         
         if redis_url:
-            # Production: Use Celery task result
             task = celery_app.AsyncResult(task_id)
             
             if task.state == 'SUCCESS' and task.result.get('status') == 'success':
                 books = task.result.get('books', [])
-                tiktok_url = request.args.get('url', '')
                 
                 if len(books) > 0:
                     return render_template('results.html', 
                                          books=books, 
-                                         query=f"TikTok Video: {tiktok_url[:50]}..." if tiktok_url else "TikTok Video",
-                                         is_tiktok=True)
+                                         query=f"{video_type.title()} Video: {video_url[:50]}..." if video_url else f"{video_type.title()} Video",
+                                         is_tiktok=True) # Retain is_tiktok for now, could generalize later
                 else:
                     return render_template('index.html', 
-                                         error="No books found in this TikTok video. Try a video that shows book covers more clearly.")
+                                         error=f"No books found in this {video_type.title()} video. Try a video that shows book covers more clearly.")
             else:
                 return render_template('index.html', 
                                      error="Processing failed or is still in progress.")
         else:
-            # Local development: Use in-memory task results
             if task_id not in task_results:
                 return render_template('index.html', error="Task not found.")
             
@@ -316,16 +342,15 @@ def tiktok_results(task_id):
             
             if task_data['state'] == 'SUCCESS' and task_data['result'].get('status') == 'success':
                 books = task_data['result'].get('books', [])
-                tiktok_url = request.args.get('url', '')
                 
                 if len(books) > 0:
                     return render_template('results.html', 
                                          books=books, 
-                                         query=f"TikTok Video: {tiktok_url[:50]}..." if tiktok_url else "TikTok Video",
-                                         is_tiktok=True)
+                                         query=f"{video_type.title()} Video: {video_url[:50]}..." if video_url else f"{video_type.title()} Video",
+                                         is_tiktok=True) # Retain is_tiktok for now, could generalize later
                 else:
                     return render_template('index.html', 
-                                         error="No books found in this TikTok video. Try a video that shows book covers more clearly.")
+                                         error=f"No books found in this {video_type.title()} video. Try a video that shows book covers more clearly.")
             else:
                 return render_template('index.html', 
                                      error="Processing failed or is still in progress.")

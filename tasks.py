@@ -49,60 +49,52 @@ def get_yolo_model():
     return model
 
 @celery_app.task(bind=True)
-def process_tiktok_video(self, tiktok_url: str):
+def process_video(self, video_url: str, video_type: str):
     """
-    Celery task to process TikTok video and extract books
+    Celery task to process a video (e.g., TikTok, Instagram Reel) and extract books.
     """
-    print(f"🚀 Starting TikTok processing for: {tiktok_url}")
+    print(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
     try:
-        # Update task status
-        print("📊 Updating task status to PROGRESS")
         self.update_state(state='PROGRESS', meta={'step': 'Downloading video', 'progress': 10})
         
-        # Create temporary directory for this task
-        temp_dir = tempfile.mkdtemp(prefix=f"tiktok_{uuid.uuid4().hex}_")
+        temp_dir_prefix = f"{video_type}_{uuid.uuid4().hex}_"
+        temp_dir = tempfile.mkdtemp(prefix=temp_dir_prefix)
         print(f"📁 Created temp directory: {temp_dir}")
         video_path = None
         
         try:
-            # Download TikTok video
-            video_path = download_tiktok_video(tiktok_url, temp_dir)
+            video_path = download_video(video_url, temp_dir)
             print(f"✅ Video downloaded successfully: {video_path}")
             
-            # Create persistent debug directory in project root
-            debug_dir = Path(os.getcwd()) / "debug_output" / f"tiktok_{uuid.uuid4().hex[:8]}"
+            debug_dir_name = f"{video_type}_{uuid.uuid4().hex[:8]}"
+            debug_dir = Path(os.getcwd()) / "debug_output" / debug_dir_name
             debug_dir.mkdir(parents=True, exist_ok=True)
             print(f"🗂️  Debug output will be saved to: {debug_dir}")
             
             self.update_state(state='PROGRESS', meta={'step': 'Extracting frames', 'progress': 30})
             print("🖼️  Starting frame extraction...")
             
-            # Extract frames from video using simple, evenly spaced selection
             frames = extract_frames(video_path)
             print(f"✅ Extracted {len(frames)} frames")
             
             self.update_state(state='PROGRESS', meta={'step': 'Detecting objects', 'progress': 50})
             print("🔍 Starting object detection...")
             
-            # Detect books in frames using YOLO (with debug output)
             book_detections = detect_books_in_frames(frames, debug_dir=str(debug_dir))
             print(f"✅ Object detection completed: {len(book_detections)} frame detections")
             
             self.update_state(state='PROGRESS', meta={'step': 'Extracting text', 'progress': 70})
             print("📝 Starting text extraction...")
             
-            # Prioritize forward-facing book detections before OCR
             prioritized_detections = prioritize_forward_facing_detections(book_detections, max_total=12)
             
-            # Extract text from prioritized detections (with debug output)
             book_texts = extract_text_from_detections(frames, prioritized_detections, debug_dir=str(debug_dir))
             print(f"✅ Text extraction completed: {len(book_texts)} texts found")
-            print(f"📋 Extracted texts: {book_texts[:5]}")  # Show first 5 texts
+            print(f"📋 Extracted texts: {book_texts[:5]}")
             
             self.update_state(state='PROGRESS', meta={'step': 'Finding book details', 'progress': 85})
             print("📚 Starting book search...")
             
-            # Search for books using extracted text
             books = search_books_from_text(book_texts)
             print(f"✅ Book search completed: {len(books)} books found")
             
@@ -122,7 +114,6 @@ def process_tiktok_video(self, tiktok_url: str):
             return result
             
         finally:
-            # Cleanup temporary files
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
                 
@@ -132,15 +123,14 @@ def process_tiktok_video(self, tiktok_url: str):
             'error': str(e)
         }
 
-def download_tiktok_video(url: str, output_dir: str) -> str:
-    """Download TikTok video using yt-dlp"""
+def download_video(url: str, output_dir: str) -> str:
+    """Download video using yt-dlp (supports TikTok, Instagram, etc.)"""
     print(f"⬇️  Starting download of: {url}")
     print(f"📂 Output directory: {output_dir}")
     
     ydl_opts = {
         'outtmpl': os.path.join(output_dir, 'video.%(ext)s'),
-        #'format': 'best[height<=720]',  # Limit quality for faster processing
-        'quiet': False,  # Enable output for debugging
+        'quiet': False,
         'no_warnings': False,
     }
     
@@ -153,13 +143,12 @@ def download_tiktok_video(url: str, output_dir: str) -> str:
         print(f"❌ yt-dlp download failed: {e}")
         raise
     
-    # Find the downloaded video file
     print("🔍 Looking for downloaded video file...")
     files = os.listdir(output_dir)
     print(f"📋 Files in directory: {files}")
     
     for file in files:
-        if file.startswith('video.') and file.endswith(('.mp4', '.webm', '.mkv')):
+        if file.startswith('video.') and file.endswith(('.mp4', '.webm', '.mkv', '.mov')): # Added .mov
             video_path = os.path.join(output_dir, file)
             print(f"✅ Found video: {video_path}")
             return video_path
