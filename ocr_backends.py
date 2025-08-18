@@ -214,8 +214,7 @@ class PaddleOCRBackend(OCRBackend):
             # This will also trigger model downloads on first run, which may be slow
             self.ocr = PaddleOCR(
                 use_angle_cls=True, 
-                lang='en',
-                use_gpu=False
+                lang='en'
             )
             self.available = True
             print(f"✅ {self.name} initialized successfully (CPU mode)")
