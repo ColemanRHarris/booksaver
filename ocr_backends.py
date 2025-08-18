@@ -235,7 +235,7 @@ class PaddleOCRBackend(OCRBackend):
                 warnings.simplefilter("ignore")
                 
                 # PaddleOCR works with BGR images (OpenCV format)
-                result = self.ocr.ocr(image, cls=True)
+                result = self.ocr.ocr(image)
                 
                 if not result or not result[0]:
                     return "", 0.0
