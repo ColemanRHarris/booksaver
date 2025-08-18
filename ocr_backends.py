@@ -211,8 +211,7 @@ class PaddleOCRBackend(OCRBackend):
             # Initialize with conservative settings to avoid conflicts
             self.ocr = PaddleOCR(
                 use_angle_cls=True, 
-                lang='en',
-                show_log=False  # Try to suppress logs
+                lang='en'
             )
             self.available = True
             print(f"✅ {self.name} initialized successfully (CPU mode)")
