@@ -205,11 +205,13 @@ class PaddleOCRBackend(OCRBackend):
             # Import and initialize PaddleOCR with minimal config
             from paddleocr import PaddleOCR
             
+            # Force CPU to avoid GPU conflicts
+            paddle.set_device('cpu')
+            
             # Initialize with conservative settings to avoid conflicts
             self.ocr = PaddleOCR(
                 use_angle_cls=True, 
                 lang='en',
-                use_gpu=False,  # Force CPU to avoid GPU conflicts
                 show_log=False  # Try to suppress logs
             )
             self.available = True
