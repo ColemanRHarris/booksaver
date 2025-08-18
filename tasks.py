@@ -77,9 +77,9 @@ def process_tiktok_video(self, tiktok_url: str):
             self.update_state(state='PROGRESS', meta={'step': 'Extracting frames', 'progress': 30})
             print("🖼️  Starting frame extraction...")
             
-            # Extract frames from video using smart detection
-            frames = extract_smart_frames_from_video(video_path, debug_dir=str(debug_dir))
-            print(f"✅ Extracted {len(frames)} smart frames")
+            # Extract frames from video using simple, evenly spaced selection
+            frames = extract_frames(video_path)
+            print(f"✅ Extracted {len(frames)} frames")
             
             self.update_state(state='PROGRESS', meta={'step': 'Detecting objects', 'progress': 50})
             print("🔍 Starting object detection...")
