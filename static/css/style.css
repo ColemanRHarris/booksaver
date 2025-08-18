@@ -60,8 +60,8 @@ main {
 
 .search-options {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3rem;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Adjusted for three columns, responsive */
+    gap: 2rem; /* Reduced gap slightly */
     margin-bottom: 3rem;
 }
 
@@ -91,15 +91,18 @@ main {
     border-radius: 20px 20px 0 0;
     z-index: 1;
 }
-/*
-.book-search::before {
-    background: linear-gradient(90deg, #8B0000 0%, #DC143C 50%, #CD5C5C 100%);
+.instagram-search::before {
+    background: linear-gradient(90deg, #833AB4 0%, #FD1D1D 50%, #FCB045 100%); /* Instagram gradient */
 }
 
 .tiktok-search::before {
     background: linear-gradient(90deg, #FF4500 0%, #FF6347 50%, #FF8C00 100%);
 }
-*/
+
+.book-search::before {
+    background: linear-gradient(90deg, #8B0000 0%, #DC143C 50%, #CD5C5C 100%);
+}
+
 .search-box-header {
     text-align: center;
     margin-bottom: 1.5rem;
@@ -173,6 +176,17 @@ main {
     background: linear-gradient(135deg, #FF6347 0%, #FF4500 50%, #FF7F50 100%);
     transform: translateY(-3px);
     box-shadow: 0 6px 15px rgba(255, 69, 0, 0.4);
+}
+
+.instagram-search-btn {
+    background: linear-gradient(135deg, #833AB4 0%, #FD1D1D 50%, #FCB045 100%);
+    border: 2px solid #833AB4;
+}
+
+.instagram-search-btn:hover {
+    background: linear-gradient(135deg, #FD1D1D 0%, #833AB4 50%, #FCB045 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(131, 58, 180, 0.4);
 }
 
 /* Form styles */
