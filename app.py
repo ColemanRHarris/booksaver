@@ -379,5 +379,10 @@ def tiktok_results(task_id):
     except Exception as e:
         return render_template('index.html', error=f"Failed to retrieve results: {str(e)}")
 
+@app.route('/ads.txt')
+def ads_txt():
+    """Serve ads.txt file for AdSense verification"""
+    return app.send_static_file('ads.txt')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10001, debug=True)
