@@ -56,6 +56,7 @@ def process_video(self, video_url: str, video_type: str):
     print(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
     try:
         # Log available OCR backends to confirm if PaddleOCR is loaded
+        print("ℹ️  Initializing OCR engine to check for available backends...")
         ocr_engine = get_ocr_engine()
         if ocr_engine and ocr_engine.available_backends:
             backend_names = [b.name for b in ocr_engine.available_backends]

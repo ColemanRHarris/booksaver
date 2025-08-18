@@ -197,21 +197,25 @@ class PaddleOCRBackend(OCRBackend):
             except ImportError:
                 raise ImportError("PaddlePaddle not installed. Install with: pip install paddlepaddle")
             
-            # Suppress paddle logging before import
+            # Enable paddle logging to stderr for better debugging
             import os
-            os.environ['FLAGS_logtostderr'] = '0'
+            os.environ['FLAGS_logtostderr'] = '1'
             os.environ['FLAGS_eager_delete_tensor_gb'] = '0'
             
             # Import and initialize PaddleOCR with minimal config
             from paddleocr import PaddleOCR
             
+            print("⏳ Initializing PaddleOCR backend...")
+            
             # Force CPU to avoid GPU conflicts
             paddle.set_device('cpu')
             
-            # Initialize with conservative settings to avoid conflicts
+            # Initialize with conservative settings and explicit CPU mode
+            # This will also trigger model downloads on first run, which may be slow
             self.ocr = PaddleOCR(
                 use_angle_cls=True, 
-                lang='en'
+                lang='en',
+                use_gpu=False
             )
             self.available = True
             print(f"✅ {self.name} initialized successfully (CPU mode)")
