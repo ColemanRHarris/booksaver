@@ -120,23 +120,8 @@ class GoogleBooksClient:
         # Limit max_results to avoid hitting quotas too quickly
         max_results = min(max_results, 3)  # Further reduced
         
-        # Build enhanced query parameters for public API
-        # Add filters to reduce weird results
-        enhanced_query = f"intitle:{query.strip()}"
-        
-        # Add negative filters to exclude common junk
-        exclusions = [
-            "-intitle:summary", "-intitle:study", "-intitle:guide", 
-            "-intitle:manual", "-intitle:handbook", "-intitle:proceedings",
-            "-intitle:journal", "-intitle:report", "-intitle:analysis",
-            "-subject:academic", "-subject:textbook", "-subject:government"
-        ]
-        
-        # Add some exclusions (not too many to avoid over-filtering)
-        enhanced_query += " " + " ".join(exclusions[:6])
-        
         params = {
-            "q": enhanced_query,
+            "q": query.strip(),
             "maxResults": max_results,
             "printType": "books",  # Only books, not magazines
             "orderBy": "relevance",  # Most relevant first
