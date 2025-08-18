@@ -250,8 +250,14 @@ class PaddleOCRBackend(OCRBackend):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 
+                # Ensure image is in BGR format (PaddleOCR expects BGR)
+                if image.ndim == 2:  # Grayscale
+                    image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+                else:
+                    image_bgr = image
+                
                 # PaddleOCR works with BGR images (OpenCV format)
-                result = self.ocr.ocr(image)
+                result = self.ocr.ocr(image_bgr)
                 
                 if not result or not result[0]:
                     return "", 0.0
