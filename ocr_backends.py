@@ -286,16 +286,29 @@ class MultiOCREngine:
         
         # Try to add PaddleOCR if dependencies are available (completely optional)
         try:
-            # Only try if we can import paddle first
+            # Check for paddlepaddle and paddleocr libraries
             import paddle
+            from paddleocr import PaddleOCR # Attempt to import PaddleOCR directly
+
+            # If imports succeed, then try to initialize the backend
             paddle_backend = PaddleOCRBackend("PaddleOCR")
             if paddle_backend.available:
                 self.backends.insert(1, paddle_backend)  # Insert after EasyOCR but before Tesseract
                 print("ℹ️  PaddleOCR successfully added as optional backend")
-        except ImportError:
-            print("ℹ️  PaddleOCR skipped - paddlepaddle not installed (this is optional)")
+            else:
+                # If backend initialized but reported not available (e.g., internal Paddle error)
+                print(f"⚠️  PaddleOCR backend reported not available after initialization.")
+
+        except ImportError as e:
+            # Differentiate between paddle and paddleocr import issues
+            if "paddleocr" in str(e):
+                print("ℹ️  PaddleOCR skipped - 'paddleocr' library not installed (this is optional). Install with: pip install paddleocr")
+            else:
+                print("ℹ️  PaddleOCR skipped - 'paddlepaddle' library not installed (this is optional). Install with: pip install paddlepaddle")
         except Exception as e:
-            print(f"ℹ️  PaddleOCR skipped (optional): {e}")
+            # Catch any other runtime issues during PaddleOCR setup
+            print(f"❌ PaddleOCR initialization encountered an unexpected error and will be skipped: {e}")
+            print(f"   Note: This might be due to a complex environment or resource issue. EasyOCR and Tesseract are still available.")
         
         self.available_backends = [b for b in self.backends if b.available]
         
