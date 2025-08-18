@@ -328,9 +328,15 @@ def extract_text_from_detections(frames: List[np.ndarray], detections: List[List
                 text = pytesseract.image_to_string(rgb_img, config=ocr_config)
                 cleaned_text = clean_ocr_text(text)
                 
+                # Debug: Show all OCR results
+                if text.strip():
+                    print(f"🔤 Raw OCR: '{text.strip()}' -> Cleaned: '{cleaned_text}'")
+                
                 if cleaned_text and len(cleaned_text) > 3 and is_likely_book_title(cleaned_text):
                     texts.append(cleaned_text)
-                    print(f"✅ Extracted text: '{cleaned_text}'")
+                    print(f"✅ Accepted as book title: '{cleaned_text}'")
+                elif cleaned_text:
+                    print(f"❌ Rejected as non-book: '{cleaned_text}'")
                 
             except Exception as e:
                 print(f"❌ OCR error on detection {det_idx}: {e}")
@@ -426,6 +432,26 @@ def is_likely_book_title(text: str) -> bool:
         return False
     
     words = text.split()
+    text_lower = text.lower()
+    
+    # Filter out common non-book words that appear in videos
+    common_junk_words = [
+        'test', 'testing', 'demo', 'sample', 'example',
+        'video', 'tiktok', 'follow', 'like', 'subscribe',
+        'watch', 'view', 'click', 'tap', 'swipe',
+        'music', 'sound', 'audio', 'play', 'pause',
+        'share', 'comment', 'hashtag', 'viral',
+        'live', 'stream', 'online', 'app', 'phone',
+        'screen', 'display', 'menu', 'button', 'link'
+    ]
+    
+    # Reject if the text is just common junk words
+    if text_lower in common_junk_words:
+        return False
+    
+    # Reject if all words are junk words
+    if all(word.lower() in common_junk_words for word in words):
+        return False
     
     # Filter out single-word texts that are too short
     if len(words) == 1:
@@ -434,6 +460,9 @@ def is_likely_book_title(text: str) -> bool:
         # Allow common single-word book titles
         if text.lower() in ['dune', 'emma', 'beloved', 'it', 'gone', 'room']:
             return True
+        # Reject single junk words
+        if text.lower() in common_junk_words:
+            return False
     
     # Filter out obvious non-book text patterns
     non_book_patterns = [
@@ -444,6 +473,9 @@ def is_likely_book_title(text: str) -> bool:
         r'^www\.',  # URLs
         r'@\w+',  # Social media handles
         r'^\$\d+',  # Prices
+        r'^\d+%$',  # Percentages
+        r'^loading',  # Loading text
+        r'^buffering',  # Buffering text
     ]
     
     for pattern in non_book_patterns:
@@ -457,7 +489,6 @@ def is_likely_book_title(text: str) -> bool:
         'book', 'novel', 'story', 'tales',  # Book-related words
     ]
     
-    text_lower = text.lower()
     has_indicator = any(indicator in text_lower for indicator in book_indicators)
     
     # More lenient for texts with book indicators
@@ -465,7 +496,8 @@ def is_likely_book_title(text: str) -> bool:
         return True
     
     # For other texts, require reasonable length and word count
-    if len(words) >= 2 and len(text) >= 6:
+    # But be more strict - require at least 2 words and 8 characters
+    if len(words) >= 2 and len(text) >= 8:
         return True
     
     return False

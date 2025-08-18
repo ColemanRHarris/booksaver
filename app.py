@@ -74,12 +74,12 @@ def health_check():
             }
         }
         
-        # Test Google Books API
-        try:
-            books_client.search_books("test", max_results=1)
-            status['services']['books_api'] = 'connected'
-        except:
-            status['services']['books_api'] = 'limited'
+        # Check if Google Books API key is available (don't make actual request)
+        api_key = os.getenv('GOOGLE_BOOKS_KEY')
+        if api_key:
+            status['services']['books_api'] = 'configured'
+        else:
+            status['services']['books_api'] = 'public_only'
             
         return jsonify(status), 200
     except Exception as e:
@@ -249,6 +249,38 @@ def task_status(task_id):
             'state': 'FAILURE',
             'result': {'error': f'Failed to get task status: {str(e)}'}
         })
+
+@app.route('/cancel-task/<task_id>', methods=['POST'])
+def cancel_task(task_id):
+    """Cancel a running task"""
+    try:
+        redis_url = os.getenv('REDIS_URL')
+        
+        if redis_url:
+            # Production: Revoke Celery task
+            celery_app.control.revoke(task_id, terminate=True)
+            message = f"Task {task_id} has been cancelled"
+        else:
+            # Local development: Remove from in-memory tracking
+            if task_id in task_results:
+                task_results[task_id] = {
+                    'state': 'REVOKED',
+                    'result': {'error': 'Task cancelled by user'}
+                }
+                message = f"Task {task_id} has been cancelled"
+            else:
+                message = f"Task {task_id} not found"
+        
+        return jsonify({
+            'status': 'success',
+            'message': message
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to cancel task: {str(e)}'
+        }), 500
 
 @app.route('/tiktok-results/<task_id>')
 def tiktok_results(task_id):

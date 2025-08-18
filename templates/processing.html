@@ -15,6 +15,9 @@
             <span id="progress-step">Initializing...</span>
             <span id="progress-percent">0%</span>
         </div>
+        <div class="cancel-section">
+            <button id="cancel-btn" class="cancel-btn" onclick="cancelTask()">Cancel Processing</button>
+        </div>
     </div>
     
     <!-- Ad Placement Area 1 - Top Banner -->
@@ -81,10 +84,15 @@ function pollTaskStatus() {
                 // Redirect to results page
                 const tiktokUrl = encodeURIComponent('{{ tiktok_url }}');
                 window.location.href = `/tiktok-results/${taskId}?url=${tiktokUrl}`;
-            } else if (data.state === 'FAILURE') {
+            } else if (data.state === 'FAILURE' || data.state === 'REVOKED') {
                 clearInterval(pollInterval);
-                console.error('Task failed:', data.result);
-                showError(data.result?.error || 'Processing failed');
+                console.error('Task failed or cancelled:', data.result);
+                
+                if (data.state === 'REVOKED') {
+                    showError('Processing was cancelled');
+                } else {
+                    showError(data.result?.error || 'Processing failed');
+                }
             }
         })
         .catch(error => {
@@ -184,6 +192,39 @@ function showError(error) {
     
     errorMessage.textContent = error || 'An unknown error occurred';
     errorSection.style.display = 'block';
+}
+
+function cancelTask() {
+    const cancelBtn = document.getElementById('cancel-btn');
+    
+    // Disable button to prevent multiple clicks
+    cancelBtn.disabled = true;
+    cancelBtn.textContent = 'Cancelling...';
+    
+    fetch(`/cancel-task/${taskId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            clearInterval(pollInterval);
+            showError('Processing cancelled by user');
+        } else {
+            // Re-enable button if cancellation failed
+            cancelBtn.disabled = false;
+            cancelBtn.textContent = 'Cancel Processing';
+            console.error('Cancel failed:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error cancelling task:', error);
+        // Re-enable button if request failed
+        cancelBtn.disabled = false;
+        cancelBtn.textContent = 'Cancel Processing';
+    });
 }
 
 // Start polling when page loads
