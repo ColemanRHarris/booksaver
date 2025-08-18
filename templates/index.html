@@ -4,6 +4,19 @@
 <div class="search-container">
     <h2>Search for Books</h2>
     
+    <!-- AdSense Banner Ad - Top of page -->
+    <div class="ad-container" style="text-align: center; margin: 20px 0;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-4992548313793866"
+             data-ad-slot="1234567890"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
+    
     {% if error %}
     <div class="error">{{ error }}</div>
     {% endif %}
@@ -96,6 +109,19 @@
             </div>
         </div>
         
+    </div>
+    
+    <!-- AdSense Banner Ad - Bottom of page -->
+    <div class="ad-container" style="text-align: center; margin: 30px 0;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-4992548313793866"
+             data-ad-slot="0987654321"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
     </div>
 </div>
 {% endblock %}

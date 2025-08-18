@@ -16,6 +16,19 @@
     <div class="error">{{ error }}</div>
     {% endif %}
     
+    <!-- AdSense Banner Ad - Top of results -->
+    <div class="ad-container" style="text-align: center; margin: 20px 0;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-4992548313793866"
+             data-ad-slot="1357924680"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
+    
     {% if books %}
     <div class="books-grid">
         {% for book in books %}
@@ -132,6 +145,19 @@
             </div>
         </div>
         {% endfor %}
+    </div>
+    
+    <!-- AdSense Banner Ad - After results -->
+    <div class="ad-container" style="text-align: center; margin: 30px 0;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-4992548313793866"
+             data-ad-slot="2468135790"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
     </div>
     {% else %}
     <div class="no-results">
