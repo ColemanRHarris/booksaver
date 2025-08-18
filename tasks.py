@@ -20,7 +20,6 @@ from ocr_backends import get_ocr_engine
 from fuzzy_search import create_fuzzy_searcher
 from book_filters import create_book_filter, create_trending_detector
 from language_filter import create_language_filter
-from smart_frame_extractor import extract_smart_frames_from_video
 import uuid
 import shutil
 import time
@@ -168,46 +167,40 @@ def download_tiktok_video(url: str, output_dir: str) -> str:
     print("❌ No video file found after download")
     raise Exception("Video download failed - no output file found")
 
-def extract_frames(video_path: str, fps: float = 0.5) -> List[np.ndarray]:
-    """Extract frames from video with smart selection for book detection"""
+def extract_frames(video_path: str, num_frames: int = 30) -> List[np.ndarray]:
+    """Extracts a specified number of frames equally spread throughout the video."""
     cap = cv2.VideoCapture(video_path)
-    frames = []
-    
+    if not cap.isOpened():
+        print(f"❌ Error: Could not open video {video_path}")
+        return []
+
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    video_fps = cap.get(cv2.CAP_PROP_FPS)
-    duration = total_frames / video_fps if video_fps > 0 else 0
     
-    print(f"📹 Video info: {total_frames} frames, {video_fps:.1f} fps, {duration:.1f}s")
+    if total_frames < num_frames:
+        print(f"⚠️ Video has only {total_frames} frames, requesting {num_frames}. Extracting all available frames.")
+        num_frames = total_frames
+        
+    if num_frames == 0: # Avoid division by zero if total_frames is 0
+        cap.release()
+        return []
+
+    # Calculate frame indices to extract evenly
+    # Exclude the very first and last frame to avoid potential black frames or transitions
+    # Use total_frames - 1 to get the last valid frame index
+    frame_indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)
     
-    # Skip first and last 10% of video (often transitions/text overlays)
-    start_frame = int(total_frames * 0.1)
-    end_frame = int(total_frames * 0.9)
-    
-    # Calculate frame interval for desired FPS
-    frame_interval = max(1, int(video_fps / fps))
-    
-    frame_count = 0
     selected_frames = []
     
-    while True:
+    for i, frame_idx in enumerate(frame_indices):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = cap.read()
-        if not ret or frame_count >= end_frame:
-            break
-        
-        # Start collecting after skip period
-        if frame_count >= start_frame and frame_count % frame_interval == 0:
-            # Basic frame quality check
-            if is_good_frame_for_detection(frame):
-                selected_frames.append(frame)
+        if ret:
+            selected_frames.append(frame)
+        else:
+            print(f"⚠️ Could not read frame {frame_idx}")
             
-        frame_count += 1
-        
-        # Limit to 20 frames max for efficiency
-        if len(selected_frames) >= 20:
-            break
-    
     cap.release()
-    print(f"📊 Selected {len(selected_frames)} frames for processing")
+    print(f"📊 Extracted {len(selected_frames)} frames out of {total_frames} total frames.")
     return selected_frames
 
 def is_likely_forward_facing_book(width: float, height: float, aspect_ratio: float, 
@@ -313,32 +306,6 @@ def calculate_forward_facing_score(width: float, height: float, aspect_ratio: fl
     
     return (aspect_score * 0.3 + size_score * 0.25 + 
            position_score * 0.25 + confidence_score * 0.2)
-
-def is_good_frame_for_detection(frame: np.ndarray) -> bool:
-    """Check if frame is suitable for book detection"""
-    if frame is None or frame.size == 0:
-        return False
-    
-    # Convert to grayscale for analysis
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    
-    # Check if frame is too dark or too bright
-    mean_brightness = np.mean(gray)
-    if mean_brightness < 30 or mean_brightness > 220:
-        return False
-    
-    # Check for motion blur (low variance indicates blur)
-    laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
-    if laplacian_var < 100:  # Too blurry
-        return False
-    
-    # Check for sufficient detail/edges (books usually have text/edges)
-    edges = cv2.Canny(gray, 50, 150)
-    edge_density = np.sum(edges > 0) / edges.size
-    if edge_density < 0.02:  # Too few edges
-        return False
-    
-    return True
 
 def detect_books_in_frames(frames: List[np.ndarray], debug_dir: str = None) -> List[List[Dict]]:
     """Detect objects (potentially books) in frames using YOLO"""
