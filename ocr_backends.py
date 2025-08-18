@@ -245,13 +245,21 @@ class PaddleOCRBackend(OCRBackend):
                 confidences = []
                 
                 for line in result[0]:
-                    if len(line) >= 2:
-                        text = line[1][0].strip()
-                        confidence = line[1][1]
-                        
-                        if confidence > 0.3 and len(text) > 1:
-                            texts.append(text)
-                            confidences.append(confidence)
+                    # Ensure the structure of the detection is as expected: [bbox_coords, (text_str, confidence_float)]
+                    if isinstance(line, list) and len(line) >= 2:
+                        text_conf_data = line[1]
+                        # Ensure the second element is a tuple/list containing (text, confidence)
+                        if isinstance(text_conf_data, (tuple, list)) and len(text_conf_data) >= 2:
+                            text = text_conf_data[0] # Get the text string
+                            confidence = text_conf_data[1] # Get the confidence float
+                            
+                            # Clean and validate text/confidence before appending
+                            if isinstance(text, str) and isinstance(confidence, (float, int)):
+                                text = text.strip()
+                                # Filter based on confidence and length of the extracted text
+                                if confidence > 0.3 and len(text) > 1:
+                                    texts.append(text)
+                                    confidences.append(confidence)
                 
                 if not texts:
                     return "", 0.0
