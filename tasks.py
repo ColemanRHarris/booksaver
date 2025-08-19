@@ -55,7 +55,7 @@ try:
 except Exception as e:
     print(f"Warning: OpenCV import issue: {e}")
     try:
-        import cv2  # Try again
+ import cv2  # Try again
         # Add monkey patch for safety
         if not hasattr(cv2, 'setNumThreads'):
             def dummy_setNumThreads(num_threads):
@@ -356,7 +356,7 @@ def is_likely_forward_facing_book(width: float, height: float, aspect_ratio: flo
         position_score = 0.6
     
     # Confidence scoring
-    if class_name == 'book':
+ == 'book':
         if confidence > 0.7:
             confidence_score = 1.0
         elif confidence > 0.5:
@@ -443,14 +443,14 @@ def detect_books_in_frames(frames: List[np.ndarray], debug_dir: str = None) -> L
         for result in [results] if isinstance(results, list) else [results]:
             boxes = result.boxes
             if boxes is not None:
-                for box_idx, box):
+                for box_idx, box in enumerate(boxes):
                     # Get confidence and class
                     confidence = float(box.conf[0])
                     class_id = int(box.cls[0])
                     class_name = model.names[class_id]
                     
                     # We're looking for book-like objects
-                    # YOLO classes that might contain books or be books themselves
+                    # YO classes that might contain books or be books themselves
                     book_related_classes = ['book', 'person', 'laptop', 'cell phone', 'tv', 'dining table', 'bed']
                     
                     # Be more selective about confidence thresholds
@@ -651,8 +651,7 @@ def clean_ocr_text(text: str) -> str:
     # Remove special characters but keep spaces, hyphens, and apostrophes
     text = re.sub(r'[^\w\s\-\']', ' ', text)
     
-    # Normalize whitespace
-    text = re.sub(r'\s+', ' ', text)
+    # Normalize whitespace    text = re.sub(r'\s+', ' ', text)
     text = text.strip()
     
     # Remove standalone single characters except 'A' and 'I'
