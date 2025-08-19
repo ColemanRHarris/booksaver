@@ -1,4 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import os
 import threading
@@ -6,25 +9,47 @@ import uuid
 import time
 import logging
 from logging.config import dictConfig
+from urllib.parse import urlparse
+import html
+import re
 from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
 from celery_app import celery_app
 from tasks import process_video
 
 load_dotenv()
 
-# Configure logging
+# Configure logging based on environment
+log_level = 'INFO' if os.getenv('FLASK_ENV') == 'production' else 'DEBUG'
+
+class SSLErrorFilter(logging.Filter):
+    """Filter out SSL handshake errors on HTTP server"""
+    def filter(self, record):
+        message = record.getMessage()
+        # Filter out SSL/TLS handshake errors - all variations
+        ssl_error_patterns = [
+            'Bad HTTP/0.9 request type',
+            'Bad request version',
+            '\\x16\\x03\\x01',  # TLS handshake
+            'code 400, message Bad'
+        ]
+        return not any(pattern in message for pattern in ssl_error_patterns)
+
 dictConfig({
     'version': 1,
     'formatters': {'default': {
         'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
     }},
+    'filters': {'ssl_filter': {
+        '()': SSLErrorFilter,
+    }},
     'handlers': {'wsgi': {
         'class': 'logging.StreamHandler',
         'stream': 'ext://flask.logging.wsgi_errors_stream',
-        'formatter': 'default'
+        'formatter': 'default',
+        'filters': ['ssl_filter']
     }},
     'root': {
-        'level': 'INFO',
+        'level': log_level,
         'handlers': ['wsgi']
     }
 })
@@ -33,10 +58,137 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 logger = logging.getLogger(__name__)
 
+# Initialize CSRF protection
+csrf = CSRFProtect(app)
+
+# Configure CSRF for development
+if os.getenv('FLASK_ENV') != 'production':
+    app.config['WTF_CSRF_TIME_LIMIT'] = None  # No time limit in development
+    app.config['WTF_CSRF_SSL_STRICT'] = False  # Allow HTTP in development
+
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["100 per hour", "20 per minute"],
+    storage_uri=os.getenv('REDIS_URL', 'memory://'),
+    strategy="fixed-window"
+)
+
+# Security headers middleware
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    
+    # Content Security Policy - allowing local development
+    if os.getenv('FLASK_ENV') == 'production':
+        # Production CSP - more restrictive
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "img-src 'self' data: https://pagead2.googlesyndication.com https://tpc.googlesyndication.com",
+            "font-src 'self' https://fonts.gstatic.com",
+            "connect-src 'self' https://pagead2.googlesyndication.com",
+            "frame-src https://googleads.g.doubleclick.net",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'"
+        ]
+        if request.is_secure:
+            csp_directives.append("upgrade-insecure-requests")
+    else:
+        # Development CSP - more permissive for local development
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: https:",
+            "font-src 'self'",
+            "connect-src 'self'",
+            "frame-src 'none'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'"
+        ]
+    
+    csp_policy = "; ".join(csp_directives)
+    response.headers['Content-Security-Policy'] = csp_policy
+    
+    # Only add HSTS in production over HTTPS
+    if os.getenv('FLASK_ENV') == 'production' and request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    
+    return response
+
 books_client = GoogleBooksClient()
 
 # Simple in-memory task tracking
 task_results = {}
+
+def validate_url(url: str, allowed_domains: list) -> bool:
+    """Validate URL format and check if domain is allowed"""
+    try:
+        parsed = urlparse(url.lower().strip())
+        
+        # Check if URL has proper scheme and netloc
+        if not parsed.scheme or not parsed.netloc:
+            return False
+        
+        # Only allow HTTP/HTTPS
+        if parsed.scheme not in ['http', 'https']:
+            return False
+        
+        # Check if domain is in allowed list
+        domain = parsed.netloc
+        # Remove 'www.' prefix for comparison
+        if domain.startswith('www.'):
+            domain = domain[4:]
+        
+        return any(allowed_domain in domain for allowed_domain in allowed_domains)
+    
+    except Exception:
+        return False
+
+def sanitize_input(input_str: str, max_length: int = 500) -> str:
+    """Sanitize user input to prevent XSS and limit length"""
+    if not input_str:
+        return ""
+    
+    # Limit length
+    input_str = input_str[:max_length]
+    
+    # Strip whitespace
+    input_str = input_str.strip()
+    
+    # HTML escape to prevent XSS
+    input_str = html.escape(input_str, quote=True)
+    
+    # Remove or replace potentially dangerous characters
+    # Allow only alphanumeric, spaces, hyphens, periods, colons, slashes, underscores, and question marks
+    input_str = re.sub(r'[^\w\s\-\.\:\/\?#&=]', '', input_str)
+    
+    return input_str
+
+def validate_search_query(query: str) -> str:
+    """Validate and sanitize book search query"""
+    if not query:
+        return ""
+    
+    # More permissive sanitization for search queries
+    query = query.strip()[:200]  # Limit to 200 chars
+    
+    # HTML escape but allow more characters for book titles
+    query = html.escape(query, quote=True)
+    
+    # Allow letters, numbers, spaces, common punctuation
+    query = re.sub(r'[^\w\s\-\.\,\:\!\?\&\'\"]', '', query)
+    
+    return query
 
 def process_video_background(task_id: str, video_url: str, video_type: str):
     """Process video (TikTok/Reel) in background thread for local development"""
@@ -65,10 +217,11 @@ def process_video_background(task_id: str, video_url: str, video_type: str):
         }
         
     except Exception as e:
-        logger.error(f"Error processing video in background: {str(e)}")
+        # Log detailed error server-side but show generic message to user
+        logger.error(f"Error processing video in background: {str(e)}", exc_info=True)
         task_results[task_id] = {
             'state': 'FAILURE',
-            'result': {'error': str(e)}
+            'result': {'error': 'Video processing failed. Please try again with a different video.'}
         }
 
 @app.route('/')
@@ -100,18 +253,22 @@ def health_check():
             
         return jsonify(status), 200
     except Exception as e:
+        # Log detailed error but return generic message
+        logger.error(f"Health check failed: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'unhealthy',
-            'error': str(e),
+            'error': 'Service temporarily unavailable',
             'timestamp': time.time()
         }), 500
 
 @app.route('/search', methods=['POST'])
+@limiter.limit("10 per minute")
 def search():
-    query = request.form.get('query', '').strip()
+    raw_query = request.form.get('query', '')
+    query = validate_search_query(raw_query)
     
     if not query:
-        return render_template('index.html', error="Please enter a book title or ISBN")
+        return render_template('index.html', error="Please enter a valid book title or ISBN")
     
     try:
         books = books_client.search_books(query)
@@ -129,19 +286,26 @@ def search():
         return render_template('results.html', books=books, query=query)
         
     except ValueError as e:
-        return render_template('index.html', error=f"Configuration error: {str(e)}")
+        # Log detailed error but show generic message
+        logger.error(f"Configuration error during search: {str(e)}", exc_info=True)
+        return render_template('index.html', error="Service configuration issue. Please try again later.")
     except Exception as e:
+        # Log detailed error but show generic message  
+        logger.error(f"Unexpected error during search: {str(e)}", exc_info=True)
         return render_template('index.html', error="Something went wrong. Please try again later.")
 
 @app.route('/process-tiktok', methods=['POST'])
+@limiter.limit("5 per hour")  # More restrictive for video processing
 def process_tiktok():
-    tiktok_url = request.form.get('tiktok_url', '').strip()
+    raw_url = request.form.get('tiktok_url', '')
+    tiktok_url = sanitize_input(raw_url, max_length=500)
     
     if not tiktok_url:
         return render_template('index.html', error="Please enter a TikTok URL")
     
-    # Basic URL validation
-    if 'tiktok.com' not in tiktok_url:
+    # Proper URL validation
+    allowed_domains = ['tiktok.com', 'vm.tiktok.com']
+    if not validate_url(tiktok_url, allowed_domains):
         return render_template('index.html', error="Please enter a valid TikTok URL")
     
     try:
@@ -171,18 +335,28 @@ def process_tiktok():
         return redirect(url_for('processing_wait', task_id=task_id, url=tiktok_url, type='tiktok'))
         
     except Exception as e:
-        logger.error(f"Failed to start TikTok processing: {str(e)}")
-        return render_template('index.html', error=f"Failed to start processing: {str(e)}")
+        # Log detailed error but show generic message
+        logger.error(f"Failed to start TikTok processing: {str(e)}", exc_info=True)
+        return render_template('index.html', error="Failed to start video processing. Please try again.")
 
 @app.route('/process-instagram-reel', methods=['POST'])
+@limiter.limit("5 per hour")  # More restrictive for video processing
 def process_instagram_reel():
-    reel_url = request.form.get('reel_url', '').strip()
+    raw_url = request.form.get('reel_url', '')
+    reel_url = sanitize_input(raw_url, max_length=500)
     
     if not reel_url:
         return render_template('index.html', error="Please enter an Instagram Reel URL")
     
-    if 'instagram.com/reel/' not in reel_url and 'instagr.am/reel/' not in reel_url:
+    # Proper URL validation with path checking for reels
+    allowed_domains = ['instagram.com', 'instagr.am']
+    if not validate_url(reel_url, allowed_domains):
         return render_template('index.html', error="Please enter a valid Instagram Reel URL")
+    
+    # Additional check for reel path
+    parsed = urlparse(reel_url.lower())
+    if '/reel/' not in parsed.path:
+        return render_template('index.html', error="Please enter a valid Instagram Reel URL (must contain /reel/)")
     
     try:
         redis_url = os.getenv('REDIS_URL')
@@ -209,7 +383,9 @@ def process_instagram_reel():
         return redirect(url_for('processing_wait', task_id=task_id, url=reel_url, type='instagram'))
         
     except Exception as e:
-        return render_template('index.html', error=f"Failed to start processing: {str(e)}")
+        # Log detailed error but show generic message
+        logger.error(f"Failed to start Instagram processing: {str(e)}", exc_info=True)
+        return render_template('index.html', error="Failed to start video processing. Please try again.")
 
 @app.route('/processing/<task_id>')
 def processing_wait(task_id):
@@ -219,6 +395,7 @@ def processing_wait(task_id):
     return render_template('processing.html', task_id=task_id, video_url=video_url, video_type=video_type)
 
 @app.route('/task-status/<task_id>')
+@limiter.limit("30 per minute")  # Allow frequent polling for status
 def task_status(task_id):
     """Get the status of a background task"""
     try:
@@ -296,12 +473,15 @@ def task_status(task_id):
         return jsonify(response)
         
     except Exception as e:
+        # Log detailed error but show generic message
+        logger.error(f"Failed to get task status: {str(e)}", exc_info=True)
         return jsonify({
             'state': 'FAILURE',
-            'result': {'error': f'Failed to get task status: {str(e)}'}
+            'result': {'error': 'Unable to get processing status. Please refresh the page.'}
         })
 
 @app.route('/cancel-task/<task_id>', methods=['POST'])
+@limiter.limit("10 per minute")
 def cancel_task(task_id):
     """Cancel a running task"""
     try:
@@ -326,9 +506,11 @@ def cancel_task(task_id):
         })
         
     except Exception as e:
+        # Log detailed error but show generic message
+        logger.error(f"Failed to cancel task {task_id}: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'error',
-            'message': f'Failed to cancel task: {str(e)}'
+            'message': 'Unable to cancel task. Please try refreshing the page.'
         }), 500
 
 @app.route('/tiktok-results/<task_id>')
@@ -377,7 +559,9 @@ def tiktok_results(task_id):
                 return render_template('index.html', 
                                      error="Processing failed or is still in progress.")
     except Exception as e:
-        return render_template('index.html', error=f"Failed to retrieve results: {str(e)}")
+        # Log detailed error but show generic message
+        logger.error(f"Failed to retrieve results for task {task_id}: {str(e)}", exc_info=True)
+        return render_template('index.html', error="Unable to retrieve results. Please try processing the video again.")
 
 @app.route('/ads.txt')
 def ads_txt():

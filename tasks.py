@@ -11,6 +11,8 @@ os.environ['NUMEXPR_NUM_THREADS'] = '1'
 import tempfile
 import yt_dlp
 import pytesseract
+import signal
+import threading
 
 # Handle OpenCV import conflicts and threading issues
 try:
@@ -35,9 +37,108 @@ import time
 from typing import List, Dict, Any
 import numpy as np
 from pathlib import Path
+import os.path
+import logging
+
+# Set up logging based on environment
+def get_logger(name: str):
+    """Get logger with production-appropriate level"""
+    logger = logging.getLogger(name)
+    if not logger.handlers:  # Only add handler if none exists
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        
+        # Set log level based on environment
+        log_level = logging.INFO if os.getenv('FLASK_ENV') == 'production' else logging.DEBUG
+        logger.setLevel(log_level)
+    
+    return logger
+
+logger = get_logger(__name__)
 
 # Initialize YOLO model (will download on first use)
 model = None
+
+# File processing limits
+MAX_VIDEO_SIZE_MB = 100  # 100MB max video size
+MAX_TEMP_DIR_LIFETIME = 3600  # 1 hour in seconds
+MAX_PROCESSING_TIME = 600  # 10 minutes timeout
+
+class ProcessingTimeoutError(Exception):
+    """Raised when processing takes too long"""
+    pass
+
+def timeout_handler(signum, frame):
+    """Signal handler for processing timeout"""
+    raise ProcessingTimeoutError("Video processing timed out")
+
+def cleanup_temp_directory(temp_dir: str, delay: int = MAX_TEMP_DIR_LIFETIME):
+    """Schedule temp directory cleanup after delay"""
+    def cleanup():
+        try:
+            time.sleep(delay)
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+                logger.info(f"🧹 Cleaned up temp directory: {temp_dir}")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to cleanup temp directory {temp_dir}: {e}")
+    
+    cleanup_thread = threading.Thread(target=cleanup, daemon=True)
+    cleanup_thread.start()
+
+def check_file_size(file_path: str, max_size_mb: int = MAX_VIDEO_SIZE_MB) -> bool:
+    """Check if file size is within limits"""
+    try:
+        # Resolve path to prevent path traversal
+        resolved_path = Path(file_path).resolve()
+        
+        # Additional security check: ensure file is in expected location
+        if not str(resolved_path).startswith(tempfile.gettempdir()):
+            print(f"❌ File not in allowed location: {resolved_path}")
+            return False
+        
+        file_size = resolved_path.stat().st_size
+        file_size_mb = file_size / (1024 * 1024)
+        
+        if file_size_mb > max_size_mb:
+            logger.warning(f"❌ File too large: {file_size_mb:.1f}MB (max: {max_size_mb}MB)")
+            return False
+        
+        logger.debug(f"✅ File size OK: {file_size_mb:.1f}MB")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Error checking file size: {e}")
+        return False
+
+def safe_join_path(base_dir: str, filename: str) -> str:
+    """Safely join paths to prevent directory traversal"""
+    try:
+        # Normalize the filename to remove any path traversal attempts
+        clean_filename = os.path.basename(filename)
+        
+        # Remove any remaining path separators
+        clean_filename = clean_filename.replace('/', '').replace('\\', '')
+        
+        # Ensure filename is not empty and doesn't start with dots
+        if not clean_filename or clean_filename.startswith('.'):
+            raise ValueError("Invalid filename")
+        
+        # Join with base directory and resolve
+        full_path = Path(base_dir) / clean_filename
+        resolved_path = full_path.resolve()
+        
+        # Ensure the resolved path is still within the base directory
+        base_resolved = Path(base_dir).resolve()
+        if not str(resolved_path).startswith(str(base_resolved)):
+            raise ValueError("Path traversal detected")
+        
+        return str(resolved_path)
+    
+    except Exception as e:
+        logger.error(f"❌ Path join error: {e}")
+        raise ValueError("Invalid file path")
 
 def get_yolo_model():
     """Get YOLO model, initializing if needed"""
@@ -64,7 +165,12 @@ def process_video(self, video_url: str, video_type: str):
     """
     Celery task to process a video (TikTok, Instagram Reel) and extract books.
     """
-    print(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
+    logger.info(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
+    
+    # Set up processing timeout
+    original_handler = signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(MAX_PROCESSING_TIME)
+    
     try:
         # Log available OCR backends to confirm if PaddleOCR is loaded
         print("ℹ️  Initializing OCR engine to check for available backends...")
@@ -83,12 +189,20 @@ def process_video(self, video_url: str, video_type: str):
         
         temp_dir_prefix = f"{video_type}_{uuid.uuid4().hex}_"
         temp_dir = tempfile.mkdtemp(prefix=temp_dir_prefix)
-        print(f"📁 Created temp directory: {temp_dir}")
+        logger.debug(f"📁 Created temp directory: {temp_dir}")
+        
+        # Schedule cleanup of temp directory
+        cleanup_temp_directory(temp_dir)
+        
         video_path = None
         
         try:
             video_path = download_video(video_url, temp_dir)
-            print(f"✅ Video downloaded successfully: {video_path}")
+            logger.info(f"✅ Video downloaded successfully: {video_path}")
+            
+            # Check file size limits
+            if not check_file_size(video_path):
+                raise Exception(f"Video file exceeds {MAX_VIDEO_SIZE_MB}MB size limit")
             
             debug_dir_name = f"{video_type}_{uuid.uuid4().hex[:8]}"
             debug_dir = Path(os.getcwd()) / "debug_output" / debug_dir_name
@@ -130,29 +244,52 @@ def process_video(self, video_url: str, video_type: str):
                 'total_texts': len(book_texts)
             }
             
-            print(f"🎉 Task completed successfully!")
-            print(f"📊 Final result: {len(books)} books, {len(book_detections)} detections, {len(book_texts)} texts")
-            print(f"📚 Book titles found: {[book.get('title', 'Unknown') for book in books[:3]]}")
+            logger.info(f"🎉 Task completed successfully!")
+            logger.info(f"📊 Final result: {len(books)} books, {len(book_detections)} detections, {len(book_texts)} texts")
+            logger.debug(f"📚 Book titles found: {[book.get('title', 'Unknown') for book in books[:3]]}")
             
             return result
             
         finally:
+            # Immediate cleanup of temp directory
             if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-                
+                try:
+                    shutil.rmtree(temp_dir)
+                    print(f"🧹 Immediate cleanup of temp directory: {temp_dir}")
+                except Exception as cleanup_error:
+                    print(f"⚠️ Failed immediate cleanup: {cleanup_error}")
+                    
+    except ProcessingTimeoutError:
+        return {
+            'status': 'error',
+            'error': 'Video processing timed out. Please try with a shorter video.'
+        }
     except Exception as e:
         return {
             'status': 'error',
             'error': str(e)
         }
+    finally:
+        # Reset alarm and restore original signal handler
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, original_handler)
 
 def download_video(url: str, output_dir: str) -> str:
     """Download video using yt-dlp (supports TikTok, Instagram, etc.)"""
     print(f"⬇️  Starting download of: {url}")
     print(f"📂 Output directory: {output_dir}")
     
+    # Use safe path joining for output template
+    try:
+        safe_output_path = safe_join_path(output_dir, 'video.%(ext)s')
+        base_dir = os.path.dirname(safe_output_path)
+        output_template = os.path.join(base_dir, 'video.%(ext)s')
+    except Exception:
+        # Fallback to secure directory
+        output_template = os.path.join(output_dir, 'video.%(ext)s')
+    
     ydl_opts = {
-        'outtmpl': os.path.join(output_dir, 'video.%(ext)s'),
+        'outtmpl': output_template,
         'quiet': False,
         'no_warnings': False,
     }
@@ -167,14 +304,24 @@ def download_video(url: str, output_dir: str) -> str:
         raise
     
     print("🔍 Looking for downloaded video file...")
-    files = os.listdir(output_dir)
-    print(f"📋 Files in directory: {files}")
-    
-    for file in files:
-        if file.startswith('video.') and file.endswith(('.mp4', '.webm', '.mkv', '.mov')): # Added .mov
-            video_path = os.path.join(output_dir, file)
-            print(f"✅ Found video: {video_path}")
-            return video_path
+    try:
+        files = os.listdir(output_dir)
+        print(f"📋 Files in directory: {files}")
+        
+        for file in files:
+            # Validate filename to prevent path traversal
+            if file.startswith('video.') and file.endswith(('.mp4', '.webm', '.mkv', '.mov')):
+                # Use safe path joining
+                try:
+                    video_path = safe_join_path(output_dir, file)
+                    print(f"✅ Found video: {video_path}")
+                    return video_path
+                except ValueError as e:
+                    print(f"⚠️ Skipping potentially unsafe file: {file} ({e})")
+                    continue
+    except Exception as e:
+        print(f"❌ Error listing directory: {e}")
+        raise Exception("Failed to list downloaded files")
     
     print("❌ No video file found after download")
     raise Exception("Video download failed - no output file found")
