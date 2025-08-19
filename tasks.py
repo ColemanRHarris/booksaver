@@ -443,7 +443,7 @@ def detect_books_in_frames(frames: List[np.ndarray], debug_dir: str = None) -> L
         for result in [results] if isinstance(results, list) else [results]:
             boxes = result.boxes
             if boxes is not None:
-                for box_idx, box in enumerate(boxes):
+                for box_idx, box):
                     # Get confidence and class
                     confidence = float(box.conf[0])
                     class_id = int(box.cls[0])
@@ -785,4 +785,13 @@ def preprocess_and_extract_candidates(text: str) -> List[str]:
         r'best ?selling author',
         r'the number one',
         r'a novel',
-        r'b
+        r'b.*'
+    ]
+
+    # Remove noise patterns
+    for pattern in noise_patterns:
+        text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+
+    # Split into lines and strip
+    candidates = [line.strip() for line in text.splitlines() if line.strip()]
+    return candidates
