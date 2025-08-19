@@ -40,19 +40,19 @@
             {% endif %}
             
             <div class="book-info">
-                <h3 class="book-title">{{ book.title }}</h3>
-                <p class="book-authors">by {{ book.authors | join(', ') }}</p>
+                <h3 class="book-title">{{ book.title|e }}</h3>
+                <p class="book-authors">by {{ book.authors | join(', ')|e }}</p>
                 
                 {% if book.published_date %}
-                <p class="book-date">Published: {{ book.published_date }}</p>
+                <p class="book-date">Published: {{ book.published_date|e }}</p>
                 {% endif %}
                 
                 {% if book.isbn %}
-                <p class="book-isbn">ISBN: {{ book.isbn }}</p>
+                <p class="book-isbn">ISBN: {{ book.isbn|e }}</p>
                 {% endif %}
                 
                 {% if book.description %}
-                <p class="book-description">{{ book.description[:150] }}{% if book.description|length > 150 %}...{% endif %}</p>
+                <p class="book-description">{{ book.description[:150]|e }}{% if book.description|length > 150 %}...{% endif %}</p>
                 {% endif %}
                 
                 <div class="book-actions">

@@ -82,6 +82,22 @@ main {
     box-shadow: 0 4px 12px rgba(139, 0, 0, 0.3);
 }
 
+/* Footer styles */
+.footer-links {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+.footer-links a {
+    color: white;
+    text-decoration: none;
+    margin: 0 0.5rem;
+}
+
+.footer-links a:hover {
+    text-decoration: underline;
+}
+
 /* Search container */
 .search-container {
     max-width: 1000px;

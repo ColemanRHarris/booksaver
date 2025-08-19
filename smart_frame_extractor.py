@@ -2,7 +2,22 @@
 Smart frame extraction for TikTok videos to capture each unique book once
 """
 
-import cv2
+# Safe OpenCV import with threading fix
+try:
+    import cv2
+    # Fix common OpenCV threading issues - safely check for setNumThreads
+    try:
+        if hasattr(cv2, 'setNumThreads'):
+            cv2.setNumThreads(0)  # Prevent threading issues with multiprocessing
+    except AttributeError:
+        # setNumThreads not available in this OpenCV version, skip it
+        pass
+    except Exception as cv2_thread_error:
+        print(f"Warning: Could not set OpenCV thread count in smart frame extractor: {cv2_thread_error}")
+except Exception as e:
+    print(f"Error: Failed to import OpenCV in smart_frame_extractor: {e}")
+    raise
+
 import numpy as np
 from typing import List, Dict, Tuple, Optional
 from pathlib import Path

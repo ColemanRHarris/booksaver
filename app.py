@@ -1,11 +1,26 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 import os
 import threading
 import uuid
 import time
 import logging
+import re
 from logging.config import dictConfig
+
+# Patch OpenCV before any imports that might use ultralytics
+try:
+    import cv2
+    if not hasattr(cv2, 'setNumThreads'):
+        def dummy_setNumThreads(num_threads):
+            pass
+        cv2.setNumThreads = dummy_setNumThreads
+except Exception:
+    pass
+
 from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
 from celery_app import celery_app
 from tasks import process_video
@@ -13,6 +28,7 @@ from tasks import process_video
 load_dotenv()
 
 # Configure logging
+logger = logging.getLogger(__name__)
 dictConfig({
     'version': 1,
     'formatters': {'default': {
@@ -30,13 +46,108 @@ dictConfig({
 })
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-logger = logging.getLogger(__name__)
+
+# Secure secret key handling
+secret_key = os.getenv('SECRET_KEY')
+if not secret_key:
+    if os.getenv('FLASK_ENV') == 'production':
+        raise ValueError("SECRET_KEY environment variable must be set in production!")
+    else:
+        secret_key = 'dev-secret-key-change-in-production'
+        logger.warning("⚠️ Using default secret key - NOT SECURE FOR PRODUCTION!")
+
+app.config['SECRET_KEY'] = secret_key
+
+# Initialize security extensions
+csrf = CSRFProtect(app)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 books_client = GoogleBooksClient()
 
+# Security headers middleware
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses"""
+    # Prevent XSS attacks
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    
+    # Content Security Policy - allow AdSense and Google domains
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://www.googletagservices.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https: http:; "
+        "connect-src 'self' https://www.googleapis.com; "
+        "frame-src https://googleads.g.doubleclick.net; "
+    )
+    response.headers['Content-Security-Policy'] = csp
+    
+    # Referrer policy
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    
+    # Prevent MIME sniffing
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    
+    return response
+
 # Simple in-memory task tracking
 task_results = {}
+
+# Input validation functions
+def validate_url(url: str, platform: str) -> tuple[bool, str]:
+    """Validate and sanitize URL input"""
+    if not url or len(url.strip()) == 0:
+        return False, f"Please enter a {platform} URL"
+    
+    url = url.strip()
+    
+    # Check length limits
+    if len(url) > 2000:
+        return False, "URL is too long"
+    
+    # Basic URL format validation
+    if not url.startswith(('http://', 'https://')):
+        return False, "URL must start with http:// or https://"
+    
+    # Platform-specific validation
+    if platform == 'tiktok':
+        if not re.search(r'tiktok\.com', url, re.IGNORECASE):
+            return False, "Please enter a valid TikTok URL"
+    elif platform == 'instagram':
+        if not re.search(r'instagram\.com/reel/', url, re.IGNORECASE) and not re.search(r'instagr\.am/reel/', url, re.IGNORECASE):
+            return False, "Please enter a valid Instagram Reel URL"
+    
+    return True, url
+
+def validate_search_query(query: str) -> tuple[bool, str]:
+    """Validate and sanitize search query"""
+    if not query or len(query.strip()) == 0:
+        return False, "Please enter a book title or ISBN"
+    
+    query = query.strip()
+    
+    # Check length limits
+    if len(query) < 2:
+        return False, "Search query must be at least 2 characters long"
+    
+    if len(query) > 200:
+        return False, "Search query is too long"
+    
+    # Remove any potentially dangerous characters but keep normal punctuation
+    sanitized = re.sub(r'[<>"\';()&+]', '', query)
+    
+    if len(sanitized) == 0:
+        return False, "Invalid search query"
+    
+    return True, sanitized
 
 def process_video_background(task_id: str, video_url: str, video_type: str):
     """Process video (TikTok/Reel) in background thread for local development"""
@@ -107,11 +218,18 @@ def health_check():
         }), 500
 
 @app.route('/search', methods=['POST'])
+@limiter.limit("10 per minute")
 def search():
-    query = request.form.get('query', '').strip()
+    query = request.form.get('query', '')
     
-    if not query:
-        return render_template('index.html', error="Please enter a book title or ISBN")
+    # Validate and sanitize input
+    is_valid, result = validate_search_query(query)
+    if not is_valid:
+        logger.warning(f"Invalid search query: {query}")
+        return render_template('index.html', error=result)
+    
+    query = result
+    logger.info(f"Book search: {query}")
     
     try:
         books = books_client.search_books(query)
@@ -129,20 +247,31 @@ def search():
         return render_template('results.html', books=books, query=query)
         
     except ValueError as e:
+        logger.error(f"Search configuration error: {str(e)}")
         return render_template('index.html', error=f"Configuration error: {str(e)}")
+    except ConnectionError as e:
+        logger.error(f"Search connection error: {str(e)}")
+        return render_template('index.html', error="Unable to connect to search service. Please try again later.")
+    except TimeoutError as e:
+        logger.error(f"Search timeout: {str(e)}")
+        return render_template('index.html', error="Search request timed out. Please try again.")
     except Exception as e:
+        logger.error(f"Unexpected search error: {str(e)}", exc_info=True)
         return render_template('index.html', error="Something went wrong. Please try again later.")
 
 @app.route('/process-tiktok', methods=['POST'])
+@limiter.limit("5 per minute")
 def process_tiktok():
-    tiktok_url = request.form.get('tiktok_url', '').strip()
+    tiktok_url = request.form.get('tiktok_url', '')
     
-    if not tiktok_url:
-        return render_template('index.html', error="Please enter a TikTok URL")
+    # Validate and sanitize input
+    is_valid, result = validate_url(tiktok_url, 'tiktok')
+    if not is_valid:
+        logger.warning(f"Invalid TikTok URL: {tiktok_url}")
+        return render_template('index.html', error=result)
     
-    # Basic URL validation
-    if 'tiktok.com' not in tiktok_url:
-        return render_template('index.html', error="Please enter a valid TikTok URL")
+    tiktok_url = result
+    logger.info(f"TikTok processing request: {tiktok_url}")
     
     try:
         redis_url = os.getenv('REDIS_URL')
@@ -170,19 +299,26 @@ def process_tiktok():
         
         return redirect(url_for('processing_wait', task_id=task_id, url=tiktok_url, type='tiktok'))
         
+    except ConnectionError as e:
+        logger.error(f"TikTok processing connection error: {str(e)}")
+        return render_template('index.html', error="Unable to connect to video processing service. Please try again later.")
     except Exception as e:
-        logger.error(f"Failed to start TikTok processing: {str(e)}")
-        return render_template('index.html', error=f"Failed to start processing: {str(e)}")
+        logger.error(f"Failed to start TikTok processing: {str(e)}", exc_info=True)
+        return render_template('index.html', error="Failed to start video processing. Please try again later.")
 
 @app.route('/process-instagram-reel', methods=['POST'])
+@limiter.limit("5 per minute")
 def process_instagram_reel():
-    reel_url = request.form.get('reel_url', '').strip()
+    reel_url = request.form.get('reel_url', '')
     
-    if not reel_url:
-        return render_template('index.html', error="Please enter an Instagram Reel URL")
+    # Validate and sanitize input
+    is_valid, result = validate_url(reel_url, 'instagram')
+    if not is_valid:
+        logger.warning(f"Invalid Instagram URL: {reel_url}")
+        return render_template('index.html', error=result)
     
-    if 'instagram.com/reel/' not in reel_url and 'instagr.am/reel/' not in reel_url:
-        return render_template('index.html', error="Please enter a valid Instagram Reel URL")
+    reel_url = result
+    logger.info(f"Instagram processing request: {reel_url}")
     
     try:
         redis_url = os.getenv('REDIS_URL')
@@ -208,8 +344,12 @@ def process_instagram_reel():
         
         return redirect(url_for('processing_wait', task_id=task_id, url=reel_url, type='instagram'))
         
+    except ConnectionError as e:
+        logger.error(f"Instagram processing connection error: {str(e)}")
+        return render_template('index.html', error="Unable to connect to video processing service. Please try again later.")
     except Exception as e:
-        return render_template('index.html', error=f"Failed to start processing: {str(e)}")
+        logger.error(f"Failed to start Instagram processing: {str(e)}", exc_info=True)
+        return render_template('index.html', error="Failed to start video processing. Please try again later.")
 
 @app.route('/processing/<task_id>')
 def processing_wait(task_id):
@@ -394,7 +534,7 @@ def recommendations():
             'preview_link': 'https://books.google.com/books?id=FMLvDwAAQBAJ&printsec=frontcover&dq=tender+is+the+flesh&hl=en&sa=X',
             'purchase_links': {
                 'amazon': 'https://amzn.to/41LP8LR',
-                'audible': 'https://amzn.to/41LP8LR',
+                'audible': 'https://amzn.to/4oMjNmg',
                 'barnes_noble': 'https://www.barnesandnoble.com/s/tender+is+the+flesh',
                 'bookshop': 'https://bookshop.org/books/tender-is-the-flesh/9781982150921',
                 'google_books': 'https://books.google.com/books?id=FMLvDwAAQBAJ'
@@ -411,7 +551,7 @@ def recommendations():
             'preview_link': 'https://books.google.com/books?id=cold-storage-koepp&printsec=frontcover&dq=cold+storage+david+koepp',
             'purchase_links': {
                 'amazon': 'https://amzn.to/46XJ3iU',
-                'audible': 'https://amzn.to/46XJ3iU',
+                'audible': 'https://amzn.to/4mNhuxq',
                 'barnes_noble': 'https://www.barnesandnoble.com/s/cold+storage+david+koepp',
                 'bookshop': 'https://bookshop.org/books/cold-storage/9780062916426',
                 'google_books': 'https://books.google.com/books?q=cold+storage+david+koepp'
@@ -428,7 +568,7 @@ def recommendations():
             'preview_link': 'https://books.google.com/books?id=project-hail-mary&printsec=frontcover&dq=project+hail+mary',
             'purchase_links': {
                 'amazon': 'https://amzn.to/45G6uuK',
-                'audible': 'https://amzn.to/45G6uuK',
+                'audible': 'https://amzn.to/45Gsiqk',
                 'barnes_noble': 'https://www.barnesandnoble.com/s/project+hail+mary',
                 'bookshop': 'https://bookshop.org/books/project-hail-mary/9780593135204',
                 'google_books': 'https://books.google.com/books?q=project+hail+mary+andy+weir'
@@ -445,7 +585,7 @@ def recommendations():
             'preview_link': 'https://books.google.com/books?id=king-sorrow-joe-hill&printsec=frontcover&dq=king+sorrow+joe+hill',
             'purchase_links': {
                 'amazon': 'https://amzn.to/4fGPqtb',
-                'audible': 'https://amzn.to/4fGPqtb',
+                'audible': 'https://amzn.to/3V64Ldj',
                 'barnes_noble': 'https://www.barnesandnoble.com/s/king+sorrow+joe+hill',
                 'bookshop': 'https://bookshop.org/books/king-sorrow/9781803362694',
                 'google_books': 'https://books.google.com/books?q=king+sorrow+joe+hill'
@@ -462,7 +602,7 @@ def recommendations():
             'preview_link': 'https://books.google.com/books?id=9OfWEAAAQBAJ&printsec=frontcover&dq=bury+your+gays+chuck+tingle',
             'purchase_links': {
                 'amazon': 'https://amzn.to/4mJqKm1',
-                'audible': 'https://amzn.to/4mJqKm1',
+                'audible': 'https://amzn.to/4lD09q2',
                 'barnes_noble': 'https://www.barnesandnoble.com/s/bury+your+gays+chuck+tingle',
                 'bookshop': 'https://bookshop.org/books/bury-your-gays/9781803365190',
                 'google_books': 'https://books.google.com/books?id=9OfWEAAAQBAJ'
@@ -478,8 +618,8 @@ def recommendations():
             'thumbnail': 'http://books.google.com/books/content?id=f78yEQAAQBAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api',
             'preview_link': 'https://books.google.com/books?id=f78yEQAAQBAJ&printsec=frontcover&dq=king+of+ashes+s.a.+cosby',
             'purchase_links': {
-                'amazon': 'https://amzn.to/4mJqKm1',
-                'audible': 'https://amzn.to/4mJqKm1',
+                'amazon': 'https://amzn.to/4oVPjhM',
+                'audible': 'https://amzn.to/3UvcNfE',
                 'barnes_noble': 'https://www.barnesandnoble.com/s/king+of+ashes+s.a.+cosby',
                 'bookshop': 'https://bookshop.org/books/king-of-ashes/9781250395023',
                 'google_books': 'https://books.google.com/books?id=f78yEQAAQBAJ'
@@ -489,6 +629,18 @@ def recommendations():
     ]
     
     return render_template('recommendations.html', books=recommended_books)
+
+@app.route('/privacy')
+def privacy():
+    """Privacy Policy page"""
+    from datetime import datetime
+    return render_template('privacy.html', current_date=datetime.now().strftime('%B %d, %Y'))
+
+@app.route('/terms')
+def terms():
+    """Terms of Service page"""
+    from datetime import datetime
+    return render_template('terms.html', current_date=datetime.now().strftime('%B %d, %Y'))
 
 @app.route('/ads.txt')
 def ads_txt():

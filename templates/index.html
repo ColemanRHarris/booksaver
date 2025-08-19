@@ -33,6 +33,7 @@
                 <p>Extract books from TikTok videos</p>
             </div>
             <form method="POST" action="{{ url_for('process_tiktok') }}" class="search-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <div class="form-group">
                     <input type="url" 
                            id="tiktok_url" 
@@ -63,6 +64,7 @@
                 <p>Extract books from Instagram Reels</p>
             </div>
             <form method="POST" action="{{ url_for('process_instagram_reel') }}" class="search-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <div class="form-group">
                     <input type="url" 
                            id="reel_url" 
@@ -93,6 +95,7 @@
                 <p>Find books by title or ISBN</p>
             </div>
             <form method="POST" action="{{ url_for('search') }}" class="search-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <div class="form-group">
                     <input type="text" 
                            id="query" 

@@ -14,12 +14,22 @@ os.environ['NUMEXPR_NUM_THREADS'] = '1'
 # Handle OpenCV import conflicts and threading issues
 try:
     import cv2
-    # Fix common OpenCV threading issues  
-    if hasattr(cv2, 'setNumThreads'):
-        cv2.setNumThreads(0)  # Prevent threading issues with multiprocessing
+    # Fix common OpenCV threading issues - safely check for setNumThreads
+    try:
+        if hasattr(cv2, 'setNumThreads'):
+            cv2.setNumThreads(0)  # Prevent threading issues with multiprocessing
+    except AttributeError:
+        # setNumThreads not available in this OpenCV version, skip it
+        pass
+    except Exception as cv2_thread_error:
+        print(f"Warning: Could not set OpenCV thread count: {cv2_thread_error}")
 except Exception as e:
     print(f"Warning: OpenCV import issue in OCR backends: {e}")
-    import cv2  # Try again
+    try:
+        import cv2  # Try again
+    except Exception as e2:
+        print(f"Error: Failed to import OpenCV: {e2}")
+        raise
 
 import numpy as np
 import pytesseract

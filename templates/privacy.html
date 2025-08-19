@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy - Book Saver{% endblock %}
+
+{% block content %}
+<div class="legal-container">
+    <h1>Privacy Policy</h1>
+    <p><strong>Last updated:</strong> {{ current_date }}</p>
+    
+    <h2>1. Information We Collect</h2>
+    <h3>Information You Provide</h3>
+    <ul>
+        <li>URLs of TikTok videos or Instagram Reels you submit for processing</li>
+        <li>Book search queries you enter</li>
+        <li>Any feedback or communications you send us</li>
+    </ul>
+    
+    <h3>Information Automatically Collected</h3>
+    <ul>
+        <li>IP address and browser information</li>
+        <li>Device type and operating system</li>
+        <li>Pages visited and time spent on our site</li>
+        <li>Referral URLs</li>
+    </ul>
+    
+    <h2>2. How We Use Your Information</h2>
+    <ul>
+        <li>Process video content to identify books</li>
+        <li>Provide search results and book recommendations</li>
+        <li>Improve our service and user experience</li>
+        <li>Analyze usage patterns and site performance</li>
+        <li>Comply with legal obligations</li>
+    </ul>
+    
+    <h2>3. Information Sharing</h2>
+    <p>We do not sell, trade, or rent your personal information. We may share information in these situations:</p>
+    <ul>
+        <li><strong>Service Providers:</strong> Google Books API for book information</li>
+        <li><strong>Legal Requirements:</strong> When required by law or to protect our rights</li>
+        <li><strong>Business Transfers:</strong> In connection with mergers or acquisitions</li>
+    </ul>
+    
+    <h2>4. Cookies and Tracking</h2>
+    <p>We use cookies and similar technologies for:</p>
+    <ul>
+        <li>Site functionality and user preferences</li>
+        <li>Analytics (Google Analytics)</li>
+        <li>Advertising (Google AdSense)</li>
+    </ul>
+    <p>You can control cookie settings in your browser preferences.</p>
+    
+    <h2>5. Third-Party Services</h2>
+    <h3>Google AdSense</h3>
+    <p>We use Google AdSense to display advertisements. Google may use cookies to serve ads based on your visits to our site and other sites. You can opt out of personalized advertising at <a href="https://www.google.com/settings/ads" target="_blank">Google Ad Settings</a>.</p>
+    
+    <h3>Amazon Associates</h3>
+    <p>We participate in the Amazon Services LLC Associates Program. When you click our Amazon links and make purchases, we may earn a commission at no cost to you.</p>
+    
+    <h2>6. Data Security</h2>
+    <p>We implement appropriate security measures to protect your information, including:</p>
+    <ul>
+        <li>Encryption of data in transit</li>
+        <li>Secure server infrastructure</li>
+        <li>Regular security assessments</li>
+        <li>Access controls and monitoring</li>
+    </ul>
+    
+    <h2>7. Data Retention</h2>
+    <p>We retain information only as long as necessary for the purposes outlined in this policy, typically:</p>
+    <ul>
+        <li>Search queries: 30 days</li>
+        <li>Video URLs: Not permanently stored</li>
+        <li>Analytics data: Up to 26 months</li>
+    </ul>
+    
+    <h2>8. Your Rights</h2>
+    <p>Depending on your location, you may have rights to:</p>
+    <ul>
+        <li>Access your personal information</li>
+        <li>Correct inaccurate information</li>
+        <li>Delete your information</li>
+        <li>Object to processing</li>
+        <li>Data portability</li>
+    </ul>
+    
+    <h2>9. Children's Privacy</h2>
+    <p>Our service is not intended for children under 13. We do not knowingly collect personal information from children under 13.</p>
+    
+    <h2>10. International Users</h2>
+    <p>If you are located outside the United States, please note that your information may be transferred to and processed in the United States.</p>
+    
+    <h2>11. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page with an updated date.</p>
+    
+    <h2>12. Contact Us</h2>
+    <p>If you have any questions about this Privacy Policy, please contact us at:</p>
+    <p>Email: privacy@yourdomain.com</p>
+    
+    <div class="back-link">
+        <a href="{{ url_for('index') }}">← Back to Book Saver</a>
+    </div>
+</div>
+
+<style>
+.legal-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    line-height: 1.6;
+}
+
+.legal-container h1 {
+    color: #8B0000;
+    border-bottom: 2px solid #8B0000;
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+}
+
+.legal-container h2 {
+    color: #333;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+.legal-container h3 {
+    color: #555;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.legal-container ul {
+    margin-bottom: 1rem;
+}
+
+.legal-container li {
+    margin-bottom: 0.5rem;
+}
+
+.back-link {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid #ddd;
+}
+
+.back-link a {
+    color: #8B0000;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.back-link a:hover {
+    text-decoration: underline;
+}
+</style>
+{% endblock %}

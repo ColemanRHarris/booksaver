@@ -24,4 +24,6 @@ dependencies = [
     "torchvision<0.20",
     "ultralytics==8.0.200",
     "yt-dlp>=2025.8.11",
+    "flask-wtf>=1.2.2",
+    "flask-limiter>=3.12",
 ]

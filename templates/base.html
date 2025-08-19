@@ -19,12 +19,158 @@
         {% block content %}{% endblock %}
     </main>
     
+    <!-- Cookie Consent Banner -->
+    <div id="cookie-banner" class="cookie-banner" style="display: none;">
+        <div class="cookie-content">
+            <p>
+                🍪 We use cookies to improve your experience and show personalized ads. 
+                By continuing to use our site, you agree to our use of cookies.
+                <a href="{{ url_for('privacy') }}" target="_blank">Learn more</a>
+            </p>
+            <div class="cookie-buttons">
+                <button id="accept-cookies" class="cookie-btn accept">Accept All</button>
+                <button id="reject-cookies" class="cookie-btn reject">Reject Non-Essential</button>
+            </div>
+        </div>
+    </div>
+    
     <footer>
         <p>&copy; 2025 Book Saver // Viscid Labs</p>
+        <div class="footer-links">
+            <a href="{{ url_for('privacy') }}">Privacy Policy</a> |
+            <a href="{{ url_for('terms') }}">Terms of Service</a>
+        </div>
         <p class="disclosure">
             As an Amazon Associate I earn from qualifying purchases. 
             This site uses Google AdSense to display advertisements.
         </p>
     </footer>
+    
+    <!-- Cookie Consent Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const cookieBanner = document.getElementById('cookie-banner');
+            const acceptBtn = document.getElementById('accept-cookies');
+            const rejectBtn = document.getElementById('reject-cookies');
+            
+            // Check if user has already made a choice
+            const cookieConsent = localStorage.getItem('cookieConsent');
+            if (!cookieConsent) {
+                cookieBanner.style.display = 'block';
+            }
+            
+            // Accept all cookies
+            acceptBtn.addEventListener('click', function() {
+                localStorage.setItem('cookieConsent', 'accepted');
+                cookieBanner.style.display = 'none';
+                
+                // Enable analytics and ads
+                if (typeof gtag === 'function') {
+                    gtag('consent', 'update', {
+                        'analytics_storage': 'granted',
+                        'ad_storage': 'granted'
+                    });
+                }
+            });
+            
+            // Reject non-essential cookies
+            rejectBtn.addEventListener('click', function() {
+                localStorage.setItem('cookieConsent', 'rejected');
+                cookieBanner.style.display = 'none';
+                
+                // Disable analytics and ads
+                if (typeof gtag === 'function') {
+                    gtag('consent', 'update', {
+                        'analytics_storage': 'denied',
+                        'ad_storage': 'denied'
+                    });
+                }
+            });
+        });
+    </script>
+    
+    <!-- Cookie Banner Styles -->
+    <style>
+        .cookie-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
+            color: white;
+            padding: 1rem;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            border-top: 3px solid #FF4500;
+        }
+        
+        .cookie-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .cookie-content p {
+            margin: 0;
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .cookie-content a {
+            color: #FFD700;
+            text-decoration: none;
+        }
+        
+        .cookie-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .cookie-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .cookie-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .cookie-btn.accept {
+            background: #28a745;
+            color: white;
+        }
+        
+        .cookie-btn.accept:hover {
+            background: #218838;
+        }
+        
+        .cookie-btn.reject {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .cookie-btn.reject:hover {
+            background: #5a6268;
+        }
+        
+        @media (max-width: 768px) {
+            .cookie-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .cookie-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
 </body>
 </html>

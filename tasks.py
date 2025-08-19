@@ -12,73 +12,112 @@ import tempfile
 import yt_dlp
 import pytesseract
 
-# Handle OpenCV import conflicts and threading issues
-# IMPORTANT: Must patch OpenCV BEFORE ultralytics imports it
+# Simple OpenCV import with minimal threading fixes
 try:
     import cv2
-    # Fix common OpenCV threading issues - safely check for setNumThreads
-    try:
-        if hasattr(cv2, 'setNumThreads'):
-            cv2.setNumThreads(0)  # Prevent threading issues with multiprocessing
-        else:
-            # Monkey patch setNumThreads if it doesn't exist to prevent ultralytics crash
-            def dummy_setNumThreads(num_threads):
-                pass
-            cv2.setNumThreads = dummy_setNumThreads
-    except AttributeError:
-        # Monkey patch setNumThreads if it doesn't exist to prevent ultralytics crash
-        def dummy_setNumThreads(num_threads):
-            pass
-        cv2.setNumThreads = dummy_setNumThreads
-    except Exception as cv2_thread_error:
-        print(f"Warning: Could not set OpenCV thread count: {cv2_thread_error}")
-        # Still add the monkey patch as fallback
-        if not hasattr(cv2, 'setNumThreads'):
-            def dummy_setNumThreads(num_threads):
-                pass
-            cv2.setNumThreads = dummy_setNumThreads
-
-    # Patch missing GUI functions that ultralytics expects
+    # Only set single-threaded mode to prevent semaphore leaks in multiprocessing
+    if hasattr(cv2, 'setNumThreads'):
+        cv2.setNumThreads(1)
+    
+    # Add minimal GUI patches only if functions are missing (for headless installs)
     if not hasattr(cv2, 'imshow'):
         def dummy_imshow(*args, **kwargs):
             pass
         cv2.imshow = dummy_imshow
+        print("⚠️ Added dummy imshow (headless OpenCV detected)")
+    
     if not hasattr(cv2, 'waitKey'):
         def dummy_waitKey(*args, **kwargs):
             return -1
         cv2.waitKey = dummy_waitKey
+        print("⚠️ Added dummy waitKey (headless OpenCV detected)")
+    
     if not hasattr(cv2, 'destroyAllWindows'):
         def dummy_destroyAllWindows(*args, **kwargs):
             pass
         cv2.destroyAllWindows = dummy_destroyAllWindows
+        print("⚠️ Added dummy destroyAllWindows (headless OpenCV detected)")
+    
+    # Add essential constants if missing
+    constants_to_check = {
+        'IMREAD_COLOR': 1,
+        'IMREAD_GRAYSCALE': 0,
+        'IMREAD_UNCHANGED': -1,
+        'CAP_PROP_FRAME_COUNT': 7,
+        'CAP_PROP_FPS': 5,
+        'CAP_PROP_POS_FRAMES': 1,
+        'COLOR_BGR2GRAY': 6,
+        'COLOR_BGR2RGB': 4,
+        'COLOR_GRAY2RGB': 8,
+        'COLOR_BGR2HSV': 40,
+        'COLOR_GRAY2BGR': 8,
+        'CV_64F': 6,
+        'FONT_HERSHEY_SIMPLEX': 0,
+        'BORDER_CONSTANT': 0,
+        'BORDER_REPLICATE': 1,
+    }
+    
+    missing_constants = []
+    for const_name, const_value in constants_to_check.items():
+        if not hasattr(cv2, const_name):
+            setattr(cv2, const_name, const_value)
+            missing_constants.append(const_name)
+    
+    if missing_constants:
+        print(f"⚠️ Added missing OpenCV constants: {', '.join(missing_constants)}")
+    
+    print("✅ OpenCV imported successfully")
+    print(f"📊 OpenCV functions available: imshow={hasattr(cv2, 'imshow')}, waitKey={hasattr(cv2, 'waitKey')}, VideoCapture={hasattr(cv2, 'VideoCapture')}")
+except ImportError as e:
+    print(f"❌ Failed to import OpenCV: {e}")
+    print("Please install opencv-python: pip install opencv-python")
+    raise
 
+# Now safe to import ultralytics since cv2.setNumThreads exists
+print("🚀 Importing ultralytics...")
+try:
+    from ultralytics import YOLO
+    print("✅ Ultralytics imported successfully")
+    # Check if ultralytics modified cv2
+    print(f"📊 After ultralytics - OpenCV functions available: imshow={hasattr(cv2, 'imshow')}, waitKey={hasattr(cv2, 'waitKey')}, VideoCapture={hasattr(cv2, 'VideoCapture')}")
 except Exception as e:
-    print(f"Warning: OpenCV import issue: {e}")
-    try:
- import cv2  # Try again
-        # Add monkey patch for safety
-        if not hasattr(cv2, 'setNumThreads'):
-            def dummy_setNumThreads(num_threads):
-                pass
-            cv2.setNumThreads = dummy_setNumThreads
-        if not hasattr(cv2, 'imshow'):
-            def dummy_imshow(*args, **kwargs):
-                pass
-            cv2.imshow = dummy_imshow
-        if not hasattr(cv2, 'waitKey'):
-            def dummy_waitKey(*args, **kwargs):
-                return -1
-            cv2.waitKey = dummy_waitKey
-        if not hasattr(cv2, 'destroyAllWindows'):
-            def dummy_destroyAllWindows(*args, **kwargs):
-                pass
-            cv2.destroyAllWindows = dummy_destroyAllWindows
-    except Exception as e2:
-        print(f"Error: Failed to import OpenCV: {e2}")
-        raise
-
-# Now safe to import ultralytics since cv2.setNumThreads exists (real or dummy)
-from ultralytics import YOLO
+    print(f"⚠️ Ultralytics import issue: {e}")
+    # Re-patch if needed
+    if not hasattr(cv2, 'imshow'):
+        def dummy_imshow(*args, **kwargs):
+            pass
+        cv2.imshow = dummy_imshow
+        print("🔧 Re-added dummy imshow after ultralytics import")
+    
+    # Re-check constants after ultralytics import
+    constants_to_check = {
+        'IMREAD_COLOR': 1,
+        'IMREAD_GRAYSCALE': 0,
+        'IMREAD_UNCHANGED': -1,
+        'CAP_PROP_FRAME_COUNT': 7,
+        'CAP_PROP_FPS': 5,
+        'CAP_PROP_POS_FRAMES': 1,
+        'COLOR_BGR2GRAY': 6,
+        'COLOR_BGR2RGB': 4,
+        'COLOR_GRAY2RGB': 8,
+        'COLOR_BGR2HSV': 40,
+        'COLOR_GRAY2BGR': 8,
+        'CV_64F': 6,
+        'FONT_HERSHEY_SIMPLEX': 0,
+        'BORDER_CONSTANT': 0,
+        'BORDER_REPLICATE': 1,
+    }
+    
+    missing_constants = []
+    for const_name, const_value in constants_to_check.items():
+        if not hasattr(cv2, const_name):
+            setattr(cv2, const_name, const_value)
+            missing_constants.append(const_name)
+    
+    if missing_constants:
+        print(f"🔧 Re-added missing OpenCV constants after ultralytics: {', '.join(missing_constants)}")
+    
+    raise
 from celery_app import celery_app
 from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
 from ocr_backends import get_ocr_engine
@@ -176,8 +215,26 @@ def process_video(self, video_url: str, video_type: str):
             except Exception as e:
                 print(f"⚠️ Simple frame extraction failed: {e}")
                 print("🔄 Falling back to uniform frame extraction")
-                frames = extract_frames(video_path, num_frames=12)
-                print(f"✅ Fallback: Extracted {len(frames)} uniform frames")
+                try:
+                    frames = extract_frames(video_path, num_frames=12)
+                    print(f"✅ Fallback: Extracted {len(frames)} uniform frames")
+                except Exception as e2:
+                    print(f"❌ All frame extraction methods failed: {e2}")
+                    # Return a graceful error instead of crashing
+                    return {
+                        'status': 'error',
+                        'error': f'Video processing failed: Could not extract frames from video. Original error: {e}. Fallback error: {e2}',
+                        'details': 'Video file may be corrupted or in an unsupported format.'
+                    }
+            
+            # Check if we successfully extracted any frames
+            if not frames or len(frames) == 0:
+                print("❌ No frames were extracted from the video")
+                return {
+                    'status': 'error',
+                    'error': 'No frames could be extracted from the video',
+                    'details': 'Video may be too short, corrupted, or in an unsupported format.'
+                }
             
             self.update_state(state='PROGRESS', meta={'step': 'Detecting objects', 'progress': 50})
             
@@ -263,6 +320,17 @@ def download_video(url: str, output_dir: str) -> str:
 
 def extract_frames(video_path: str, num_frames: int = 30) -> List[np.ndarray]:
     """Extracts a specified number of frames equally spread throughout the video."""
+    # Check if video file exists first
+    if not os.path.exists(video_path):
+        print(f"❌ Error: Video file does not exist: {video_path}")
+        return []
+    
+    # Check if video file is not empty
+    if os.path.getsize(video_path) == 0:
+        print(f"❌ Error: Video file is empty: {video_path}")
+        return []
+    
+    print(f"📹 Opening video file: {video_path} (size: {os.path.getsize(video_path)} bytes)")
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print(f"❌ Error: Could not open video {video_path}")
@@ -356,7 +424,7 @@ def is_likely_forward_facing_book(width: float, height: float, aspect_ratio: flo
         position_score = 0.6
     
     # Confidence scoring
- == 'book':
+    if class_name == 'book':
         if confidence > 0.7:
             confidence_score = 1.0
         elif confidence > 0.5:
@@ -461,19 +529,57 @@ def detect_books_in_frames(frames: List[np.ndarray], debug_dir: str = None) -> L
                         # Get bounding box coordinates
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                         
-                        # Calculate ... (rest of function unchanged)
-                        # ... (omitted for brevity)
-                        # The rest of the function remains unchanged from the original code
-                        # ...
-                        # For brevity, the full implementation is omitted here but should be
-                        # included in the final file content.
-                        pass
-        # ... (rest of function omitted for brevity)
-        # The full implementation should be included in the final file content.
-        pass
-    # ... (rest of function omitted for brevity)
-    # The full implementation should be included in the final file content.
-    return []
+                        # Calculate dimensions and properties
+                        width = x2 - x1
+                        height = y2 - y1
+                        area = width * height
+                        aspect_ratio = width / height if height > 0 else 1.0
+                        
+                        # Calculate relative position (center of detection)
+                        frame_height, frame_width = frame.shape[:2]
+                        center_x = (x1 + x2) / 2
+                        center_y = (y1 + y2) / 2
+                        relative_x = center_x / frame_width
+                        relative_y = center_y / frame_height
+                        
+                        # Calculate forward-facing score
+                        forward_facing_score = calculate_forward_facing_score(
+                            width, height, aspect_ratio, area, relative_x, relative_y, class_name, confidence
+                        )
+                        
+                        # Store detection info
+                        detection = {
+                            'bbox': [int(x1), int(y1), int(width), int(height)],
+                            'confidence': confidence,
+                            'class': class_name,
+                            'class_id': class_id,
+                            'area': area,
+                            'aspect_ratio': aspect_ratio,
+                            'position': {'x': relative_x, 'y': relative_y},
+                            'forward_facing_score': forward_facing_score
+                        }
+                        
+                        frame_detections.append(detection)
+                        
+                        # Draw debug visualization if enabled
+                        if debug_frame is not None:
+                            color = (0, 255, 0) if class_name == 'book' else (255, 0, 0)
+                            cv2.rectangle(debug_frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+                            label = f"{class_name}: {confidence:.2f}, FF: {forward_facing_score:.2f}"
+                            cv2.putText(debug_frame, label, (int(x1), int(y1-10)), 
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        
+        # Save debug frame if requested
+        if debug_dir and debug_frame is not None:
+            debug_frame_path = Path(debug_dir) / "debug_frames" / f"frame_{frame_idx:03d}_detections.jpg"
+            cv2.imwrite(str(debug_frame_path), debug_frame)
+        
+        all_detections.append(frame_detections)
+        print(f"   📋 Frame {frame_idx+1}: {len(frame_detections)} detections")
+    
+    total_detections = sum(len(dets) for dets in all_detections)
+    print(f"✅ Detection completed: {total_detections} total detections across {len(frames)} frames")
+    return all_detections
 
 def enhance_image_for_ocr(image: np.ndarray) -> np.ndarray:
     """Apply optimized image enhancement for better OCR results"""
@@ -651,7 +757,8 @@ def clean_ocr_text(text: str) -> str:
     # Remove special characters but keep spaces, hyphens, and apostrophes
     text = re.sub(r'[^\w\s\-\']', ' ', text)
     
-    # Normalize whitespace    text = re.sub(r'\s+', ' ', text)
+    # Normalize whitespace
+    text = re.sub(r'\s+', ' ', text)
     text = text.strip()
     
     # Remove standalone single characters except 'A' and 'I'
@@ -794,3 +901,90 @@ def preprocess_and_extract_candidates(text: str) -> List[str]:
     # Split into lines and strip
     candidates = [line.strip() for line in text.splitlines() if line.strip()]
     return candidates
+
+def search_books_from_text(book_texts: List[str]) -> List[Dict]:
+    """
+    Search for books using the extracted text from OCR.
+    Takes a list of text strings and returns book information.
+    """
+    if not book_texts:
+        print("⚠️ No book texts provided for search")
+        return []
+    
+    print(f"📚 Searching for {len(book_texts)} book texts...")
+    
+    # Initialize the books client
+    books_client = GoogleBooksClient()
+    
+    found_books = []
+    processed_titles = set()  # Track processed titles to avoid duplicates
+    
+    for i, text in enumerate(book_texts[:10]):  # Limit to first 10 to avoid rate limiting
+        if not text or len(text.strip()) < 3:
+            continue
+            
+        # Clean and normalize the text for search
+        search_query = text.strip()
+        search_query_lower = search_query.lower()
+        
+        # Skip if we've already processed this title (case-insensitive)
+        if search_query_lower in processed_titles:
+            print(f"⏭️ Skipping duplicate text: '{search_query}'")
+            continue
+            
+        processed_titles.add(search_query_lower)
+        
+        print(f"🔍 Search {i+1}: '{search_query}'")
+        
+        try:
+            # Search for books using the text
+            search_results = books_client.search_books(search_query, max_results=3)
+            
+            if search_results:
+                print(f"✅ Found {len(search_results)} results for '{search_query}'")
+                
+                # Add the best result(s) to our findings
+                for book in search_results[:2]:  # Take top 2 results per search
+                    # Add metadata about the search
+                    book['search_query'] = search_query
+                    book['ocr_confidence'] = 'medium'  # Could be enhanced with actual confidence
+                    
+                    # Build purchase links
+                    book['purchase_links'] = build_purchase_links(book)
+                    book['reader_app_links'] = build_reader_app_links(book)
+                    book['amazon_link'] = build_amazon_link(book)
+                    
+                    found_books.append(book)
+                    
+            else:
+                print(f"❌ No results found for '{search_query}'")
+                
+        except Exception as e:
+            print(f"❌ Error searching for '{search_query}': {e}")
+            continue
+    
+    # Remove duplicates based on book ID or title
+    unique_books = []
+    seen_ids = set()
+    seen_titles = set()
+    
+    for book in found_books:
+        book_id = book.get('id', '')
+        title = book.get('title', '').lower().strip()
+        
+        # Skip if we've seen this book ID or very similar title
+        if book_id and book_id in seen_ids:
+            continue
+        if title and title in seen_titles:
+            continue
+            
+        if book_id:
+            seen_ids.add(book_id)
+        if title:
+            seen_titles.add(title)
+            
+        unique_books.append(book)
+    
+    print(f"📚 Final results: {len(unique_books)} unique books found from {len(book_texts)} texts")
+    
+    return unique_books

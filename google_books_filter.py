@@ -36,60 +36,32 @@ class GoogleBooksFilter:
             'reprint', 'reproduction', 'transactions', 'annals', 'chronicle'
         }
         
-        # Red flag titles/descriptions that indicate weird results
+        # Red flag titles/descriptions - MINIMAL filtering for obvious junk only
         self.red_flag_patterns = [
-            # Summaries and study guides (not original books)
-            r'\bsummary\s+of\b', r'\bstudy\s+guide\b', r'\bnotes\s+on\b',
-            r'\banalysis\s+of\b', r'\bcommentary\s+on\b', r'\breview\s+of\b',
-            r'\bcritical\s+analysis\b', r'\bbook\s+review\b', r'\bplot\s+summary\b',
+            # Only block obvious summaries
+            r'\bsummary\s+of\s+.+\bby\b', r'\bplot\s+summary\s+of\b',
             
-            # Academic/Technical
-            r'\btextbook\b', r'\bhandbook\b', r'\bmanual\b', r'\bguide\s+to\b',
-            r'\bintroduction\s+to\b', r'\bfundamentals\s+of\b', r'\bprinciples\s+of\b',
-            r'\bcourse\b', r'\bcurriculum\b', r'\bsyllabus\b', r'\bworkbook\b',
+            # Only block obvious study materials
+            r'\bstudy\s+guide\s+for\b', r'\bworkbook\b',
             
-            # Government/Legal/Official
-            r'\bcode\s+of\b', r'\bact\s+of\b', r'\bregulation\b', r'\bstatute\b',
-            r'\bpublic\s+law\b', r'\bcongressional\b', r'\bfederal\s+register\b',
-            r'\bgovernment\s+printing\b', r'\bofficial\s+records\b',
-            
-            # Weird publication patterns
-            r'\bvolume\s+\d+\b', r'\bpart\s+\d+\b', r'\bissue\s+\d+\b',
-            r'\bnumber\s+\d+\b', r'\bseries\s+\d+\b', r'\bbook\s+\d+\b',
-            r'\breport\s+no\b', r'\bdocument\s+no\b', r'\bpublication\s+no\b',
-            
-            # Historical/Archive materials
-            r'\bfacsimile\b', r'\breprint\b', r'\breproduction\b', r'\bmanuscript\b',
-            r'\bhistorical\s+documents\b', r'\barchive\b', r'\btransactions\b',
-            
-            # Test/Sample/Draft materials
-            r'\btest\s+edition\b', r'\bdraft\b', r'\bsample\b', r'\bexample\b',
-            r'\btemplate\b', r'\bblank\b', r'\bempty\b', r'\bunfinished\b'
+            # Only block obvious government documents
+            r'\bfederal\s+register\b', r'\bcongressional\s+record\b',
+            r'\bpublic\s+law\s+\d+\b', r'\bstatute\s+\d+\b'
         ]
         
-        # Publishers that often have weird/irrelevant results
+        # Publishers that often have weird/irrelevant results - MINIMAL list
         self.problematic_publishers = {
-            # Government publishers
-            'government printing office', 'u.s. government', 'federal government',
-            'state government', 'department of', 'ministry of', 'bureau of',
-            'office of', 'agency of', 'commission of', 'committee of',
+            # Only obvious government/document publishers
+            'government printing office', 'u.s. government printing office',
+            'federal register', 'congressional printing office',
             
-            # Academic presses (unless major)
-            'university microfilms', 'dissertation abstracts', 'proquest',
-            'umi dissertation', 'thesis commons', 'academic press',
-            
-            # Test/Sample publishers
-            'test publisher', 'sample publisher', 'example publisher',
-            'demo publisher', 'template publisher', 'placeholder',
-            
-            # Very obscure/specialized
-            'rare books', 'manuscript society', 'archive press',
-            'historical society', 'genealogical society'
+            # Only obvious academic document publishers
+            'university microfilms', 'dissertation abstracts'
         }
         
         # Minimum standards for book quality
-        self.min_title_length = 3
-        self.min_description_length = 20
+        self.min_title_length = 2  # Allow short titles like "It" by Stephen King
+        self.min_description_length = 10  # Relax description requirement
         self.max_title_length = 200  # Titles shouldn't be essays
         
     def filter_google_books_results(self, books: List[Dict[str, Any]], 
@@ -194,17 +166,18 @@ class GoogleBooksFilter:
         return False
     
     def _is_academic_or_technical(self, title: str, description: str, publisher: str) -> bool:
-        """Check if this is an academic or technical publication"""
+        """Check if this is an academic or technical publication - MUCH more selective"""
         content = f"{title} {description} {publisher}"
         
-        # Check for academic indicators
-        academic_indicators = [
-            'university press', 'academic press', 'scholarly',
-            'peer review', 'journal', 'proceedings', 'conference',
-            'textbook', 'coursework', 'curriculum', 'syllabus'
+        # Only block clearly academic indicators - be much more selective
+        strict_academic_indicators = [
+            'university press', 'academic press', 'textbook',
+            'coursework', 'curriculum', 'syllabus', 'peer review',
+            'proceedings of', 'conference proceedings', 'journal of'
         ]
         
-        for indicator in academic_indicators:
+        # Don't block books just because they have "scholarly" or general terms
+        for indicator in strict_academic_indicators:
             if indicator in content:
                 return True
         
