@@ -145,13 +145,18 @@ class GoogleBooksClient:
                 volume_info = item.get('volumeInfo', {})
                 access_info = item.get('accessInfo', {})
                 
+                # Get thumbnail and upgrade to HTTPS if needed
+                thumbnail_url = volume_info.get('imageLinks', {}).get('thumbnail', '')
+                if thumbnail_url and thumbnail_url.startswith('http://'):
+                    thumbnail_url = thumbnail_url.replace('http://', 'https://')
+
                 book = {
                     'title': volume_info.get('title', 'Unknown Title'),
                     'authors': volume_info.get('authors', ['Unknown Author']),
                     'description': volume_info.get('description', ''),
                     'published_date': volume_info.get('publishedDate', ''),
                     'isbn': self._extract_isbn(volume_info.get('industryIdentifiers', [])),
-                    'thumbnail': volume_info.get('imageLinks', {}).get('thumbnail', ''),
+                    'thumbnail': thumbnail_url,
                     'preview_link': volume_info.get('previewLink', ''),
                     'info_link': volume_info.get('infoLink', ''),
                     'canonical_link': volume_info.get('canonicalVolumeLink', ''),

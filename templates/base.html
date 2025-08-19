@@ -21,11 +21,89 @@
     </main>
     
     <footer>
+        <div class="footer-links">
+            <a href="{{ url_for('recommendations') }}">Recommendations</a>
+            <a href="{{ url_for('privacy') }}">Privacy Policy</a>
+            <a href="{{ url_for('terms') }}">Terms of Service</a>
+        </div>
         <p>&copy; 2025 Book Saver // Viscid Labs</p>
         <p class="disclosure">
             As an Amazon Associate I earn from qualifying purchases. 
             This site uses Google AdSense to display advertisements.
         </p>
     </footer>
+
+<style>
+/* Footer links styling */
+.footer-links {
+    text-align: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #555;
+}
+
+.footer-links a {
+    color: #ccc;
+    text-decoration: none;
+    margin: 0 1rem;
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+.footer-links a:hover {
+    color: white;
+    text-decoration: underline;
+}
+
+/* Page header styling */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.nav-links .recommendations-link {
+    background: linear-gradient(135deg, #8B0000 0%, #DC143C 50%, #FF4500 100%);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(139, 0, 0, 0.3);
+}
+
+.nav-links .recommendations-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(139, 0, 0, 0.4);
+    background: linear-gradient(135deg, #DC143C 0%, #8B0000 50%, #FF6347 100%);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .footer-links {
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+    
+    .footer-links a {
+        display: block;
+        margin: 0.5rem 0;
+    }
+    
+    .nav-links .recommendations-link {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.9rem;
+    }
+}
+</style>
 </body>
 </html>

@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="results-container">
+    <div class="search-header">
+        <h2>Our Recommendations</h2>
+        <p class="recommendations-subtitle">Handpicked books we think you'll love</p>
+        <a href="{{ url_for('index') }}" class="back-btn">← Back to Search</a>
+    </div>
+    
+    <!-- AdSense Banner Ad - Top of recommendations -->
+    <div class="ad-container" style="text-align: center; margin: 20px 0;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-4992548313793866"
+             data-ad-slot="1357924680"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
+    
+    <div class="books-grid">
+        {% for book in books %}
+        <div class="book-card">
+            {% if book.thumbnail %}
+            <img src="{{ book.thumbnail }}" alt="{{ book.title }}" class="book-cover">
+            {% else %}
+            <div class="no-cover">No Cover</div>
+            {% endif %}
+            
+            <div class="book-info">
+                <h3 class="book-title">{{ book.title|e }}</h3>
+                <p class="book-authors">by {{ book.authors | join(', ')|e }}</p>
+                
+                {% if book.published_date %}
+                <p class="book-date">Published: {{ book.published_date|e }}</p>
+                {% endif %}
+                
+                {% if book.isbn %}
+                <p class="book-isbn">ISBN: {{ book.isbn|e }}</p>
+                {% endif %}
+                
+                {% if book.description %}
+                <p class="book-description">{{ book.description[:150]|e }}{% if book.description|length > 150 %}...{% endif %}</p>
+                {% endif %}
+                
+                <div class="book-actions">
+                    <div class="purchase-links">
+                        {% if book.purchase_links %}
+                        <div class="buy-label">Buy from:</div>
+                        <div class="retailer-links">
+                            {% if book.purchase_links.amazon %}
+                            <a href="{{ book.purchase_links.amazon }}" 
+                               target="_blank" 
+                               class="retailer-btn amazon-btn">
+                                Amazon
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.audible %}
+                            <a href="{{ book.purchase_links.audible }}" 
+                               target="_blank" 
+                               class="retailer-btn audible-btn">
+                                Audible
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.barnes_noble %}
+                            <a href="{{ book.purchase_links.barnes_noble }}" 
+                               target="_blank" 
+                               class="retailer-btn bn-btn">
+                                B&N
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.bookshop %}
+                            <a href="{{ book.purchase_links.bookshop }}" 
+                               target="_blank" 
+                               class="retailer-btn bookshop-btn">
+                                Bookshop
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.google_books %}
+                            <a href="{{ book.purchase_links.google_books }}" 
+                               target="_blank" 
+                               class="retailer-btn google-btn">
+                                Google
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="reader-app-links">
+                        {% if book.reader_app_links %}
+                        <div class="add-label">Add to:</div>
+                        <div class="app-links">
+                            {% if book.reader_app_links.goodreads %}
+                            <a href="{{ book.reader_app_links.goodreads }}" 
+                               target="_blank" 
+                               class="app-btn goodreads-btn">
+                                Goodreads
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.reader_app_links.overdrive %}
+                            <a href="{{ book.reader_app_links.overdrive }}" 
+                               target="_blank" 
+                               class="app-btn overdrive-btn">
+                                OverDrive
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.reader_app_links.storygraph %}
+                            <a href="{{ book.reader_app_links.storygraph }}" 
+                               target="_blank" 
+                               class="app-btn storygraph-btn">
+                                StoryGraph
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if book.preview_link %}
+                    <a href="{{ book.preview_link }}" 
+                       target="_blank" 
+                       class="preview-btn">
+                        Preview
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- AdSense Banner Ad - After recommendations -->
+    <div class="ad-container" style="text-align: center; margin: 30px 0;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-4992548313793866"
+             data-ad-slot="2468135790"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
+</div>
+
+<style>
+.recommendations-subtitle {
+    color: #666;
+    font-style: italic;
+    margin-bottom: 10px;
+}
+</style>
+{% endblock %}

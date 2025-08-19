@@ -91,7 +91,7 @@ def add_security_headers(response):
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            "img-src 'self' data: https://pagead2.googlesyndication.com https://tpc.googlesyndication.com",
+            "img-src 'self' data: https://pagead2.googlesyndication.com https://tpc.googlesyndication.com https://books.google.com",
             "font-src 'self' https://fonts.gstatic.com",
             "connect-src 'self' https://pagead2.googlesyndication.com",
             "frame-src https://googleads.g.doubleclick.net",
@@ -107,7 +107,7 @@ def add_security_headers(response):
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https:",
+            "img-src 'self' data: https: https://books.google.com",
             "font-src 'self'",
             "connect-src 'self'",
             "frame-src 'none'",
@@ -304,9 +304,9 @@ def process_tiktok():
         return render_template('index.html', error="Please enter a TikTok URL")
     
     # Proper URL validation
-    allowed_domains = ['tiktok.com', 'vm.tiktok.com']
+    allowed_domains = ['tiktok.com', 'vm.tiktok.com', 'www.tiktok.com']
     if not validate_url(tiktok_url, allowed_domains):
-        return render_template('index.html', error="Please enter a valid TikTok URL")
+        return render_template('index.html', error="Please enter a valid TikTok URL. Supported formats: https://www.tiktok.com/@username/video/123... or https://vm.tiktok.com/abc123")
     
     try:
         redis_url = os.getenv('REDIS_URL')
@@ -349,9 +349,9 @@ def process_instagram_reel():
         return render_template('index.html', error="Please enter an Instagram Reel URL")
     
     # Proper URL validation with path checking for reels
-    allowed_domains = ['instagram.com', 'instagr.am']
+    allowed_domains = ['instagram.com', 'instagr.am', 'www.instagram.com']
     if not validate_url(reel_url, allowed_domains):
-        return render_template('index.html', error="Please enter a valid Instagram Reel URL")
+        return render_template('index.html', error="Please enter a valid Instagram Reel URL (e.g., https://www.instagram.com/reel/ABC123def456/)")
     
     # Additional check for reel path
     parsed = urlparse(reel_url.lower())
@@ -394,6 +394,43 @@ def processing_wait(task_id):
     video_type = request.args.get('type', 'Video')
     return render_template('processing.html', task_id=task_id, video_url=video_url, video_type=video_type)
 
+def serialize_task_result(result):
+    """Safely serialize task results, handling exceptions and non-serializable objects"""
+    if result is None:
+        return {'error': 'No result available'}
+    
+    # If it's already a dict with serializable content, return it
+    if isinstance(result, dict):
+        try:
+            # Test if the dict is JSON serializable
+            import json
+            json.dumps(result)
+            return result
+        except (TypeError, ValueError):
+            # Convert any non-serializable values to strings
+            serialized = {}
+            for key, value in result.items():
+                try:
+                    json.dumps(value)
+                    serialized[key] = value
+                except (TypeError, ValueError):
+                    serialized[key] = str(value)
+            return serialized
+    
+    # If it's an exception or other non-serializable object
+    return {'error': str(result)}
+
+def safe_get_task_result(result, key, default=None):
+    """Safely get a value from task result, handling non-dict results"""
+    if result is None:
+        return default
+    
+    if isinstance(result, dict):
+        return result.get(key, default)
+    
+    # If result is not a dict (like an exception), return default
+    return default
+
 @app.route('/task-status/<task_id>')
 @limiter.limit("30 per minute")  # Allow frequent polling for status
 def task_status(task_id):
@@ -412,7 +449,7 @@ def task_status(task_id):
             elif task.state == 'PROGRESS':
                 response = {
                     'state': task.state,
-                    'result': task.result
+                    'result': serialize_task_result(task.result)
                 }
             elif task.state == 'SUCCESS':
                 print(f"🎯 Task {task_id} completed successfully")
@@ -420,14 +457,14 @@ def task_status(task_id):
                 
                 response = {
                     'state': task.state,
-                    'result': task.result,
+                    'result': serialize_task_result(task.result),
                     'redirect': True
                 }
             else:  # FAILURE
                 print(f"❌ Task {task_id} failed: {task.result}")
                 response = {
                     'state': task.state,
-                    'result': {'error': str(task.result)}
+                    'result': serialize_task_result(task.result)
                 }
         else:
             if task_id not in task_results:
@@ -460,14 +497,14 @@ def task_status(task_id):
                 
                 response = {
                     'state': 'SUCCESS',
-                    'result': task_data['result'],
+                    'result': serialize_task_result(task_data['result']),
                     'redirect': True
                 }
             else:  # FAILURE
                 print(f"❌ Task {task_id} failed: {task_data['result']}")
                 response = {
                     'state': 'FAILURE',
-                    'result': task_data['result']
+                    'result': serialize_task_result(task_data['result'])
                 }
         
         return jsonify(response)
@@ -524,8 +561,8 @@ def tiktok_results(task_id):
         if redis_url:
             task = celery_app.AsyncResult(task_id)
             
-            if task.state == 'SUCCESS' and task.result.get('status') == 'success':
-                books = task.result.get('books', [])
+            if task.state == 'SUCCESS' and safe_get_task_result(task.result, 'status') == 'success':
+                books = safe_get_task_result(task.result, 'books', [])
                 
                 if len(books) > 0:
                     return render_template('results.html', 
@@ -544,8 +581,8 @@ def tiktok_results(task_id):
             
             task_data = task_results[task_id]
             
-            if task_data['state'] == 'SUCCESS' and task_data['result'].get('status') == 'success':
-                books = task_data['result'].get('books', [])
+            if task_data['state'] == 'SUCCESS' and safe_get_task_result(task_data['result'], 'status') == 'success':
+                books = safe_get_task_result(task_data['result'], 'books', [])
                 
                 if len(books) > 0:
                     return render_template('results.html', 
@@ -562,6 +599,90 @@ def tiktok_results(task_id):
         # Log detailed error but show generic message
         logger.error(f"Failed to retrieve results for task {task_id}: {str(e)}", exc_info=True)
         return render_template('index.html', error="Unable to retrieve results. Please try processing the video again.")
+
+@app.route('/recommendations')
+def recommendations():
+    """Show curated book recommendations"""
+    try:
+        # Create some sample recommendations (you can customize these)
+        sample_books = [
+            {
+                'title': 'The Seven Husbands of Evelyn Hugo',
+                'authors': ['Taylor Jenkins Reid'],
+                'description': 'A reclusive Hollywood icon finally tells her story to a young journalist, revealing stunning secrets about her life and loves.',
+                'thumbnail': 'https://books.google.com/books/content?id=z3L5DAAAQBAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api',
+                'published_date': '2017',
+                'isbn': '9781501139239',
+                'purchase_links': build_purchase_links({
+                    'title': 'The Seven Husbands of Evelyn Hugo',
+                    'authors': ['Taylor Jenkins Reid'],
+                    'isbn': '9781501139239'
+                }),
+                'reader_app_links': build_reader_app_links({
+                    'title': 'The Seven Husbands of Evelyn Hugo',
+                    'authors': ['Taylor Jenkins Reid'],
+                    'isbn': '9781501139239'
+                }),
+                'preview_link': 'https://books.google.com/books?id=z3L5DAAAQBAJ'
+            },
+            {
+                'title': 'Where the Crawdads Sing',
+                'authors': ['Delia Owens'],
+                'description': 'For years, rumors of the "Marsh Girl" have haunted Barkley Cove, a quiet town on the North Carolina coast.',
+                'thumbnail': 'https://books.google.com/books/content?id=RkpVDwAAQBAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api',
+                'published_date': '2018',
+                'isbn': '9780735219090',
+                'purchase_links': build_purchase_links({
+                    'title': 'Where the Crawdads Sing',
+                    'authors': ['Delia Owens'],
+                    'isbn': '9780735219090'
+                }),
+                'reader_app_links': build_reader_app_links({
+                    'title': 'Where the Crawdads Sing',
+                    'authors': ['Delia Owens'],
+                    'isbn': '9780735219090'
+                }),
+                'preview_link': 'https://books.google.com/books?id=RkpVDwAAQBAJ'
+            },
+            {
+                'title': 'Atomic Habits',
+                'authors': ['James Clear'],
+                'description': 'An Easy & Proven Way to Build Good Habits & Break Bad Ones. Tiny changes, remarkable results.',
+                'thumbnail': 'https://books.google.com/books/content?id=XfFvDwAAQBAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api',
+                'published_date': '2018',
+                'isbn': '9780735211292',
+                'purchase_links': build_purchase_links({
+                    'title': 'Atomic Habits',
+                    'authors': ['James Clear'],
+                    'isbn': '9780735211292'
+                }),
+                'reader_app_links': build_reader_app_links({
+                    'title': 'Atomic Habits',
+                    'authors': ['James Clear'],
+                    'isbn': '9780735211292'
+                }),
+                'preview_link': 'https://books.google.com/books?id=XfFvDwAAQBAJ'
+            }
+        ]
+        
+        return render_template('recommendations.html', books=sample_books)
+    except Exception as e:
+        logger.error(f"Error loading recommendations: {str(e)}", exc_info=True)
+        return render_template('index.html', error="Unable to load recommendations. Please try again later.")
+
+@app.route('/terms')
+def terms():
+    """Show terms of service"""
+    from datetime import datetime
+    current_date = datetime.now().strftime("%B %d, %Y")
+    return render_template('terms.html', current_date=current_date)
+
+@app.route('/privacy')
+def privacy():
+    """Show privacy policy"""
+    from datetime import datetime
+    current_date = datetime.now().strftime("%B %d, %Y")
+    return render_template('privacy.html', current_date=current_date)
 
 @app.route('/ads.txt')
 def ads_txt():

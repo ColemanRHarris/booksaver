@@ -11,7 +11,6 @@ os.environ['NUMEXPR_NUM_THREADS'] = '1'
 import tempfile
 import yt_dlp
 import pytesseract
-import signal
 import threading
 
 # Handle OpenCV import conflicts and threading issues
@@ -66,13 +65,6 @@ MAX_VIDEO_SIZE_MB = 100  # 100MB max video size
 MAX_TEMP_DIR_LIFETIME = 3600  # 1 hour in seconds
 MAX_PROCESSING_TIME = 600  # 10 minutes timeout
 
-class ProcessingTimeoutError(Exception):
-    """Raised when processing takes too long"""
-    pass
-
-def timeout_handler(signum, frame):
-    """Signal handler for processing timeout"""
-    raise ProcessingTimeoutError("Video processing timed out")
 
 def cleanup_temp_directory(temp_dir: str, delay: int = MAX_TEMP_DIR_LIFETIME):
     """Schedule temp directory cleanup after delay"""
@@ -95,8 +87,17 @@ def check_file_size(file_path: str, max_size_mb: int = MAX_VIDEO_SIZE_MB) -> boo
         resolved_path = Path(file_path).resolve()
         
         # Additional security check: ensure file is in expected location
-        if not str(resolved_path).startswith(tempfile.gettempdir()):
+        # On macOS, tempfile.gettempdir() returns /var/folders but actual paths are /private/var/folders
+        temp_dir = Path(tempfile.gettempdir()).resolve()
+        temp_dir_alt = Path('/private' + tempfile.gettempdir()).resolve()
+        
+        resolved_str = str(resolved_path)
+        temp_str = str(temp_dir)
+        temp_alt_str = str(temp_dir_alt)
+        
+        if not (resolved_str.startswith(temp_str) or resolved_str.startswith(temp_alt_str)):
             print(f"❌ File not in allowed location: {resolved_path}")
+            print(f"   Expected locations: {temp_str} or {temp_alt_str}")
             return False
         
         file_size = resolved_path.stat().st_size
@@ -130,8 +131,24 @@ def safe_join_path(base_dir: str, filename: str) -> str:
         resolved_path = full_path.resolve()
         
         # Ensure the resolved path is still within the base directory
+        # Handle macOS /private/var vs /var symlink issue
         base_resolved = Path(base_dir).resolve()
-        if not str(resolved_path).startswith(str(base_resolved)):
+        base_resolved_alt = None
+        
+        # Check for macOS /private prefix issue
+        if str(base_resolved).startswith('/private/') and not str(resolved_path).startswith('/private/'):
+            base_resolved_alt = Path(str(base_resolved).replace('/private', '', 1)).resolve()
+        elif not str(base_resolved).startswith('/private/') and str(resolved_path).startswith('/private/'):
+            base_resolved_alt = Path('/private' + str(base_resolved)).resolve()
+        
+        resolved_str = str(resolved_path)
+        base_str = str(base_resolved)
+        
+        path_allowed = resolved_str.startswith(base_str)
+        if not path_allowed and base_resolved_alt:
+            path_allowed = resolved_str.startswith(str(base_resolved_alt))
+        
+        if not path_allowed:
             raise ValueError("Path traversal detected")
         
         return str(resolved_path)
@@ -160,16 +177,12 @@ def get_yolo_model():
                 model = YOLO('yolov8s.pt')
     return model
 
-@celery_app.task(bind=True)
+@celery_app.task(bind=True, time_limit=MAX_PROCESSING_TIME, soft_time_limit=MAX_PROCESSING_TIME-60)
 def process_video(self, video_url: str, video_type: str):
     """
     Celery task to process a video (TikTok, Instagram Reel) and extract books.
     """
     logger.info(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
-    
-    # Set up processing timeout
-    original_handler = signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(MAX_PROCESSING_TIME)
     
     try:
         # Log available OCR backends to confirm if PaddleOCR is loaded
@@ -259,23 +272,65 @@ def process_video(self, video_url: str, video_type: str):
                 except Exception as cleanup_error:
                     print(f"⚠️ Failed immediate cleanup: {cleanup_error}")
                     
-    except ProcessingTimeoutError:
-        return {
-            'status': 'error',
-            'error': 'Video processing timed out. Please try with a shorter video.'
-        }
     except Exception as e:
+        from celery.exceptions import SoftTimeLimitExceeded
+        error_message = str(e)
+        
+        if isinstance(e, SoftTimeLimitExceeded):
+            error_message = 'Video processing timed out. Please try with a shorter video.'
+        else:
+            # Clean up technical error messages for user-friendly display
+            if "Unable to download webpage: HTTP Error 404" in error_message:
+                error_message = "Video not found. The video may have been deleted, made private, or the URL may be incorrect."
+            elif "HTTP Error 403" in error_message:
+                error_message = "Access denied. The video may be private or age-restricted."
+            elif "Video unavailable" in error_message:
+                error_message = "Video is unavailable. It may have been removed or made private."
+            elif "Sign in to confirm" in error_message or "login" in error_message.lower():
+                error_message = "This video requires login to access. Please use a public video."
+            elif "Age-restricted" in error_message:
+                error_message = "This video is age-restricted and cannot be processed."
+        
+        logger.error(f"Video processing failed: {e}")  # Log the technical error
         return {
             'status': 'error',
-            'error': str(e)
+            'error': error_message  # Return user-friendly error
         }
-    finally:
-        # Reset alarm and restore original signal handler
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, original_handler)
+
+def normalize_tiktok_url(url: str) -> str:
+    """Normalize TikTok URL to the correct format"""
+    import re
+    
+    # If it already has @ in the username part, return as is
+    if '/@' in url:
+        return url
+    
+    # Convert format like tiktok.com/username/video/123 to tiktok.com/@username/video/123
+    # More flexible pattern to handle various URL structures
+    tiktok_pattern = r'(https?://(?:www\.)?tiktok\.com/)([^/@?\s]+)((?:/video/\d+)?(?:\?.*)?)'
+    match = re.match(tiktok_pattern, url.strip())
+    
+    if match:
+        base_url, username, rest = match.groups()
+        # Only add @ if username doesn't start with it and isn't a known system path
+        system_paths = ['explore', 'discover', 'trending', 'search', 'foryou', 'following', 'live']
+        if not username.startswith('@') and username not in system_paths:
+            normalized = f"{base_url}@{username}{rest or ''}"
+            print(f"🔄 TikTok URL normalization: {url} -> {normalized}")
+            return normalized
+    
+    return url
 
 def download_video(url: str, output_dir: str) -> str:
     """Download video using yt-dlp (supports TikTok, Instagram, etc.)"""
+    
+    # Normalize TikTok URLs to proper format
+    if 'tiktok.com' in url.lower():
+        original_url = url
+        url = normalize_tiktok_url(url)
+        if url != original_url:
+            print(f"🔄 Normalized URL: {original_url} -> {url}")
+    
     print(f"⬇️  Starting download of: {url}")
     print(f"📂 Output directory: {output_dir}")
     
@@ -292,16 +347,68 @@ def download_video(url: str, output_dir: str) -> str:
         'outtmpl': output_template,
         'quiet': False,
         'no_warnings': False,
+        # Add more robust options for social media platforms
+        'format': 'best[height<=720]/best',  # Prefer lower quality for faster processing
+        'extract_flat': False,
+        'writesubtitles': False,
+        'writeautomaticsub': False,
+        'ignoreerrors': False,
+        # Add user agent and headers to avoid blocking
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        # Add timeout settings
+        'socket_timeout': 30,
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             print("🔄 Starting yt-dlp download...")
+            
+            # First try to extract info to check if URL is valid
+            try:
+                print("🔍 Extracting video info...")
+                info = ydl.extract_info(url, download=False)
+                title = info.get('title', 'Unknown')
+                duration = info.get('duration', 'Unknown')
+                print(f"📱 Video found: '{title}' (duration: {duration}s)")
+            except Exception as info_error:
+                print(f"❌ Failed to extract video info: {info_error}")
+                # Common error messages that users should understand
+                error_msg = str(info_error).lower()
+                if '404' in error_msg or 'not found' in error_msg:
+                    raise Exception("Video not found. The URL may be incorrect, the video may have been deleted, or it may be private.")
+                elif 'private' in error_msg or 'unavailable' in error_msg:
+                    raise Exception("Video is private or unavailable. Please use a public video URL.")
+                elif 'age-restricted' in error_msg or 'login' in error_msg:
+                    raise Exception("Video is age-restricted or requires login. Please use a different video.")
+                else:
+                    raise Exception(f"Unable to access video: {info_error}")
+            
+            # If info extraction succeeded, proceed with download
+            print("⬇️  Downloading video...")
             ydl.download([url])
             print("✅ yt-dlp download completed")
+            
     except Exception as e:
-        print(f"❌ yt-dlp download failed: {e}")
-        raise
+        error_msg = str(e)
+        print(f"❌ yt-dlp download failed: {error_msg}")
+        
+        # Clean up error messages for users
+        if "ERROR:" in error_msg and "[" in error_msg:
+            # Extract the actual error from yt-dlp format
+            try:
+                # Remove ANSI color codes
+                import re
+                clean_error = re.sub(r'\x1b\[[0-9;]*m', '', error_msg)
+                if "]" in clean_error:
+                    actual_error = clean_error.split("]", 1)[1].strip()
+                    if actual_error:
+                        error_msg = actual_error
+            except:
+                pass
+        
+        raise Exception(error_msg)
     
     print("🔍 Looking for downloaded video file...")
     try:
