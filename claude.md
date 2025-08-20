@@ -1,7 +1,7 @@
-# TikTok Book Finder – MVP+TikTok Development Plan (`claude.md`)
+# BookSaver, the TikTok Book Finder – TikTok Development Plan (`claude.md`)
 
-## 1. New MVP Goal
-Extend the **existing Python-only web app** (search-only) to let a user **paste a TikTok URL** and receive a list of books detected in the video.
+## 1. New Goal
+Refine the **existing, functional web app** to streamline the user experience and OCR to make an addicting TikTok book search app.
 
 ---
 
@@ -12,11 +12,11 @@ Extend the **existing Python-only web app** (search-only) to let a user **paste 
    - Method: `yt-dlp` (community downloader) wrapped in **Celery** task
 
 2. **Book Detection (CV)**  
-   - Extract 1 fps frames with **FFmpeg** → `opencv-python`  
-   - Run **YOLOv8-s** model fine-tuned on ~1 k book images → bounding boxes
+   - Extract 1 fps frames with `opencv-python`  
+   - Run **YOLO11-n** model fine-tuned on ~1 k book images → bounding boxes
 
 3. **OCR & Title/Author Extraction**  
-   - Crop bounding boxes → **Tesseract** OCR  
+   - Crop bounding boxes → **EasyOCR**  
    - Clean & fuzzy-deduplicate titles → Google Books API → canonical title + **ASIN**
 
 ---
@@ -24,8 +24,8 @@ Extend the **existing Python-only web app** (search-only) to let a user **paste 
 ## 3. Tech Stack (Additions)
 | Component        | Library / Service                         |
 |------------------|------------------------------------------|
-| Video download   | `yt-dlp`, `ffmpeg-python`                |
-| CV + ML          | `ultralytics==8.0.200`, `opencv-python`, `pytesseract` |
+| Video download   | `yt-dlp`,               |
+| CV + ML          | `ultralytics==8.0.200`, `opencv-python`, `easyocr` |
 | Async processing | **Celery**                   |
 | Object storage   | local `/tmp`                             |
 | Framework        | **Flask** (kept from previous MVP)       |
@@ -34,8 +34,15 @@ Extend the **existing Python-only web app** (search-only) to let a user **paste 
 
 ## 4. Privacy & Compliance (TikTok + Amazon)
 - **TikTok Terms**: store only the video ID, no user data; respect rate limits.  
-- **GDPR / CCPA**: add cookie banner for Amazon tracking cookies.  
-- **Amazon Associates**:  
+- **GDPR / CCPA**: cookie banner for Amazon tracking cookies.  
+- **Amazon Associates** and **Google Ads**:  
   - Display **prominent disclosure** on every page:  
-    “As an Amazon Associate I earn from qualifying purchases.”  
+    “As an Amazon Associate I earn from qualifying purchases.”
   - Link to Amazon Privacy Policy.  
+
+---
+
+## 5. Improvements
+- Implement recommendation engine for training.
+- Streamline UI for mobile web app users.
+- Optimize for Google Ads implementation.

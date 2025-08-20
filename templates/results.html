@@ -141,6 +141,30 @@
                         Preview
                     </a>
                     {% endif %}
+                    
+                    {% if session_id %}
+                    <div class="feedback-buttons">
+                        <div class="feedback-label">Did you find this book?</div>
+                        <div class="feedback-controls">
+                            <button class="thumb-btn thumb-up" 
+                                    data-session-id="{{ session_id }}" 
+                                    data-book-isbn="{{ book.isbn or '' }}"
+                                    data-book-title="{{ book.title }}"
+                                    data-book-authors="{{ book.authors | join(',') }}"
+                                    data-feedback="1">
+                                👍 <span class="feedback-count up-count">0</span>
+                            </button>
+                            <button class="thumb-btn thumb-down" 
+                                    data-session-id="{{ session_id }}" 
+                                    data-book-isbn="{{ book.isbn or '' }}"
+                                    data-book-title="{{ book.title }}"
+                                    data-book-authors="{{ book.authors | join(',') }}"
+                                    data-feedback="-1">
+                                👎 <span class="feedback-count down-count">0</span>
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -167,4 +191,196 @@
     </div>
     {% endif %}
 </div>
+
+<style>
+.feedback-buttons {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.feedback-label {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.feedback-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.thumb-btn {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.thumb-btn:hover {
+    background: #e8e8e8;
+    border-color: #bbb;
+}
+
+.thumb-btn.active {
+    background: #4CAF50;
+    color: white;
+    border-color: #4CAF50;
+}
+
+.thumb-btn.thumb-down.active {
+    background: #f44336;
+    border-color: #f44336;
+}
+
+.thumb-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.feedback-count {
+    font-weight: bold;
+    min-width: 16px;
+    text-align: center;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize feedback buttons and load existing counts
+    initializeFeedbackButtons();
+    
+    // Add click handlers
+    document.querySelectorAll('.thumb-btn').forEach(button => {
+        button.addEventListener('click', handleFeedbackClick);
+    });
+});
+
+function initializeFeedbackButtons() {
+    // Load existing feedback counts and states for each book
+    const books = document.querySelectorAll('.book-card');
+    
+    books.forEach(bookCard => {
+        const upBtn = bookCard.querySelector('.thumb-up');
+        const downBtn = bookCard.querySelector('.thumb-down');
+        
+        if (upBtn && downBtn) {
+            const isbn = upBtn.dataset.bookIsbn;
+            const sessionId = upBtn.dataset.sessionId;
+            
+            // Load feedback counts
+            loadFeedbackCounts(isbn, upBtn, downBtn);
+            
+            // Load user's existing feedback for this session
+            loadSessionFeedback(sessionId, isbn, upBtn, downBtn);
+        }
+    });
+}
+
+async function loadFeedbackCounts(isbn, upBtn, downBtn) {
+    if (!isbn) return;
+    
+    try {
+        const response = await fetch(`/api/feedback/${encodeURIComponent(isbn)}`);
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            upBtn.querySelector('.up-count').textContent = data.counts.up;
+            downBtn.querySelector('.down-count').textContent = data.counts.down;
+        }
+    } catch (error) {
+        console.error('Error loading feedback counts:', error);
+    }
+}
+
+async function loadSessionFeedback(sessionId, isbn, upBtn, downBtn) {
+    if (!sessionId || !isbn) return;
+    
+    try {
+        const response = await fetch(`/api/session-feedback/${encodeURIComponent(sessionId)}/${encodeURIComponent(isbn)}`);
+        const data = await response.json();
+        
+        if (data.status === 'success' && data.feedback !== null) {
+            if (data.feedback === 1) {
+                upBtn.classList.add('active');
+            } else if (data.feedback === -1) {
+                downBtn.classList.add('active');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading session feedback:', error);
+    }
+}
+
+async function handleFeedbackClick(event) {
+    const button = event.currentTarget;
+    const sessionId = button.dataset.sessionId;
+    const bookIsbn = button.dataset.bookIsbn;
+    const bookTitle = button.dataset.bookTitle;
+    const bookAuthors = button.dataset.bookAuthors.split(',').filter(a => a.trim());
+    const feedback = parseInt(button.dataset.feedback);
+    
+    // Find the other button (up/down)
+    const bookCard = button.closest('.book-card');
+    const upBtn = bookCard.querySelector('.thumb-up');
+    const downBtn = bookCard.querySelector('.thumb-down');
+    const otherBtn = button === upBtn ? downBtn : upBtn;
+    
+    // Disable buttons during request
+    upBtn.disabled = true;
+    downBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/feedback', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                session_id: sessionId,
+                book_isbn: bookIsbn,
+                book_title: bookTitle,
+                book_authors: bookAuthors,
+                feedback: feedback
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // Update button states
+            upBtn.classList.remove('active');
+            downBtn.classList.remove('active');
+            button.classList.add('active');
+            
+            // Update counts
+            upBtn.querySelector('.up-count').textContent = data.counts.up;
+            downBtn.querySelector('.down-count').textContent = data.counts.down;
+            
+            // Show success message briefly
+            button.style.transform = 'scale(1.1)';
+            setTimeout(() => {
+                button.style.transform = 'scale(1)';
+            }, 150);
+        } else {
+            console.error('Feedback submission failed:', data.message);
+            alert('Failed to submit feedback. Please try again.');
+        }
+    } catch (error) {
+        console.error('Error submitting feedback:', error);
+        alert('Failed to submit feedback. Please try again.');
+    } finally {
+        // Re-enable buttons
+        upBtn.disabled = false;
+        downBtn.disabled = false;
+    }
+}
+</script>
+
 {% endblock %}

@@ -15,6 +15,7 @@ import re
 from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
 from celery_app import celery_app
 from tasks import process_video
+from recommendation_engine import get_recommendation_engine
 
 load_dotenv()
 
@@ -229,6 +230,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/health')
+@limiter.exempt
 def health_check():
     """Health check endpoint for monitoring"""
     try:
@@ -332,6 +334,13 @@ def process_tiktok():
             thread.daemon = True
             thread.start()
         
+        # Store video session for recommendation engine
+        try:
+            rec_engine = get_recommendation_engine()
+            rec_engine.store_video_session(task_id, tiktok_url, 'tiktok')
+        except Exception as e:
+            logger.warning(f"Failed to store video session: {e}")
+        
         return redirect(url_for('processing_wait', task_id=task_id, url=tiktok_url, type='tiktok'))
         
     except Exception as e:
@@ -379,6 +388,13 @@ def process_instagram_reel():
             )
             thread.daemon = True
             thread.start()
+        
+        # Store video session for recommendation engine
+        try:
+            rec_engine = get_recommendation_engine()
+            rec_engine.store_video_session(task_id, reel_url, 'instagram')
+        except Exception as e:
+            logger.warning(f"Failed to store video session: {e}")
         
         return redirect(url_for('processing_wait', task_id=task_id, url=reel_url, type='instagram'))
         
@@ -568,7 +584,8 @@ def tiktok_results(task_id):
                     return render_template('results.html', 
                                          books=books, 
                                          query=f"{video_type.title()} Video: {video_url[:50]}..." if video_url else f"{video_type.title()} Video",
-                                         is_tiktok=True) # Retain is_tiktok for now, could generalize later
+                                         is_tiktok=True, # Retain is_tiktok for now, could generalize later
+                                         session_id=task_id)
                 else:
                     return render_template('index.html', 
                                          error=f"No books found in this {video_type.title()} video. Try a video that shows book covers more clearly.")
@@ -588,7 +605,8 @@ def tiktok_results(task_id):
                     return render_template('results.html', 
                                          books=books, 
                                          query=f"{video_type.title()} Video: {video_url[:50]}..." if video_url else f"{video_type.title()} Video",
-                                         is_tiktok=True) # Retain is_tiktok for now, could generalize later
+                                         is_tiktok=True, # Retain is_tiktok for now, could generalize later
+                                         session_id=task_id)
                 else:
                     return render_template('index.html', 
                                          error=f"No books found in this {video_type.title()} video. Try a video that shows book covers more clearly.")
@@ -714,6 +732,90 @@ def recommendations():
     except Exception as e:
         logger.error(f"Error loading recommendations: {str(e)}", exc_info=True)
         return render_template('index.html', error="Unable to load recommendations. Please try again later.")
+
+@app.route('/api/feedback', methods=['POST'])
+@limiter.limit("30 per minute")  # Allow frequent feedback
+def submit_feedback():
+    """Submit thumbs up/down feedback for a book"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'Invalid JSON data'}), 400
+        
+        session_id = data.get('session_id')
+        book_isbn = data.get('book_isbn', '')
+        book_title = data.get('book_title', '')
+        book_authors = data.get('book_authors', [])
+        feedback = data.get('feedback')  # 1 for thumbs up, -1 for thumbs down
+        
+        if not session_id:
+            return jsonify({'status': 'error', 'message': 'Session ID required'}), 400
+        
+        if not book_title:
+            return jsonify({'status': 'error', 'message': 'Book title required'}), 400
+        
+        if feedback not in [1, -1]:
+            return jsonify({'status': 'error', 'message': 'Invalid feedback value'}), 400
+        
+        # Submit feedback
+        rec_engine = get_recommendation_engine()
+        rec_engine.submit_feedback(session_id, book_isbn, book_title, book_authors, feedback)
+        
+        # Get updated counts
+        counts = rec_engine.get_book_feedback_counts(book_isbn)
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Feedback submitted',
+            'counts': counts
+        })
+        
+    except Exception as e:
+        logger.error(f"Feedback submission error: {str(e)}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to submit feedback'
+        }), 500
+
+@app.route('/api/feedback/<book_isbn>')
+@limiter.limit("60 per minute")
+def get_feedback_counts(book_isbn):
+    """Get feedback counts for a book"""
+    try:
+        rec_engine = get_recommendation_engine()
+        counts = rec_engine.get_book_feedback_counts(book_isbn)
+        
+        return jsonify({
+            'status': 'success',
+            'counts': counts
+        })
+        
+    except Exception as e:
+        logger.error(f"Feedback count error: {str(e)}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to get feedback counts'
+        }), 500
+
+@app.route('/api/session-feedback/<session_id>/<book_isbn>')
+@limiter.limit("60 per minute")
+def get_session_feedback(session_id, book_isbn):
+    """Get existing feedback for a book in this session"""
+    try:
+        rec_engine = get_recommendation_engine()
+        feedback = rec_engine.get_session_feedback(session_id, book_isbn)
+        
+        return jsonify({
+            'status': 'success',
+            'feedback': feedback
+        })
+        
+    except Exception as e:
+        logger.error(f"Session feedback error: {str(e)}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to get session feedback'
+        }), 500
 
 @app.route('/terms')
 def terms():

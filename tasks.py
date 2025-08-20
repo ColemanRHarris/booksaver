@@ -30,6 +30,7 @@ from ocr_backends import get_ocr_engine
 from fuzzy_search import create_fuzzy_searcher
 from book_filters import create_book_filter, create_trending_detector
 from language_filter import create_language_filter
+from recommendation_engine import get_recommendation_engine
 import uuid
 import shutil
 import time
@@ -167,14 +168,14 @@ def get_yolo_model():
         # Temporarily set weights_only to False for YOLO loading
         original_setting = getattr(torch, '_global_default_type_conversion', None)
         try:
-            model = YOLO('yolov8s.pt', task='detect')  # Small model for faster processing
+            model = YOLO('yolo11n.pt', task='detect')  # Small model for faster processing
         except Exception as e:
             print(f"YOLO loading error: {e}")
             # Fallback: try without weights restrictions
             import warnings
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                model = YOLO('yolov8s.pt')
+                model = YOLO('yolo11n.pt')
     return model
 
 @celery_app.task(bind=True, time_limit=MAX_PROCESSING_TIME, soft_time_limit=MAX_PROCESSING_TIME-60)
@@ -183,6 +184,13 @@ def process_video(self, video_url: str, video_type: str):
     Celery task to process a video (TikTok, Instagram Reel) and extract books.
     """
     logger.info(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
+    
+    # Check cache first
+    rec_engine = get_recommendation_engine()
+    cached_result = rec_engine.get_cached_results(video_url)
+    if cached_result:
+        logger.info(f"🎉 Cache hit! Returning cached results for: {video_url[:50]}...")
+        return cached_result
     
     try:
         # Log available OCR backends to confirm if PaddleOCR is loaded
@@ -256,6 +264,9 @@ def process_video(self, video_url: str, video_type: str):
                 'total_detections': len(book_detections),
                 'total_texts': len(book_texts)
             }
+            
+            # Cache the successful result
+            rec_engine.cache_results(video_url, video_type, result)
             
             logger.info(f"🎉 Task completed successfully!")
             logger.info(f"📊 Final result: {len(books)} books, {len(book_detections)} detections, {len(book_texts)} texts")
