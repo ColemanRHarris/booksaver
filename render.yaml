@@ -9,7 +9,7 @@ services:
   - type: web
     name: booksaver-web
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: ./build.sh
     startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app
     envVars:

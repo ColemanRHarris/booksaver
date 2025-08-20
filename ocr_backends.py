@@ -197,105 +197,6 @@ class EasyOCRBackend(OCRBackend):
             print(f"EasyOCR error: {e}")
             return "", 0.0
 
-class PaddleOCRBackend(OCRBackend):
-    """PaddleOCR backend - very accurate for printed text"""
-    
-    def initialize(self):
-        try:
-            # First check if paddle is available
-            try:
-                import paddle
-            except ImportError:
-                raise ImportError("PaddlePaddle not installed. Install with: pip install paddlepaddle")
-            
-            # Enable paddle logging to stderr for better debugging
-            import os
-            os.environ['FLAGS_logtostderr'] = '1'
-            os.environ['FLAGS_eager_delete_tensor_gb'] = '0'
-            
-            # Import and initialize PaddleOCR with minimal config
-            from paddleocr import PaddleOCR
-            
-            print("⏳ Initializing PaddleOCR backend...")
-            
-            # Force CPU to avoid GPU conflicts
-            paddle.set_device('cpu')
-            # Force single-threaded execution to prevent semaphore leaks
-            paddle.set_num_threads(1)
-            
-            # Initialize with conservative settings and explicit CPU mode
-            # This will also trigger model downloads on first run, which may be slow
-            self.ocr = PaddleOCR(
-                use_angle_cls=True, 
-                lang='en'
-            )
-            self.available = True
-            print(f"✅ {self.name} initialized successfully (CPU mode)")
-            
-        except ImportError as e:
-            print(f"⚠️ {self.name} initialization failed - missing dependency: {e}")
-            self.available = False
-        except Exception as e:
-            print(f"❌ {self.name} initialization failed: {e}")
-            print(f"   Note: PaddleOCR can be resource intensive. EasyOCR and Tesseract are still available.")
-            self.available = False
-    
-    def extract_text(self, image: np.ndarray) -> Tuple[str, float]:
-        """Extract text using PaddleOCR"""
-        if not self.available:
-            return "", 0.0
-        
-        try:
-            # Suppress PaddleOCR warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                
-                # Ensure image is in BGR format (PaddleOCR expects BGR)
-                if image.ndim == 2:  # Grayscale
-                    image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-                else:
-                    image_bgr = image
-                
-                # PaddleOCR works with BGR images (OpenCV format)
-                result = self.ocr.ocr(image_bgr)
-                
-                if not result or not result[0]:
-                    return "", 0.0
-                
-                # Extract text and confidence
-                texts = []
-                confidences = []
-                
-                for line in result[0]:
-                    # Ensure the structure of the detection is as expected: [bbox_coords, (text_str, confidence_float)]
-                    if isinstance(line, list) and len(line) >= 2:
-                        text_conf_data = line[1]
-                        # Ensure the second element is a tuple/list containing (text, confidence)
-                        if isinstance(text_conf_data, (tuple, list)) and len(text_conf_data) >= 2:
-                            text = text_conf_data[0] # Get the text string
-                            confidence = text_conf_data[1] # Get the confidence float
-                            
-                            # Clean and validate text/confidence before appending
-                            if isinstance(text, str) and isinstance(confidence, (float, int)):
-                                text = text.strip()
-                                # Filter based on confidence and length of the extracted text
-                                if confidence > 0.3 and len(text) > 1:
-                                    texts.append(text)
-                                    confidences.append(confidence)
-                
-                if not texts:
-                    return "", 0.0
-                
-                # Join texts and calculate confidence
-                combined_text = " ".join(texts)
-                avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-                
-                return combined_text, avg_confidence
-                
-        except Exception as e:
-            print(f"PaddleOCR error: {e}")
-            return "", 0.0
-
 class MultiOCREngine:
     """OCR engine that tries multiple backends for best results"""
     
@@ -305,33 +206,7 @@ class MultiOCREngine:
             EasyOCRBackend("EasyOCR"),          # Most reliable, good for scene text
             TesseractOCR("Tesseract"),          # Always available fallback
         ]
-        
-        # Try to add PaddleOCR if dependencies are available (completely optional)
-        try:
-            # Check for paddlepaddle and paddleocr libraries
-            import paddle
-            from paddleocr import PaddleOCR # Attempt to import PaddleOCR directly
 
-            # If imports succeed, then try to initialize the backend
-            paddle_backend = PaddleOCRBackend("PaddleOCR")
-            if paddle_backend.available:
-                self.backends.insert(1, paddle_backend)  # Insert after EasyOCR but before Tesseract
-                print("ℹ️  PaddleOCR successfully added as optional backend")
-            else:
-                # If backend initialized but reported not available (e.g., internal Paddle error)
-                print(f"⚠️  PaddleOCR backend reported not available after initialization.")
-
-        except ImportError as e:
-            # Differentiate between paddle and paddleocr import issues
-            if "paddleocr" in str(e):
-                print("ℹ️  PaddleOCR skipped - 'paddleocr' library not installed (this is optional). Install with: pip install paddleocr")
-            else:
-                print("ℹ️  PaddleOCR skipped - 'paddlepaddle' library not installed (this is optional). Install with: pip install paddlepaddle")
-        except Exception as e:
-            # Catch any other runtime issues during PaddleOCR setup
-            print(f"❌ PaddleOCR initialization encountered an unexpected error and will be skipped: {e}")
-            print(f"   Note: This might be due to a complex environment or resource issue. EasyOCR and Tesseract are still available.")
-        
         self.available_backends = [b for b in self.backends if b.available]
         
         if self.available_backends:
