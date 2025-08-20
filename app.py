@@ -880,5 +880,10 @@ def site_webmanifest():
     """Serve web app manifest"""
     return app.send_static_file('site.webmanifest')
 
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon.ico from root path"""
+    return app.send_static_file('favicon-32x32.png')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10001, debug=True)

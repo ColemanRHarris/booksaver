@@ -32,6 +32,7 @@ from book_filters import create_book_filter, create_trending_detector
 from language_filter import create_language_filter
 from recommendation_engine import get_recommendation_engine
 import uuid
+import requests
 import shutil
 import time
 from typing import List, Dict, Any
@@ -342,6 +343,10 @@ def download_video(url: str, output_dir: str) -> str:
         if url != original_url:
             print(f"🔄 Normalized URL: {original_url} -> {url}")
     
+    if 'instagram' in url.lower():
+        original_url = url
+        url 
+
     print(f"⬇️  Starting download of: {url}")
     print(f"📂 Output directory: {output_dir}")
     
@@ -404,7 +409,6 @@ def download_video(url: str, output_dir: str) -> str:
     except Exception as e:
         error_msg = str(e)
         print(f"❌ yt-dlp download failed: {error_msg}")
-        
         # Clean up error messages for users
         if "ERROR:" in error_msg and "[" in error_msg:
             # Extract the actual error from yt-dlp format
