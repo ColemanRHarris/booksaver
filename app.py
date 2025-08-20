@@ -16,6 +16,7 @@ from books_client import GoogleBooksClient, build_amazon_link, build_purchase_li
 from celery_app import celery_app
 from tasks import process_video
 from recommendation_engine import get_recommendation_engine
+from system_monitor import get_system_monitor
 
 load_dotenv()
 
@@ -252,6 +253,13 @@ def health_check():
             status['services']['books_api'] = 'configured'
         else:
             status['services']['books_api'] = 'public_only'
+        
+        # Add system monitoring data for Render optimization
+        try:
+            monitor = get_system_monitor()
+            status['system_stats'] = monitor.get_current_stats()
+        except Exception as monitor_error:
+            status['system_stats'] = {'error': f'Monitoring unavailable: {str(monitor_error)}'}
             
         return jsonify(status), 200
     except Exception as e:
@@ -260,6 +268,37 @@ def health_check():
         return jsonify({
             'status': 'unhealthy',
             'error': 'Service temporarily unavailable',
+            'timestamp': time.time()
+        }), 500
+
+@app.route('/system-monitor')
+@limiter.exempt
+def system_monitor_dashboard():
+    """Detailed system monitoring endpoint for instance optimization"""
+    try:
+        monitor = get_system_monitor()
+        
+        # Get both current and historical stats
+        current_stats = monitor.get_current_stats()
+        historical_stats = monitor.get_historical_stats()
+        
+        response = {
+            'timestamp': time.time(),
+            'current': current_stats,
+            'historical': historical_stats,
+            'monitoring_info': {
+                'auto_started': True,
+                'interval_seconds': 60 if os.getenv('RENDER') else 30,
+                'history_minutes': monitor.history_minutes
+            }
+        }
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"System monitor dashboard failed: {str(e)}", exc_info=True)
+        return jsonify({
+            'error': 'System monitoring unavailable',
             'timestamp': time.time()
         }), 500
 

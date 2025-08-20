@@ -27,4 +27,5 @@ dependencies = [
     "paddlepaddle>=3.1.0",
     "flask-limiter>=3.12",
     "flask-wtf>=1.2.2",
+    "psutil>=5.9.0",
 ]
