@@ -875,5 +875,10 @@ def ads_txt():
     """Serve ads.txt file for AdSense verification"""
     return app.send_static_file('ads.txt')
 
+@app.route('/site.webmanifest')
+def site_webmanifest():
+    """Serve web app manifest"""
+    return app.send_static_file('site.webmanifest')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10001, debug=True)

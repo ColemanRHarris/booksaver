@@ -19,9 +19,9 @@ pip install -r requirements.txt
 # Download YOLO model if not present
 python3 -c "
 import os
-if not os.path.exists('yolov8s.pt'):
+if not os.path.exists('yolo11n.pt'):
     from ultralytics import YOLO
-    model = YOLO('yolov8s.pt')  # This downloads the model
+    model = YOLO('yolo11n.pt')  # This downloads the model
     print('YOLO model downloaded successfully')
 else:
     print('YOLO model already exists')
