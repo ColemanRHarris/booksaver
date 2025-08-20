@@ -25,4 +25,6 @@ dependencies = [
     "yt-dlp>=2025.8.11",
     "paddleocr>=3.1.1",
     "paddlepaddle>=3.1.0",
+    "flask-limiter>=3.12",
+    "flask-wtf>=1.2.2",
 ]

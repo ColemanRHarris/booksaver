@@ -69,9 +69,11 @@ class FuzzyBookSearcher:
                             all_fuzzy_results.append(result)
                     time.sleep(0.3)
         
-        # Step 4: Try fuzzy variations
+        # Step 4: Try fuzzy variations with early termination
         fuzzy_variations = self._generate_fuzzy_variations(ocr_text)
         print(f"🎯 Trying {len(fuzzy_variations)} fuzzy variations...")
+        high_quality_matches = []
+        
         for i, variation in enumerate(fuzzy_variations):
             if i > 0:  # Rate limiting
                 time.sleep(0.3)
@@ -85,9 +87,18 @@ class FuzzyBookSearcher:
                 result['fuzzy_match_score'] = fuzzy_score
                 result['fuzzy_query'] = variation
                 all_fuzzy_results.append(result)
+                
+                # Track high quality matches for early termination
+                if fuzzy_score > 0.8:
+                    high_quality_matches.append(result)
             
             if results:
                 print(f"    → Found {len(results)} results")
+            
+            # Early termination if we found good matches
+            if len(high_quality_matches) >= 2:
+                print(f"🎯 Early termination: Found {len(high_quality_matches)} high-quality matches (score > 0.8)")
+                break
         
         # Sort by fuzzy match score and remove duplicates
         unique_results = self._deduplicate_results(all_fuzzy_results)
@@ -208,7 +219,7 @@ class FuzzyBookSearcher:
                 seen.add(var_clean)
         
         # Limit to reasonable number to avoid rate limiting
-        return unique_variations[:8]
+        return unique_variations[:4]
     
     def _score_fuzzy_match(self, ocr_text: str, book_title: str, book_authors: List[str]) -> float:
         """Score how well a book matches the OCR text using fuzzy matching"""
