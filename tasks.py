@@ -10,23 +10,21 @@ os.environ['NUMEXPR_NUM_THREADS'] = '1'
 
 import tempfile
 import yt_dlp
-# pytesseract now used through multi-backend OCR system
 import threading
-
-from celery_app import celery_app
-from books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
-from fuzzy_search import create_fuzzy_searcher
-from book_filters import create_book_filter, create_trending_detector
-from language_filter import create_language_filter
-from recommendation_engine import get_recommendation_engine
 import ast
 import uuid
-import requests
 import shutil
 import time
 from typing import List, Dict, Any
-import numpy as np
 from pathlib import Path
+
+from celery_app import celery_app
+from services.books_client import GoogleBooksClient, build_amazon_link, build_purchase_links, build_reader_app_links
+from core.filters import create_fuzzy_searcher, create_book_filter, create_trending_detector, create_language_filter
+from services.recommendation_engine import get_recommendation_engine
+# OCR and frame extraction available if needed:
+# from core.ocr import get_ocr_engine, extract_text_from_frames  
+# from core.smart_frame_extractor import SmartFrameExtractor
 import os.path
 import logging
 from google import genai
@@ -49,8 +47,7 @@ def get_logger(name: str):
 
 logger = get_logger(__name__)
 
-# Initialize YOLO model (will download on first use)
-model = None
+# YOLO model initialization removed (using Gemini AI for video analysis instead)
 
 # File processing limits
 MAX_VIDEO_SIZE_MB = 100  # 100MB max video size
@@ -408,12 +405,17 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
     print(f"📚 Starting fuzzy book search with {len(texts)} text extractions")
     
     # Create fuzzy searcher
+    print("CONSTRUCTOR")
+    print(texts)
     fuzzy_searcher = create_fuzzy_searcher()
     found_books = []
     seen_titles = set()
     search_delay=0.1
     search_queries=texts
+    print("OUTSIDE LOOP")
+    print(search_queries)
     for i, clean_text in enumerate(search_queries):
+        print("ENTERED LOOP")
         if len(found_books) >= 15:  # Increased limit to collect more unique books
             print(f"📚 Reached book limit (15), stopping search")
             break
