@@ -358,8 +358,8 @@ def tiktok_results(task_id):
                 
                 return render_template('results.html', 
                                      books=books, 
-                                     query=f"{video_type} analysis",
-                                     video_url=video_url)
+                                     query=f"TikTok analysis",
+                                     video_url="Lorem")
             else:
                 error_msg = safe_get_task_result(task.result, 'error', 'Task failed or is still processing')
                 return render_template('results.html', 
@@ -451,16 +451,107 @@ def get_curated_recommendations():
     # This could be replaced with database queries or external API calls
     return [
         {
-            'title': 'Fourth Wing',
-            'authors': ['Rebecca Yarros'],
-            'description': 'A fantasy romance that took BookTok by storm.',
-            'average_rating': 4.5,
-            'ratings_count': 50000,
-            'thumbnail': 'https://via.placeholder.com/128x192',
-            'amazon_link': '#',
-            'google_books_link': '#'
+            'title': 'Tender Is the Flesh',
+            'authors': ['Agustina Bazterrica'],
+            'published_date': '2020-08-04',
+            'isbn': '9781982150921',
+            'description': 'Working at the local processing plant, Marcos is in the business of slaughtering humans—though no one calls them that anymore. His wife has left him, his father is sinking into dementia, and Marcos tries not to think too hard about how he makes a living.',
+            'thumbnail': 'https://books.google.com/books/content?id=FMLvDwAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api',
+            'preview_link': 'https://books.google.com/books?id=FMLvDwAAQBAJ&printsec=frontcover&dq=tender+is+the+flesh&hl=en&sa=X',
+            'purchase_links': {
+                'amazon': 'https://amzn.to/41LP8LR',
+                'audible': 'https://amzn.to/4oMjNmg',
+                'barnes_noble': 'https://www.barnesandnoble.com/s/tender+is+the+flesh',
+                'bookshop': 'https://bookshop.org/books/tender-is-the-flesh/9781982150921',
+                'google_books': 'https://books.google.com/books?id=FMLvDwAAQBAJ'
+            },
+            'reader_app_links': build_reader_app_links({'title': 'Tender Is the Flesh', 'authors': ['Agustina Bazterrica']})
         },
-        # Add more curated books...
+        {
+            'title': 'Cold Storage',
+            'authors': ['David Koepp'],
+            'published_date': '2019-09-03',
+            'isbn': '9780062916426',
+            'description': 'For decades, a deadly organism has been locked away in a military bunker. But when an earthquake cracks the structure, the organism escapes and begins spreading. Now it\'s up to two unlikely heroes to stop the outbreak before it\'s too late.',
+            'thumbnail': 'https://books.google.com/books/content?id=9IQyAQAAMAAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api',
+            'preview_link': 'https://books.google.com/books?id=cold-storage-koepp&printsec=frontcover&dq=cold+storage+david+koepp',
+            'purchase_links': {
+                'amazon': 'https://amzn.to/46XJ3iU',
+                'audible': 'https://amzn.to/4mNhuxq',
+                'barnes_noble': 'https://www.barnesandnoble.com/s/cold+storage+david+koepp',
+                'bookshop': 'https://bookshop.org/books/cold-storage/9780062916426',
+                'google_books': 'https://books.google.com/books?q=cold+storage+david+koepp'
+            },
+            'reader_app_links': build_reader_app_links({'title': 'Cold Storage', 'authors': ['David Koepp']})
+        },
+        {
+            'title': 'Project Hail Mary',
+            'authors': ['Andy Weir'],
+            'published_date': '2021-05-04',
+            'isbn': '9780593135204',
+            'description': 'A lone astronaut must save the earth from disaster in this critically acclaimed and bestselling new novel by the author of The Martian. Ryland Grace woke up on a spaceship with no idea how he got there. His crewmates are dead. His memories are fading.',
+            'thumbnail': 'https://books.google.com/books/content?id=iEiHEAAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api',
+            'preview_link': 'https://books.google.com/books?id=project-hail-mary&printsec=frontcover&dq=project+hail+mary',
+            'purchase_links': {
+                'amazon': 'https://amzn.to/45G6uuK',
+                'audible': 'https://amzn.to/45Gsiqk',
+                'barnes_noble': 'https://www.barnesandnoble.com/s/project+hail+mary',
+                'bookshop': 'https://bookshop.org/books/project-hail-mary/9780593135204',
+                'google_books': 'https://books.google.com/books?q=project+hail+mary+andy+weir'
+            },
+            'reader_app_links': build_reader_app_links({'title': 'Project Hail Mary', 'authors': ['Andy Weir']})
+        },
+        {
+            'title': 'King Sorrow',
+            'authors': ['Joe Hill'],
+            'published_date': '2024-11-01',
+            'isbn': '9781803362694',
+            'description': 'From the New York Times bestselling author of The Fireman and NOS4A2 comes a timely and terrifying novel about grief, loss, and the lengths people will go to hold onto what they love. A haunting exploration of how sorrow can transform into something monstrous.',
+            'thumbnail': 'https://books.google.com/books/content?id=GmhOEQAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api',
+            'preview_link': 'https://books.google.com/books?id=king-sorrow-joe-hill&printsec=frontcover&dq=king+sorrow+joe+hill',
+            'purchase_links': {
+                'amazon': 'https://amzn.to/4fGPqtb',
+                'audible': 'https://amzn.to/3V64Ldj',
+                'barnes_noble': 'https://www.barnesandnoble.com/s/king+sorrow+joe+hill',
+                'bookshop': 'https://bookshop.org/books/king-sorrow/9781803362694',
+                'google_books': 'https://books.google.com/books?q=king+sorrow+joe+hill'
+            },
+            'reader_app_links': build_reader_app_links({'title': 'King Sorrow', 'authors': ['Joe Hill']})
+        },
+        {
+            'title': 'Bury Your Gays',
+            'authors': ['Chuck Tingle'],
+            'published_date': '2024-07-16',
+            'isbn': '9781803365190',
+            'description': 'A horror novel that explores the deadly consequences of harmful media tropes. When screenwriter Misha refuses to kill off LGBTQ+ characters in his script, he discovers that reality itself begins to warp around him as the "bury your gays" trope takes on a terrifying life of its own.',
+            'thumbnail': 'https://books.google.com/books/content?id=9OfWEAAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api',
+            'preview_link': 'https://books.google.com/books?id=9OfWEAAAQBAJ&printsec=frontcover&dq=bury+your+gays+chuck+tingle',
+            'purchase_links': {
+                'amazon': 'https://amzn.to/4mJqKm1',
+                'audible': 'https://amzn.to/4lD09q2',
+                'barnes_noble': 'https://www.barnesandnoble.com/s/bury+your+gays+chuck+tingle',
+                'bookshop': 'https://bookshop.org/books/bury-your-gays/9781803365190',
+                'google_books': 'https://books.google.com/books?id=9OfWEAAAQBAJ'
+            },
+            'reader_app_links': build_reader_app_links({'title': 'Bury Your Gays', 'authors': ['Chuck Tingle']})
+        },
+        {
+            'title': 'King of Ashes',
+            'authors': ['S. A. Cosby'],
+            'published_date': '2025-06-10',
+            'isbn': '9781250395023',
+            'description': 'Award-winning, New York Times bestselling author S. A. Cosby returns with King of Ashes, a Godfather-esque crime saga that follows a Black funeral director who also happens to be the most feared crime boss on the East Coast.',
+            'thumbnail': 'https://books.google.com/books/content?id=f78yEQAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api',
+            'preview_link': 'https://books.google.com/books?id=f78yEQAAQBAJ&printsec=frontcover&dq=king+of+ashes+s.a.+cosby',
+            'purchase_links': {
+                'amazon': 'https://amzn.to/4oVPjhM',
+                'audible': 'https://amzn.to/3UvcNfE',
+                'barnes_noble': 'https://www.barnesandnoble.com/s/king+of+ashes+s.a.+cosby',
+                'bookshop': 'https://bookshop.org/books/king-of-ashes/9781250395023',
+                'google_books': 'https://books.google.com/books?id=f78yEQAAQBAJ'
+            },
+            'reader_app_links': build_reader_app_links({'title': 'King of Ashes', 'authors': ['S. A. Cosby']})
+        }
     ]
 
 
