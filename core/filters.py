@@ -442,7 +442,7 @@ class GoogleBooksFilter:
             elif page_count < 50:
                 score -= 10  # Too short, might be low quality
             elif page_count > 1000:
-                score -= 5   # Very long, might be academic
+                score -= 5  # Very long, might be academic
         
         # Publisher reputation (0-10 points)
         publisher = book.get('publisher', '').lower()
