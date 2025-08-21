@@ -165,7 +165,15 @@ def process_video(self, video_url: str, video_type: str):
         return cached_result
     
     try:
-        genai_client = genai.Client(api_key="AIzaSyBA-AAqL3pGbogjphaDjVXCHX4ESkzIx5k")
+        # Get Gemini API key from environment
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+            error_msg = "GEMINI_API_KEY environment variable is required for video processing"
+            logger.error(f"❌ {error_msg}")
+            raise ValueError(error_msg)
+        
+        logger.info("✅ Gemini API key loaded from environment")
+        genai_client = genai.Client(api_key=api_key)
         self.update_state(state='PROGRESS', meta={'step': 'Downloading video', 'progress': 10})
         
         temp_dir_prefix = f"{video_type}_{uuid.uuid4().hex}_"

@@ -60,6 +60,33 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 logger = logging.getLogger(__name__)
 
+# Environment variable validation logging
+def log_environment_status():
+    """Log the status of important environment variables"""
+    env_vars = {
+        'GEMINI_API_KEY': os.getenv('GEMINI_API_KEY'),
+        'REDIS_URL': os.getenv('REDIS_URL'), 
+        'SECRET_KEY': os.getenv('SECRET_KEY'),
+        'FLASK_ENV': os.getenv('FLASK_ENV'),
+        'GOOGLE_BOOKS_KEY': os.getenv('GOOGLE_BOOKS_KEY'),
+        'PORT': os.getenv('PORT')
+    }
+    
+    logger.info("🔐 Environment Variables Status:")
+    for var_name, var_value in env_vars.items():
+        if var_value:
+            # Show only first/last 4 chars of sensitive values
+            if 'KEY' in var_name and len(var_value) > 8:
+                display_value = f"{var_value[:4]}...{var_value[-4:]}"
+            else:
+                display_value = var_value
+            logger.info(f"   ✅ {var_name}: {display_value}")
+        else:
+            logger.warning(f"   ⚠️  {var_name}: NOT SET")
+
+# Log environment status
+log_environment_status()
+
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
 
