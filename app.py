@@ -145,13 +145,21 @@ def validate_url(url: str, allowed_domains: list) -> bool:
         if parsed.scheme not in ['http', 'https']:
             return False
         
-        # Check if domain is in allowed list
+        # Check if domain matches any allowed domain exactly
         domain = parsed.netloc
-        # Remove 'www.' prefix for comparison
-        if domain.startswith('www.'):
-            domain = domain[4:]
         
-        return any(allowed_domain in domain for allowed_domain in allowed_domains)
+        # Direct match check
+        if domain in allowed_domains:
+            return True
+        
+        # Remove www. prefix and check again
+        if domain.startswith('www.'):
+            domain_without_www = domain[4:]
+            if domain_without_www in allowed_domains:
+                return True
+        
+        # Check if any allowed domain matches (for cases like vm.tiktok.com)
+        return any(domain == allowed_domain or domain.endswith('.' + allowed_domain) for allowed_domain in allowed_domains)
     
     except Exception:
         return False
@@ -271,37 +279,6 @@ def health_check():
             'timestamp': time.time()
         }), 500
 
-@app.route('/system-monitor')
-@limiter.exempt
-def system_monitor_dashboard():
-    """Detailed system monitoring endpoint for instance optimization"""
-    try:
-        monitor = get_system_monitor()
-        
-        # Get both current and historical stats
-        current_stats = monitor.get_current_stats()
-        historical_stats = monitor.get_historical_stats()
-        
-        response = {
-            'timestamp': time.time(),
-            'current': current_stats,
-            'historical': historical_stats,
-            'monitoring_info': {
-                'auto_started': True,
-                'interval_seconds': 60 if os.getenv('RENDER') else 30,
-                'history_minutes': monitor.history_minutes
-            }
-        }
-        
-        return jsonify(response), 200
-        
-    except Exception as e:
-        logger.error(f"System monitor dashboard failed: {str(e)}", exc_info=True)
-        return jsonify({
-            'error': 'System monitoring unavailable',
-            'timestamp': time.time()
-        }), 500
-
 @app.route('/search', methods=['POST'])
 @limiter.limit("10 per minute")
 def search():
@@ -336,16 +313,19 @@ def search():
         return render_template('index.html', error="Something went wrong. Please try again later.")
 
 @app.route('/process-tiktok', methods=['POST'])
-@limiter.limit("5 per hour")  # More restrictive for video processing
+@limiter.limit("20 per hour")  # Increased for testing
 def process_tiktok():
+    logger.info(f"🎬 TikTok processing request received from {request.remote_addr}")
     raw_url = request.form.get('tiktok_url', '')
+    logger.info(f"📝 Raw URL received: {raw_url}")
     tiktok_url = sanitize_input(raw_url, max_length=500)
+    logger.info(f"🧹 Sanitized URL: {tiktok_url}")
     
     if not tiktok_url:
         return render_template('index.html', error="Please enter a TikTok URL")
     
     # Proper URL validation
-    allowed_domains = ['tiktok.com', 'vm.tiktok.com', 'www.tiktok.com']
+    allowed_domains = ['tiktok.com', 'www.tiktok.com', 'vm.tiktok.com', 'm.tiktok.com', 'vt.tiktok.com']
     if not validate_url(tiktok_url, allowed_domains):
         return render_template('index.html', error="Please enter a valid TikTok URL. Supported formats: https://www.tiktok.com/@username/video/123... or https://vm.tiktok.com/abc123")
     
@@ -373,12 +353,6 @@ def process_tiktok():
             thread.daemon = True
             thread.start()
         
-        # Store video session for recommendation engine
-        try:
-            rec_engine = get_recommendation_engine()
-            rec_engine.store_video_session(task_id, tiktok_url, 'tiktok')
-        except Exception as e:
-            logger.warning(f"Failed to store video session: {e}")
         
         return redirect(url_for('processing_wait', task_id=task_id, url=tiktok_url, type='tiktok'))
         
@@ -428,12 +402,6 @@ def process_instagram_reel():
             thread.daemon = True
             thread.start()
         
-        # Store video session for recommendation engine
-        try:
-            rec_engine = get_recommendation_engine()
-            rec_engine.store_video_session(task_id, reel_url, 'instagram')
-        except Exception as e:
-            logger.warning(f"Failed to store video session: {e}")
         
         return redirect(url_for('processing_wait', task_id=task_id, url=reel_url, type='instagram'))
         
@@ -772,89 +740,6 @@ def recommendations():
         logger.error(f"Error loading recommendations: {str(e)}", exc_info=True)
         return render_template('index.html', error="Unable to load recommendations. Please try again later.")
 
-@app.route('/api/feedback', methods=['POST'])
-@limiter.limit("30 per minute")  # Allow frequent feedback
-def submit_feedback():
-    """Submit thumbs up/down feedback for a book"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'status': 'error', 'message': 'Invalid JSON data'}), 400
-        
-        session_id = data.get('session_id')
-        book_isbn = data.get('book_isbn', '')
-        book_title = data.get('book_title', '')
-        book_authors = data.get('book_authors', [])
-        feedback = data.get('feedback')  # 1 for thumbs up, -1 for thumbs down
-        
-        if not session_id:
-            return jsonify({'status': 'error', 'message': 'Session ID required'}), 400
-        
-        if not book_title:
-            return jsonify({'status': 'error', 'message': 'Book title required'}), 400
-        
-        if feedback not in [1, -1]:
-            return jsonify({'status': 'error', 'message': 'Invalid feedback value'}), 400
-        
-        # Submit feedback
-        rec_engine = get_recommendation_engine()
-        rec_engine.submit_feedback(session_id, book_isbn, book_title, book_authors, feedback)
-        
-        # Get updated counts
-        counts = rec_engine.get_book_feedback_counts(book_isbn)
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'Feedback submitted',
-            'counts': counts
-        })
-        
-    except Exception as e:
-        logger.error(f"Feedback submission error: {str(e)}", exc_info=True)
-        return jsonify({
-            'status': 'error',
-            'message': 'Failed to submit feedback'
-        }), 500
-
-@app.route('/api/feedback/<book_isbn>')
-@limiter.limit("60 per minute")
-def get_feedback_counts(book_isbn):
-    """Get feedback counts for a book"""
-    try:
-        rec_engine = get_recommendation_engine()
-        counts = rec_engine.get_book_feedback_counts(book_isbn)
-        
-        return jsonify({
-            'status': 'success',
-            'counts': counts
-        })
-        
-    except Exception as e:
-        logger.error(f"Feedback count error: {str(e)}", exc_info=True)
-        return jsonify({
-            'status': 'error',
-            'message': 'Failed to get feedback counts'
-        }), 500
-
-@app.route('/api/session-feedback/<session_id>/<book_isbn>')
-@limiter.limit("60 per minute")
-def get_session_feedback(session_id, book_isbn):
-    """Get existing feedback for a book in this session"""
-    try:
-        rec_engine = get_recommendation_engine()
-        feedback = rec_engine.get_session_feedback(session_id, book_isbn)
-        
-        return jsonify({
-            'status': 'success',
-            'feedback': feedback
-        })
-        
-    except Exception as e:
-        logger.error(f"Session feedback error: {str(e)}", exc_info=True)
-        return jsonify({
-            'status': 'error',
-            'message': 'Failed to get session feedback'
-        }), 500
 
 @app.route('/terms')
 def terms():

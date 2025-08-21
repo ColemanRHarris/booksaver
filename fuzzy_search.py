@@ -43,76 +43,76 @@ class FuzzyBookSearcher:
             return exact_results
         
         # Step 2: Try corrected OCR text
-        corrected_text = self._apply_ocr_corrections(ocr_text)
-        if corrected_text != ocr_text:
-            print(f"🔧 Trying OCR corrections: '{ocr_text}' -> '{corrected_text}'")
-            corrected_results = self.books_client.search_books(corrected_text, max_results)
-            if corrected_results:
-                print(f"✅ Found {len(corrected_results)} matches with corrections")
-                return corrected_results
+        #corrected_text = self._apply_ocr_corrections(ocr_text)
+        #if corrected_text != ocr_text:
+        #    print(f"🔧 Trying OCR corrections: '{ocr_text}' -> '{corrected_text}'")
+        #    corrected_results = self.books_client.search_books(corrected_text, max_results)
+        #    if corrected_results:
+        #        print(f"✅ Found {len(corrected_results)} matches with corrections")
+        #        return corrected_results
         
         # Step 3: Initialize results collection
-        all_fuzzy_results = []
+        #all_fuzzy_results = []
         
         # Try individual words (authors/titles often split)
-        words = ocr_text.split()
-        if len(words) >= 2:
-            print(f"🔍 Trying individual words from: '{ocr_text}'")
-            for word in words:
-                if len(word) >= 4:  # Skip very short words
-                    word_results = self.books_client.search_books(word, max_results=2)
-                    for result in word_results:
-                        fuzzy_score = self._score_fuzzy_match(ocr_text, result.get('title', ''), result.get('authors', []))
-                        if fuzzy_score > 0.5:  # Only good matches
-                            result['fuzzy_match_score'] = fuzzy_score
-                            result['fuzzy_query'] = word
-                            all_fuzzy_results.append(result)
-                    time.sleep(0.3)
+        #words = ocr_text.split()
+        #if len(words) >= 2:
+        #    print(f"🔍 Trying individual words from: '{ocr_text}'")
+        #    for word in words:
+        #        if len(word) >= 4:  # Skip very short words
+        #            word_results = self.books_client.search_books(word, max_results=2)
+        #            for result in word_results:
+        #                fuzzy_score = self._score_fuzzy_match(ocr_text, result.get('title', ''), result.get('authors', []))
+        #                if fuzzy_score > 0.5:  # Only good matches
+        #                    result['fuzzy_match_score'] = fuzzy_score
+        #                    result['fuzzy_query'] = word
+        #                    all_fuzzy_results.append(result)
+        #            time.sleep(0.3)
         
         # Step 4: Try fuzzy variations with early termination
-        fuzzy_variations = self._generate_fuzzy_variations(ocr_text)
-        print(f"🎯 Trying {len(fuzzy_variations)} fuzzy variations...")
-        high_quality_matches = []
+        #fuzzy_variations = self._generate_fuzzy_variations(ocr_text)
+        #print(f"🎯 Trying {len(fuzzy_variations)} fuzzy variations...")
+        #high_quality_matches = []
         
-        for i, variation in enumerate(fuzzy_variations):
-            if i > 0:  # Rate limiting
-                time.sleep(0.3)
-            
-            print(f"  {i+1}. '{variation}'")
-            results = self.books_client.search_books(variation, max_results=2)  # Smaller for variations
-            
-            for result in results:
-                # Score the fuzzy match
-                fuzzy_score = self._score_fuzzy_match(ocr_text, result.get('title', ''), result.get('authors', []))
-                result['fuzzy_match_score'] = fuzzy_score
-                result['fuzzy_query'] = variation
-                all_fuzzy_results.append(result)
-                
-                # Track high quality matches for early termination
-                if fuzzy_score > 0.8:
-                    high_quality_matches.append(result)
-            
-            if results:
-                print(f"    → Found {len(results)} results")
-            
-            # Early termination if we found good matches
-            if len(high_quality_matches) >= 2:
-                print(f"🎯 Early termination: Found {len(high_quality_matches)} high-quality matches (score > 0.8)")
-                break
+        #for i, variation in enumerate(fuzzy_variations):
+        #    if i > 0:  # Rate limiting
+        #        time.sleep(0.3)
+        #    
+        #    print(f"  {i+1}. '{variation}'")
+        #    results = self.books_client.search_books(variation, max_results=2)  # Smaller for variations
+        #    
+        #    for result in results:
+        #        # Score the fuzzy match
+        #        fuzzy_score = self._score_fuzzy_match(ocr_text, result.get('title', ''), result.get('authors', []))
+        #        result['fuzzy_match_score'] = fuzzy_score
+        #        result['fuzzy_query'] = variation
+        #        all_fuzzy_results.append(result)
+        #        
+        #        # Track high quality matches for early termination
+        #        if fuzzy_score > 0.8:
+        #            high_quality_matches.append(result)
+        #    
+        #    if results:
+        #        print(f"    → Found {len(results)} results")
+        #    
+        #    # Early termination if we found good matches
+        #    if len(high_quality_matches) >= 2:
+        #        print(f"🎯 Early termination: Found {len(high_quality_matches)} high-quality matches (score > 0.8)")
+        #        break
         
         # Sort by fuzzy match score and remove duplicates
-        unique_results = self._deduplicate_results(all_fuzzy_results)
-        unique_results.sort(key=lambda x: x.get('fuzzy_match_score', 0), reverse=True)
+        #unique_results = self._deduplicate_results(all_fuzzy_results)
+        #unique_results.sort(key=lambda x: x.get('fuzzy_match_score', 0), reverse=True)
         
         # Return top matches
-        final_results = unique_results[:max_results]
-        if final_results:
-            scores = [f"{r.get('fuzzy_match_score', 0):.2f}" for r in final_results]
-            print(f"🎉 Best fuzzy matches (scores: {scores})")
-            for r in final_results:
-                print(f"  - '{r.get('title', 'Unknown')}' (query: '{r.get('fuzzy_query', '')}')")
+        #final_results = unique_results[:max_results]
+        #if final_results:
+        #    scores = [f"{r.get('fuzzy_match_score', 0):.2f}" for r in final_results]
+        #    print(f"🎉 Best fuzzy matches (scores: {scores})")
+        #    for r in final_results:
+        #        print(f"  - '{r.get('title', 'Unknown')}' (query: '{r.get('fuzzy_query', '')}')")
         
-        return final_results
+        return []
     
     def _apply_ocr_corrections(self, text: str) -> str:
         """Apply common OCR error corrections"""

@@ -125,25 +125,25 @@ class GoogleBooksFilter:
         if not self._has_basic_quality(book):
             return False
         
-        # 2. Check for red flag patterns in title/description
-        if self._has_red_flag_patterns(title, description):
-            return False
-        
-        # 3. Check for problematic publishers
-        if self._is_problematic_publisher(publisher):
-            return False
-        
-        # 4. Check for academic/technical categories
-        if self._is_academic_or_technical(title, description, publisher):
-            return False
-        
-        # 5. Check for government/official documents
-        if self._is_government_document(title, description, publisher):
-            return False
-        
+        ## 2. Check for red flag patterns in title/description
+        #if self._has_red_flag_patterns(title, description):
+        #    return False
+        #
+        ## 3. Check for problematic publishers
+        #if self._is_problematic_publisher(publisher):
+        #    return False
+        #
+        ## 4. Check for academic/technical categories
+        #if self._is_academic_or_technical(title, description, publisher):
+        #    return False
+        #
+        ## 5. Check for government/official documents
+        #if self._is_government_document(title, description, publisher):
+        #    return False
+        #
         # 6. Check publication date (avoid very old or weird dates)
-        if not self._has_reasonable_publication_date(published_date):
-            return False
+        #if not self._has_reasonable_publication_date(published_date):
+        #    return False
         
         # 7. Check if title is reasonable for a consumer book
         if not self._is_consumer_book_title(title):

@@ -28,4 +28,5 @@ dependencies = [
     "flask-limiter>=3.12",
     "flask-wtf>=1.2.2",
     "psutil>=5.9.0",
+    "google-genai>=1.31.0",
 ]

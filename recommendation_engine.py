@@ -61,34 +61,63 @@ class SimpleDictCache:
 
 class RecommendationEngine:
     def __init__(self, redis_client=None):
+        print("🚀 Initializing Recommendation Engine...")
+        
         if redis_client:
+            print("✅ Using provided Redis client")
             self.redis = redis_client
         else:
             # Auto-detect local development environment
             redis_url = os.getenv('REDIS_URL')
+            print(f"🔍 Environment check - REDIS_URL: {'SET' if redis_url else 'NOT SET'}")
+            
+            # Environment detection
+            is_local = self._is_local_development()
+            print(f"🏠 Environment detected: {'LOCAL DEVELOPMENT' if is_local else 'PRODUCTION/DEPLOYMENT'}")
             
             if not redis_url:
                 # Check if we're in local development
-                if self._is_local_development():
+                if is_local:
                     redis_url = 'memory://'  # Use in-memory cache locally
+                    print("🔧 No REDIS_URL set, using in-memory cache for local development")
                 else:
                     redis_url = 'redis://localhost:6379'  # Default fallback
+                    print("⚠️ No REDIS_URL set in production, using localhost fallback")
+            else:
+                print(f"📡 Using REDIS_URL from environment: {redis_url}")
             
             # Initialize Redis connection based on URL
             if redis_url == 'memory://':
-                print("🔧 Recommendation Engine: Using in-memory cache (local development)")
+                print("🔧 Recommendation Engine: Setting up in-memory cache (local development)")
                 try:
                     from fakeredis import FakeRedis
                     self.redis = FakeRedis()
+                    print("✅ Using FakeRedis for in-memory caching")
                 except ImportError:
                     # If fakeredis not available, use a simple dict-based fallback
                     self.redis = SimpleDictCache()
+                    print("⚠️ FakeRedis not available, using SimpleDictCache fallback")
             else:
-                print(f"📡 Recommendation Engine: Using Redis at {redis_url}")
-                self.redis = redis.from_url(redis_url)
+                print(f"📡 Recommendation Engine: Connecting to Redis at {redis_url}")
+                try:
+                    import redis as redis_lib
+                    self.redis = redis_lib.from_url(redis_url)
+                    # Test connection
+                    self.redis.ping()
+                    print("✅ Successfully connected to Redis")
+                except Exception as e:
+                    print(f"❌ Failed to connect to Redis: {e}")
+                    print("🔧 Falling back to in-memory cache")
+                    self.redis = SimpleDictCache()
         
         self.cache_ttl = 7 * 24 * 3600  # 7 days cache
         self.session_ttl = 30 * 24 * 3600  # 30 days for sessions
+        
+        print(f"⏰ Cache configuration:")
+        print(f"   📦 Cache TTL: {self.cache_ttl}s ({self.cache_ttl/3600:.1f} hours)")
+        print(f"   🗂️ Session TTL: {self.session_ttl}s ({self.session_ttl/86400:.1f} days)")
+        print(f"   🔗 Cache backend: {type(self.redis).__name__}")
+        print("🎉 Recommendation Engine initialized successfully!")
     
     def _is_local_development(self) -> bool:
         """Detect if running in local development environment"""
@@ -127,8 +156,75 @@ class RecommendationEngine:
         return True
     
     def _hash_url(self, url: str) -> str:
-        """Create consistent hash for video URL"""
-        return hashlib.md5(url.encode('utf-8')).hexdigest()[:12]
+        """Create consistent hash for video URL with normalization"""
+        original_url = url
+        
+        # Normalize URL for consistent caching
+        normalized_url = self._normalize_url(url)
+        
+        if normalized_url != original_url:
+            print(f"🔧 URL normalized: {original_url} → {normalized_url}")
+        
+        url_hash = hashlib.md5(normalized_url.encode('utf-8')).hexdigest()[:12]
+        print(f"🔑 URL hash generated: {url_hash} for normalized URL: {normalized_url}")
+        
+        return url_hash
+    
+    def _normalize_url(self, url: str) -> str:
+        """Normalize URL to ensure consistent caching across URL variations"""
+        from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+        
+        try:
+            # Parse the URL
+            parsed = urlparse(url.strip())
+            
+            # Normalize scheme to https
+            scheme = 'https'
+            
+            # Normalize domain - remove www prefix for consistency
+            netloc = parsed.netloc.lower()
+            if netloc.startswith('www.'):
+                netloc = netloc[4:]
+            
+            # Handle TikTok URL variations
+            if 'tiktok.com' in netloc:
+                # Standardize TikTok domains
+                if netloc in ['vm.tiktok.com', 'vt.tiktok.com', 'm.tiktok.com']:
+                    # Keep these as-is since they're different services
+                    pass
+                else:
+                    # Standardize to tiktok.com (without www)
+                    netloc = 'tiktok.com'
+            
+            # Remove trailing slash from path
+            path = parsed.path.rstrip('/')
+            
+            # Remove common tracking parameters
+            if parsed.query:
+                query_params = parse_qs(parsed.query)
+                # Remove common tracking parameters
+                tracking_params = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 
+                                 'fbclid', 'gclid', '_gl', 'ref', 'source']
+                for param in tracking_params:
+                    query_params.pop(param, None)
+                
+                # Rebuild query string
+                if query_params:
+                    query = urlencode(sorted(query_params.items()), doseq=True)
+                else:
+                    query = ''
+            else:
+                query = ''
+            
+            # Rebuild URL
+            normalized = urlunparse((scheme, netloc, path, parsed.params, query, ''))
+            
+            return normalized
+            
+        except Exception as e:
+            print(f"⚠️ URL normalization error for {url}: {e}")
+            # Return original URL if normalization fails
+            return url.strip()
     
     def get_cached_results(self, video_url: str) -> Optional[Dict[str, Any]]:
         """Check if we have cached results for this video URL"""
@@ -136,22 +232,49 @@ class RecommendationEngine:
             url_hash = self._hash_url(video_url)
             cache_key = f"video_cache:{url_hash}"
             
+            print(f"🔍 Cache lookup for URL: {video_url}")
+            print(f"🔑 Generated cache key: {cache_key} (hash: {url_hash})")
+            
             cached_data = self.redis.hgetall(cache_key)
             if not cached_data:
+                print(f"❌ Cache MISS: No cached results found for {video_url[:50]}...")
                 return None
             
+            print(f"📦 Found cached data with keys: {list(cached_data.keys())}")
+            
             # Check if cache is still valid (not expired)
-            created_at = datetime.fromisoformat(cached_data[b'created_at'].decode())
-            if datetime.utcnow() - created_at > timedelta(seconds=self.cache_ttl):
+            created_at_str = cached_data.get(b'created_at', cached_data.get('created_at', ''))
+            if isinstance(created_at_str, bytes):
+                created_at_str = created_at_str.decode()
+            
+            if not created_at_str:
+                print(f"⚠️ Cache entry missing timestamp, treating as expired")
+                self.redis.delete(cache_key)
+                return None
+                
+            created_at = datetime.fromisoformat(created_at_str)
+            cache_age = datetime.utcnow() - created_at
+            
+            print(f"⏰ Cache age: {cache_age.total_seconds():.1f}s (TTL: {self.cache_ttl}s)")
+            
+            if cache_age > timedelta(seconds=self.cache_ttl):
+                print(f"🗑️ Cache EXPIRED: Deleting expired entry for {video_url[:50]}...")
                 # Cache expired, delete it
                 self.redis.delete(cache_key)
                 self.redis.delete(f"url_mapping:{url_hash}")
                 return None
             
-            print(f"🎉 Cache HIT for video: {video_url[:50]}...")
-            return json.loads(cached_data[b'books'].decode())
+            print(f"💾 Cache HIT: Returning cached results for {video_url[:50]}...")
+            books_data = cached_data.get(b'books', cached_data.get('books', ''))
+            if isinstance(books_data, bytes):
+                books_data = books_data.decode()
+            
+            return json.loads(books_data)
+            
         except Exception as e:
-            print(f"⚠️ Cache lookup error: {e}")
+            print(f"⚠️ Cache lookup error for {video_url[:50]}...: {e}")
+            import traceback
+            print(f"🔍 Cache error traceback: {traceback.format_exc()}")
             return None
     
     def cache_results(self, video_url: str, video_type: str, results: Dict[str, Any]):
@@ -160,8 +283,18 @@ class RecommendationEngine:
             url_hash = self._hash_url(video_url)
             cache_key = f"video_cache:{url_hash}"
             
+            print(f"💾 Caching results for URL: {video_url}")
+            print(f"🔑 Cache key: {cache_key} (hash: {url_hash})")
+            
+            # Calculate data size for debugging
+            books_json = json.dumps(results)
+            data_size = len(books_json.encode('utf-8'))
+            num_books = len(results.get('books', []))
+            
+            print(f"📊 Caching {num_books} books, data size: {data_size} bytes")
+            
             cache_data = {
-                "books": json.dumps(results),
+                "books": books_json,
                 "created_at": datetime.utcnow().isoformat(),
                 "video_type": video_type
             }
@@ -170,12 +303,17 @@ class RecommendationEngine:
             self.redis.hset(cache_key, mapping=cache_data)
             self.redis.expire(cache_key, self.cache_ttl)
             
+            print(f"⏰ Set cache TTL to {self.cache_ttl} seconds ({self.cache_ttl/3600:.1f} hours)")
+            
             # Store URL mapping for debugging
             self.redis.setex(f"url_mapping:{url_hash}", self.cache_ttl, video_url)
             
-            print(f"💾 Cached results for video: {video_url[:50]}...")
+            print(f"✅ Successfully cached results for: {video_url[:50]}...")
+            
         except Exception as e:
-            print(f"⚠️ Cache store error: {e}")
+            print(f"⚠️ Cache store error for {video_url[:50]}...: {e}")
+            import traceback
+            print(f"🔍 Cache store error traceback: {traceback.format_exc()}")
     
     def store_video_session(self, session_id: str, video_url: str, video_type: str):
         """Store video processing session"""

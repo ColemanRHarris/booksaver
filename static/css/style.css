@@ -9,7 +9,13 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.6;
     color: #333;
-    background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f4 50%, #e8eaed 100%);
+    background: 
+        linear-gradient(135deg, rgba(248, 249, 250, 0.95) 0%, rgba(241, 243, 244, 0.95) 50%, rgba(232, 234, 237, 0.95) 100%),
+        url('../ornate-b-large.png');
+    background-size: cover, 800px auto;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
+    background-attachment: fixed, fixed;
     min-height: 100vh;
 }
 
@@ -619,6 +625,13 @@ footer {
         line-height: 1.4;
     }
     
+    /* Mobile optimization for main background */
+    body {
+        background-size: cover, 600px auto;
+        background-position: center, center;
+        background-attachment: scroll, scroll; /* Better mobile performance */
+    }
+    
     /* Mobile optimization for header ornate B */
     header {
         background-size: cover, 200px auto;
@@ -853,6 +866,12 @@ footer {
             max-width: 100px;
             display: block;
             margin: 0 auto 1rem;
+        }
+        
+        /* Further optimize main background for tiny screens */
+        body {
+            background-size: cover, 400px auto;
+            background-position: center, center;
         }
         
         /* Further optimize ornate B for tiny screens */
