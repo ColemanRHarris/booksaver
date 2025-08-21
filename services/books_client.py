@@ -3,7 +3,7 @@ import os
 import time
 import random
 from typing import List, Dict, Optional
-from google_books_filter import create_google_books_filter
+# Filters imported dynamically to avoid circular imports
 
 class GoogleBooksClient:
     def __init__(self):
@@ -166,8 +166,9 @@ class GoogleBooksClient:
             
             # Apply Google Books result filtering to remove weird results
             try:
+                from core.filters import create_google_books_filter
                 books_filter = create_google_books_filter()
-                filtered_books = books_filter.filter_google_books_results(books, query)
+                filtered_books = books_filter.filter_books(books, {'query': query})
             except Exception as e:
                 print(f"Warning: Google Books filtering failed: {e}")
                 filtered_books = books  # Fallback to unfiltered results

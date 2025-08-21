@@ -16,13 +16,5 @@ apt-get install -y \
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Download YOLO model if not present
-python3 -c "
-import os
-if not os.path.exists('yolo11n.pt'):
-    from ultralytics import YOLO
-    model = YOLO('yolo11n.pt')  # This downloads the model
-    print('YOLO model downloaded successfully')
-else:
-    print('YOLO model already exists')
-"
+# YOLO models not currently used in production
+# Book detection happens through OCR processing

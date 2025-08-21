@@ -458,7 +458,7 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
                     print(f"✅ Found book: {book.get('title', 'Unknown')}{fuzzy_info}")
                     
                     # Limit books per search to 2
-                    if books_added_this_search >= 2:
+                    if books_added_this_search >= 5:
                         break
             
             if not search_results:
@@ -476,8 +476,8 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
     if found_books:
         # Ensure each book has a popularity_score; if missing, default to 0
         for book in found_books:
-            if 'popularity_score' not in book:
-                book['popularity_score'] = 0.0
+            if 'google_score' not in book:
+                book['google_score'] = 0
         # Sort descending by popularity_score
         found_books.sort(key=lambda b: b.get('popularity_score', 0.0), reverse=True)
         print(f"🏆 Final sorted books by popularity: {len(found_books)} entries")

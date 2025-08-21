@@ -533,11 +533,11 @@ class FuzzyBookSearcher:
             return []
         
         # Clean and prepare the text
-        cleaned_text = self._preprocess_ocr_text(raw_text)
+        #cleaned_text = self._preprocess_ocr_text(raw_text)
         
         # Extract potential titles and authors
-        candidates = self._extract_book_candidates(cleaned_text)
-        
+        #candidates = self._extract_book_candidates(cleaned_text)
+        candidates = [raw_text]
         search_results = []
         seen_isbns = set()
         
@@ -554,16 +554,19 @@ class FuzzyBookSearcher:
                         if books:
                             break
                 
-                # Add unique books to results
                 for book in books:
-                    isbn = book.get('isbn_13') or book.get('isbn_10') or book.get('id')
-                    if isbn and isbn not in seen_isbns:
-                        seen_isbns.add(isbn)
-                        # Add fuzzy match score
-                        book['fuzzy_match_score'] = self._calculate_match_score(raw_text, book)
-                        book['search_candidate'] = candidate
-                        search_results.append(book)
-                
+                    search_results.append(book)
+                #print(books)
+                # Add unique books to results
+                #for book in books:
+                #    isbn = book.get('isbn_13') or book.get('isbn_10') or book.get('id')
+                #    if isbn and isbn not in seen_isbns:
+                #        seen_isbns.add(isbn)
+                #        # Add fuzzy match score
+                #        book['fuzzy_match_score'] = self._calculate_match_score(raw_text, book)
+                #        book['search_candidate'] = candidate
+                #        search_results.append(book)
+                #print(seen_isbns)
                 # Rate limiting
                 time.sleep(0.1)
                 
@@ -572,8 +575,9 @@ class FuzzyBookSearcher:
                 continue
         
         # Sort by fuzzy match score and return top results
+        print(search_results)
         search_results.sort(key=lambda x: x.get('fuzzy_match_score', 0), reverse=True)
-        return search_results[:max_results]
+        return search_results #[:max_results]
     
     def _preprocess_ocr_text(self, text: str) -> str:
         """Clean and preprocess OCR text"""
@@ -616,7 +620,7 @@ class FuzzyBookSearcher:
         # Sort by length (prefer moderate-length titles)
         candidates.sort(key=lambda x: abs(len(x) - 25))  # Prefer ~25 character titles
         
-        return candidates[:15]  # Return top candidates
+        return candidates[:3]  # Return top candidates
     
     def _generate_search_variations(self, text: str) -> List[str]:
         """Generate fuzzy search variations of the text"""
