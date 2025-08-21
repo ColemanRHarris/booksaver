@@ -96,13 +96,26 @@ if os.getenv('FLASK_ENV') != 'production':
     app.config['WTF_CSRF_SSL_STRICT'] = False  # Allow HTTP in development
 
 # Initialize rate limiter
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["100 per hour", "20 per minute"],
-    storage_uri=os.getenv('REDIS_URL', 'memory://'),
-    strategy="fixed-window"
-)
+redis_url = os.getenv('REDIS_URL')
+if redis_url and not redis_url.startswith('memory://'):
+    # Use Redis for rate limiting in production
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=["100 per hour", "20 per minute"],
+        storage_uri=redis_url,
+        strategy="fixed-window"
+    )
+    print(f"🔗 Flask-Limiter using Redis: {redis_url[:50]}...")
+else:
+    # Use in-memory storage for local development
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=["100 per hour", "20 per minute"],
+        strategy="fixed-window"
+    )
+    print("🔧 Flask-Limiter using in-memory storage for local development")
 
 # Security headers middleware
 @app.after_request
@@ -359,7 +372,8 @@ def process_tiktok():
     try:
         redis_url = os.getenv('REDIS_URL')
         
-        if redis_url:
+        # Check if we're using actual Redis (not memory:// for local dev)
+        if redis_url and not redis_url.startswith('memory://'):
             # Production: Use Celery with Redis
             task = process_video.delay(tiktok_url, 'tiktok')
             task_id = task.id
@@ -410,7 +424,8 @@ def process_instagram_reel():
     try:
         redis_url = os.getenv('REDIS_URL')
         
-        if redis_url:
+        # Check if we're using actual Redis (not memory:// for local dev)
+        if redis_url and not redis_url.startswith('memory://'):
             task = process_video.delay(reel_url, 'instagram')
             task_id = task.id
         else:
@@ -488,7 +503,8 @@ def task_status(task_id):
     try:
         redis_url = os.getenv('REDIS_URL')
         
-        if redis_url:
+        # Check if we're using actual Redis (not memory:// for local dev)
+        if redis_url and not redis_url.startswith('memory://'):
             task = celery_app.AsyncResult(task_id)
             
             if task.state == 'PENDING':
@@ -574,7 +590,8 @@ def cancel_task(task_id):
     try:
         redis_url = os.getenv('REDIS_URL')
         
-        if redis_url:
+        # Check if we're using actual Redis (not memory:// for local dev)
+        if redis_url and not redis_url.startswith('memory://'):
             celery_app.control.revoke(task_id, terminate=True)
             message = f"Task {task_id} has been cancelled"
         else:
@@ -608,7 +625,8 @@ def tiktok_results(task_id):
         video_url = request.args.get('url', '')
         video_type = request.args.get('type', 'Video')
         
-        if redis_url:
+        # Check if we're using actual Redis (not memory:// for local dev)
+        if redis_url and not redis_url.startswith('memory://'):
             task = celery_app.AsyncResult(task_id)
             
             if task.state == 'SUCCESS' and safe_get_task_result(task.result, 'status') == 'success':
