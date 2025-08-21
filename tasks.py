@@ -50,7 +50,7 @@ logger = get_logger(__name__)
 # YOLO model initialization removed (using Gemini AI for video analysis instead)
 
 # File processing limits
-MAX_VIDEO_SIZE_MB = 100  # 100MB max video size
+MAX_VIDEO_SIZE_MB = 100  # 100MB max size
 MAX_TEMP_DIR_LIFETIME = 3600  # 1 hour in seconds
 MAX_PROCESSING_TIME = 600  # 10 minutes timeout
 
@@ -127,7 +127,7 @@ def safe_join_path(base_dir: str, filename: str) -> str:
         # Check for macOS /private prefix issue
         if str(base_resolved).startswith('/private/') and not str(resolved_path).startswith('/private/'):
             base_resolved_alt = Path(str(base_resolved).replace('/private', '', 1)).resolve()
-        elif not str(base_resolved).startswith('/private/') and str(resolved_path).startswith('/private/'):
+        elif not str(base_resolved).startswith('/private/') and str(resolved_path).startswith('/private'):
             base_resolved_alt = Path('/private' + str(base_resolved)).resolve()
         
         resolved_str = str(resolved_path)
@@ -136,10 +136,8 @@ def safe_join_path(base_dir: str, filename: str) -> str:
         path_allowed = resolved_str.startswith(base_str)
         if not path_allowed and base_resolved_alt:
             path_allowed = resolved_str.startswith(str(base_resolved_alt))
-        
         if not path_allowed:
             raise ValueError("Path traversal detected")
-        
         return str(resolved_path)
     
     except Exception as e:
@@ -401,13 +399,15 @@ def download_video(url: str, output_dir: str) -> str:
     raise Exception("Video download failed - no output file found")
 
 def search_books_from_text(texts: List[str]) -> List[Dict]:
-    """Search for books using extracted text with fuzzy matching for near-misses"""
+    """Search for using extracted text with fuzzy matching for near-misses"""
     print(f"📚 Starting fuzzy book search with {len(texts)} text extractions")
     
     # Create fuzzy searcher
     print("CONSTRUCTOR")
     print(texts)
-    fuzzy_searcher = create_fuzzy_searcher()
+    # Instantiate a GoogleBooksClient for searching
+    books_client = GoogleBooksClient()
+    fuzzy_searcher = create_fuzzy_searcher(books_client)
     found_books = []
     seen_titles = set()
     search_delay=0.1
@@ -428,7 +428,7 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
                 time.sleep(search_delay)
             
             # Use fuzzy search with fallback
-            search_results = fuzzy_searcher.search_with_fuzzy_fallback(clean_text, max_results=1)
+            search_results = fuzzy_searcher.search_with_fuzzy_matching(clean_text, max_results=1)
             
             books_added_this_search = 0
             for book in search_results:
