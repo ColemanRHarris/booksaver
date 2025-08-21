@@ -12,7 +12,7 @@ import os
 import logging
 from logging.config import dictConfig
 
-from services.books_client import GoogleBooksClient
+from services.books_client import GoogleBooksClient, build_reader_app_links
 from celery_app import celery_app
 from services.recommendation_engine import get_recommendation_engine
 from system_monitor import get_system_monitor
