@@ -267,6 +267,11 @@ def normalize_tiktok_url(url: str) -> str:
     if '/@' in url:
         return url
     
+    # If it's a short link with /t/ pattern, return as is (yt-dlp handles these directly)
+    if '/t/' in url:
+        print(f"🔗 TikTok short link detected, using as-is: {url}")
+        return url
+    
     # Convert format like tiktok.com/username/video/123 to tiktok.com/@username/video/123
     # More flexible pattern to handle various URL structures
     tiktok_pattern = r'(https?://(?:www\.)?tiktok\.com/)([^/@?\s]+)((?:/video/\d+)?(?:\?.*)?)'
@@ -275,7 +280,7 @@ def normalize_tiktok_url(url: str) -> str:
     if match:
         base_url, username, rest = match.groups()
         # Only add @ if username doesn't start with it and isn't a known system path
-        system_paths = ['explore', 'discover', 'trending', 'search', 'foryou', 'following', 'live']
+        system_paths = ['explore', 'discover', 'trending', 'search', 'foryou', 'following', 'live', 't']
         if not username.startswith('@') and username not in system_paths:
             normalized = f"{base_url}@{username}{rest or ''}"
             print(f"🔄 TikTok URL normalization: {url} -> {normalized}")

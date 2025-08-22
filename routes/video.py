@@ -71,10 +71,10 @@ def register_video_routes(app, limiter):
         if not tiktok_url:
             return render_template('index.html', error="Please enter a TikTok URL")
         
-        # Proper URL validation
+        # Proper URL validation - support both traditional and short links
         allowed_domains = ['tiktok.com', 'www.tiktok.com', 'vm.tiktok.com', 'm.tiktok.com', 'vt.tiktok.com']
         if not validate_url(tiktok_url, allowed_domains):
-            return render_template('index.html', error="Please enter a valid TikTok URL. Supported formats: https://www.tiktok.com/@username/video/123... or https://vm.tiktok.com/abc123")
+            return render_template('index.html', error="Please enter a valid TikTok URL. Supported formats: https://www.tiktok.com/@username/video/123..., https://www.tiktok.com/t/abc123, or https://vm.tiktok.com/abc123")
         
         try:
             redis_url = os.getenv('REDIS_URL')
