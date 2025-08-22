@@ -164,14 +164,13 @@ def health_check():
     try:
         # Test database/Redis connection if needed
         system_monitor = get_system_monitor()
-        stats = system_monitor.get_stats()
+        stats = system_monitor.get_current_stats()
         
         # Basic health indicators
         health_status = {
             'status': 'healthy',
-            'uptime_seconds': stats.get('uptime_seconds', 0),
-            'memory_usage_mb': stats.get('memory_usage_mb', 0),
-            'cpu_usage_percent': stats.get('cpu_usage_percent', 0)
+            'system': stats.get('system', {}),
+            'current_process': stats.get('current_process', {})
         }
         
         return jsonify(health_status), 200
