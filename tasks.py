@@ -288,6 +288,29 @@ def normalize_tiktok_url(url: str) -> str:
     
     return url
 
+def normalize_instagram_url(url: str) -> str:
+    """Normalize Instagram URL to the correct format"""
+    import re
+    original_url = url
+    
+    # Convert ddinstagram.com to instagram.com (InstaFix service)
+    if 'ddinstagram.com' in url.lower():
+        url = url.replace('ddinstagram.com', 'instagram.com')
+    
+    # Remove mobile prefix if present
+    if 'm.instagram.com' in url.lower():
+        url = url.replace('m.instagram.com', 'instagram.com')
+    
+    # Add www if missing (some yt-dlp versions prefer this)
+    if url.startswith('https://instagram.com'):
+        url = url.replace('https://instagram.com', 'https://www.instagram.com')
+    
+    # Log the normalization if URL changed
+    if url != original_url:
+        print(f"🔄 Instagram URL normalized: {original_url} -> {url}")
+    
+    return url
+
 def download_video(url: str, output_dir: str) -> str:
     """Download video using yt-dlp (supports TikTok, Instagram, etc.)"""
     
@@ -298,9 +321,12 @@ def download_video(url: str, output_dir: str) -> str:
         if url != original_url:
             print(f"🔄 Normalized URL: {original_url} -> {url}")
     
+    # Normalize Instagram URLs to proper format
     if 'instagram' in url.lower():
         original_url = url
-        url 
+        url = normalize_instagram_url(url)
+        if url != original_url:
+            print(f"🔄 Normalized URL: {original_url} -> {url}") 
 
     print(f"⬇️  Starting download of: {url}")
     print(f"📂 Output directory: {output_dir}")

@@ -62,19 +62,37 @@ def register_video_routes(app, limiter):
     @app.route('/process-tiktok', methods=['POST'])
     @limiter.limit("20 per hour")  # Increased for testing
     def process_tiktok():
-        current_app.logger.info(f"🎬 TikTok processing request received from {request.remote_addr}")
+        current_app.logger.info(f"🎬 Video processing request received from {request.remote_addr}")
         raw_url = request.form.get('tiktok_url', '')
         current_app.logger.info(f"📝 Raw URL received: {raw_url}")
-        tiktok_url = sanitize_input(raw_url, max_length=500)
-        current_app.logger.info(f"🧹 Sanitized URL: {tiktok_url}")
+        video_url = sanitize_input(raw_url, max_length=500)
+        current_app.logger.info(f"🧹 Sanitized URL: {video_url}")
         
-        if not tiktok_url:
-            return render_template('index.html', error="Please enter a TikTok URL")
+        if not video_url:
+            return render_template('index.html', error="Please enter a TikTok or Instagram URL")
         
-        # Proper URL validation - support both traditional and short links
-        allowed_domains = ['tiktok.com', 'www.tiktok.com', 'vm.tiktok.com', 'm.tiktok.com', 'vt.tiktok.com']
-        if not validate_url(tiktok_url, allowed_domains):
-            return render_template('index.html', error="Please enter a valid TikTok URL. Supported formats: https://www.tiktok.com/@username/video/123..., https://www.tiktok.com/t/abc123, or https://vm.tiktok.com/abc123")
+        # Detect platform and validate accordingly
+        if 'instagram' in video_url.lower():
+            # Instagram URL validation
+            instagram_domains = ['instagram.com', 'www.instagram.com', 'm.instagram.com', 'ddinstagram.com']
+            if not validate_url(video_url, instagram_domains):
+                return render_template('index.html', error="Please enter a valid Instagram URL. Supported formats: instagram.com/reel/..., instagram.com/p/..., or ddinstagram.com links")
+            
+            # Check for valid Instagram paths
+            parsed = urlparse(video_url)
+            if '/reel/' not in parsed.path and '/p/' not in parsed.path:
+                return render_template('index.html', error="Please enter a valid Instagram Reel or Post URL (must contain /reel/ or /p/)")
+            
+            video_type = 'instagram'
+            video_display_name = 'Instagram'
+        else:
+            # TikTok URL validation - support both traditional and short links
+            tiktok_domains = ['tiktok.com', 'www.tiktok.com', 'vm.tiktok.com', 'm.tiktok.com', 'vt.tiktok.com']
+            if not validate_url(video_url, tiktok_domains):
+                return render_template('index.html', error="Please enter a valid TikTok URL. Supported formats: https://www.tiktok.com/@username/video/123..., https://www.tiktok.com/t/abc123, or https://vm.tiktok.com/abc123")
+            
+            video_type = 'tiktok'
+            video_display_name = 'TikTok'
         
         try:
             redis_url = os.getenv('REDIS_URL')
@@ -82,7 +100,7 @@ def register_video_routes(app, limiter):
             # Check if we're using actual Redis (not memory:// for local dev)
             if redis_url and not redis_url.startswith('memory://'):
                 # Production: Use Celery with Redis
-                task = process_video.delay(tiktok_url, 'tiktok')
+                task = process_video.delay(video_url, video_type)
                 task_id = task.id
             else:
                 # Local development: Use threading
@@ -97,16 +115,16 @@ def register_video_routes(app, limiter):
                 # Start background processing
                 thread = threading.Thread(
                     target=process_video_background,
-                    args=(task_id, tiktok_url, 'tiktok'),
+                    args=(task_id, video_url, video_type),
                     daemon=True
                 )
                 thread.start()
             
             current_app.logger.info(f"✅ Task started: {task_id}")
-            return redirect(url_for('processing_wait', task_id=task_id, url=tiktok_url, type='TikTok'))
+            return redirect(url_for('processing_wait', task_id=task_id, url=video_url, type=video_display_name))
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to start TikTok processing: {e}")
+            current_app.logger.error(f"❌ Failed to start {video_display_name} processing: {e}")
             return render_template('index.html', error=f"Failed to process video: {str(e)}")
     
     
@@ -116,15 +134,17 @@ def register_video_routes(app, limiter):
         reel_url = sanitize_input(request.form.get('reel_url', ''), max_length=500)
         
         if not reel_url:
-            return render_template('index.html', error="Please enter an Instagram Reel URL")
+            return render_template('index.html', error="Please enter an Instagram URL")
         
-        # Validate Instagram URL
+        # Enhanced Instagram URL validation
+        allowed_domains = ['instagram.com', 'www.instagram.com', 'm.instagram.com', 'ddinstagram.com']
+        if not validate_url(reel_url, allowed_domains):
+            return render_template('index.html', error="Please enter a valid Instagram URL. Supported formats: instagram.com/reel/..., instagram.com/p/..., or ddinstagram.com links")
+        
+        # Accept both reels and posts (posts can also contain books)
         parsed = urlparse(reel_url)
-        if 'instagram.com' not in parsed.netloc.lower():
-            return render_template('index.html', error="Please enter a valid Instagram URL")
-        
-        if '/reel/' not in parsed.path:
-            return render_template('index.html', error="Please enter a valid Instagram Reel URL (must contain /reel/)")
+        if '/reel/' not in parsed.path and '/p/' not in parsed.path:
+            return render_template('index.html', error="Please enter a valid Instagram Reel or Post URL (must contain /reel/ or /p/)")
         
         try:
             redis_url = os.getenv('REDIS_URL')

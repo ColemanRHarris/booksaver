@@ -16,8 +16,8 @@
     <div class="search-options">
         <div class="search-box tiktok-search">
             <div class="search-box-header">
-                <h3>🎥 TikTok Book Finder</h3>
-                <p>Extract books from TikTok videos</p>
+                <h3>🎥 Find BookTok Books</h3>
+                <p>Extract books from TikTok videos and Instragram reels!</p>
             </div>
             <form method="POST" action="{{ url_for('process_tiktok') }}" class="search-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -25,7 +25,7 @@
                     <input type="url" 
                            id="tiktok_url" 
                            name="tiktok_url" 
-                           placeholder="Paste TikTok video URL..." 
+                           placeholder="Paste TikTok or Instragram video URL..." 
                            value="{{ request.form.tiktok_url if request.form else '' }}"
                            required>
                 </div>
@@ -38,7 +38,7 @@
             <div class="box-instructions">
                 <h4>How it works:</h4>
                 <ol>
-                    <li>Paste a TikTok video URL</li>
+                    <li>Paste a TikTok or Instagram Reel URL</li>
                     <li>We'll detect books in the video</li>
                     <li>Get purchase links for found books</li>
                 </ol>
