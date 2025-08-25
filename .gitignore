@@ -26,6 +26,7 @@ wheels/
 env/
 venv/
 ENV/
+flask_session/
 
 # PyCharm
 .idea/

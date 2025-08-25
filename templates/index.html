@@ -56,6 +56,51 @@
     <div class="error">{{ error }}</div>
     {% endif %}
     
+    <!-- User Status Display -->
+    {% if g.is_authenticated %}
+        <div class="user-status">
+            {% if user_subscription and user_subscription.tier == 'premium' %}
+                <div class="status-card premium">
+                    <div class="status-icon">⭐</div>
+                    <div class="status-content">
+                        <div class="status-title">Premium Active</div>
+                        <div class="status-subtitle">{{ daily_usage or 0 }} scans today • Unlimited remaining</div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="status-card free">
+                    <div class="status-icon">📚</div>
+                    <div class="status-content">
+                        <div class="status-title">Free Plan</div>
+                        <div class="status-subtitle">
+                            {{ daily_usage or 0 }}/1 scans used today
+                            {% if daily_usage >= 1 %}
+                                • <a href="{{ url_for('subscribe') }}" class="upgrade-link">Upgrade for unlimited</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if daily_usage >= 1 %}
+                        <div class="upgrade-prompt">
+                            <p>Daily limit reached! Upgrade to Premium for unlimited scans.</p>
+                            <a href="{{ url_for('subscribe') }}" class="upgrade-btn">Upgrade Now</a>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="auth-prompt">
+            <div class="prompt-content">
+                <h3>Sign in to start scanning books!</h3>
+                <p>Track your scans and upgrade to Premium for unlimited daily scans.</p>
+                <div class="prompt-actions">
+                    <a href="{{ url_for('signup') }}" class="prompt-btn primary">Create Account</a>
+                    <a href="{{ url_for('login') }}" class="prompt-btn secondary">Sign In</a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
     <div class="search-options">
         <div class="search-box image-search">
             <div class="search-box-header">
@@ -405,4 +450,182 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<style>
+/* User Status Styles */
+.user-status {
+    max-width: 800px;
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+}
+
+.status-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.status-card.premium {
+    border-color: #fbbf24;
+    background: linear-gradient(135deg, #fefce8, #fef3c7);
+}
+
+.status-card.free {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+}
+
+.status-icon {
+    font-size: 1.5rem;
+}
+
+.status-content {
+    flex: 1;
+}
+
+.status-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+}
+
+.status-subtitle {
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.upgrade-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.upgrade-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.upgrade-prompt {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+}
+
+.upgrade-prompt p {
+    color: #6b7280;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.upgrade-btn {
+    display: inline-block;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.upgrade-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+}
+
+/* Auth Prompt Styles */
+.auth-prompt {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+}
+
+.prompt-content {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 2rem;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.prompt-content h3 {
+    color: #1f2937;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.prompt-content p {
+    color: #6b7280;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.prompt-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.prompt-btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.prompt-btn.primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+.prompt-btn.primary:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.prompt-btn.secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.prompt-btn.secondary:hover {
+    background: #e5e7eb;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+    .status-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .prompt-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .prompt-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+</style>
 {% endblock %}

@@ -38,6 +38,7 @@
     </div>
 </div>
 
+
 <div class="results-container" id="books-section">
     
     {% if error %}
@@ -147,11 +148,8 @@
                             <a href="{{ book.purchase_links.amazon }}" 
                                target="_blank" 
                                class="modern-retailer-btn amazon-btn">
-                                <div class="retailer-icon">📦</div>
-                                <div class="retailer-info">
-                                    <div class="retailer-name">Amazon</div>
-                                    <div class="retailer-sub">Fast shipping</div>
-                                </div>
+                                <span class="retailer-icon">📚</span>
+                                <span>Amazon</span>
                             </a>
                             {% endif %}
                             
@@ -159,11 +157,8 @@
                             <a href="{{ book.purchase_links.audible }}" 
                                target="_blank" 
                                class="modern-retailer-btn audible-btn">
-                                <div class="retailer-icon">🎧</div>
-                                <div class="retailer-info">
-                                    <div class="retailer-name">Audible</div>
-                                    <div class="retailer-sub">Audiobook</div>
-                                </div>
+                                <span class="retailer-icon">🎧</span>
+                                <span>Audible</span>
                             </a>
                             {% endif %}
                             
@@ -171,11 +166,8 @@
                             <a href="{{ book.purchase_links.barnes_noble }}" 
                                target="_blank" 
                                class="modern-retailer-btn bn-btn">
-                                <div class="retailer-icon">🏪</div>
-                                <div class="retailer-info">
-                                    <div class="retailer-name">Barnes & Noble</div>
-                                    <div class="retailer-sub">In-store pickup</div>
-                                </div>
+                                <span class="retailer-icon">🏪</span>
+                                <span>B&N</span>
                             </a>
                             {% endif %}
                             
@@ -183,19 +175,17 @@
                             <a href="{{ book.purchase_links.bookshop }}" 
                                target="_blank" 
                                class="modern-retailer-btn bookshop-btn">
-                                <div class="retailer-icon">📚</div>
-                                <div class="retailer-info">
-                                    <div class="retailer-name">Bookshop</div>
-                                    <div class="retailer-sub">Support local</div>
-                                </div>
+                                <span class="retailer-icon">🏬</span>
+                                <span>Bookshop</span>
                             </a>
                             {% endif %}
                             
                             {% if book.purchase_links.google_books %}
                             <a href="{{ book.purchase_links.google_books }}" 
                                target="_blank" 
-                               class="retailer-btn google-btn">
-                                Google
+                               class="modern-retailer-btn google-btn">
+                                <span class="retailer-icon">📖</span>
+                                <span>Google</span>
                             </a>
                             {% endif %}
                         </div>
@@ -203,18 +193,15 @@
                     </div>
                     
                     <div class="action-section">
-                        <h4 class="action-title">📱 Track & Organize</h4>
+                        <h4 class="action-title">📱 Reading Apps</h4>
                         {% if book.reader_app_links %}
                         <div class="modern-app-grid">
                             {% if book.reader_app_links.goodreads %}
                             <a href="{{ book.reader_app_links.goodreads }}" 
                                target="_blank" 
                                class="modern-app-btn goodreads-btn">
-                                <div class="app-icon">📚</div>
-                                <div class="app-info">
-                                    <div class="app-name">Goodreads</div>
-                                    <div class="app-sub">Reviews & ratings</div>
-                                </div>
+                                <span class="app-icon">📈</span>
+                                <span>Goodreads</span>
                             </a>
                             {% endif %}
                             
@@ -222,11 +209,8 @@
                             <a href="{{ book.reader_app_links.overdrive }}" 
                                target="_blank" 
                                class="modern-app-btn overdrive-btn">
-                                <div class="app-icon">🏦</div>
-                                <div class="app-info">
-                                    <div class="app-name">OverDrive</div>
-                                    <div class="app-sub">Library access</div>
-                                </div>
+                                <span class="app-icon">📚</span>
+                                <span>OverDrive</span>
                             </a>
                             {% endif %}
                             
@@ -234,13 +218,15 @@
                             <a href="{{ book.reader_app_links.storygraph }}" 
                                target="_blank" 
                                class="modern-app-btn storygraph-btn">
-                                <div class="app-icon">📈</div>
-                                <div class="app-info">
-                                    <div class="app-name">StoryGraph</div>
-                                    <div class="app-sub">Reading stats</div>
-                                </div>
+                                <span class="app-icon">📈</span>
+                                <span>StoryGraph</span>
                             </a>
                             {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="no-apps-message">
+                            <span class="no-apps-icon">📱</span>
+                            <span>Reading app links coming soon!</span>
                         </div>
                         {% endif %}
                     </div>
@@ -261,24 +247,6 @@
         </div>
         {% endfor %}
     </div>
-    
-    <!-- Free User Limit Notice -->
-    {% if books|length > 0 %}
-    <div class="usage-tracker">
-        <div class="tracker-content">
-            <div class="usage-info">
-                <span class="usage-text">Daily scans: 2/3 remaining</span>
-                <div class="usage-bar">
-                    <div class="usage-fill" style="width: 33%;"></div>
-                </div>
-            </div>
-            <button class="unlock-btn" onclick="showSubscriptionModal()">
-                <span>🔓</span>
-                <span>Unlock Unlimited</span>
-            </button>
-        </div>
-    </div>
-    {% endif %}
     
     {% else %}
     <div class="no-results">
@@ -435,8 +403,15 @@ function showBookModal(index) {
 
 function closeBookModal() {
     const modal = document.getElementById('book-modal');
-    modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
+    
+    // Fade out animation
+    modal.style.transition = 'opacity 0.3s ease';
+    modal.style.opacity = '0';
+    
+    setTimeout(() => {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }, 300);
 }
 
 function showSubscriptionModal() {
@@ -481,5 +456,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<style>
+</style>
 
 {% endblock %}

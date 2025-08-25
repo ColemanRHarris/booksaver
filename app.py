@@ -3,13 +3,15 @@ Main Flask application for BookSaver.
 Streamlined version with modular structure.
 """
 
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash, g
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_wtf.csrf import CSRFProtect
+from flask_session import Session
 from dotenv import load_dotenv
 import os
 import logging
+import redis
 from logging.config import dictConfig
 
 from services.books_client import build_reader_app_links
@@ -18,6 +20,7 @@ from services.recommendation_engine import get_recommendation_engine
 from system_monitor import get_system_monitor
 from core.utils import sanitize_input, serialize_task_result, safe_get_task_result
 from routes.images import register_image_routes
+from routes.auth import register_auth_routes
 
 load_dotenv()
 
@@ -61,6 +64,24 @@ dictConfig({
 # Create Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Configure Flask-Session with Redis
+redis_url = os.getenv('REDIS_URL')
+if redis_url and not redis_url.startswith('memory://'):
+    app.config['SESSION_TYPE'] = 'redis'
+    app.config['SESSION_REDIS'] = redis.from_url(redis_url)
+else:
+    # Fallback to filesystem sessions for local development
+    app.config['SESSION_TYPE'] = 'filesystem'
+    
+app.config['SESSION_PERMANENT'] = True
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_KEY_PREFIX'] = 'booksaver:'
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
+
+# Initialize session
+Session(app)
+
 logger = logging.getLogger(__name__)
 
 
@@ -149,12 +170,30 @@ def add_security_headers(response):
 
 # Register route modules
 register_image_routes(app, limiter)
+require_auth = register_auth_routes(app, limiter)
+
+# Import and register subscription routes
+from routes.subscription import register_subscription_routes
+register_subscription_routes(app, limiter, require_auth)
 
 
 # Main routes
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Get user data for authenticated users
+    user_subscription = None
+    daily_usage = 0
+    
+    if g.is_authenticated:
+        from services.user_service import get_user_service
+        user_service = get_user_service()
+        email = session.get('user_email')
+        user_subscription = user_service.get_subscription(email)
+        daily_usage = user_service.get_daily_usage(email)
+    
+    return render_template('index.html', 
+                         user_subscription=user_subscription,
+                         daily_usage=daily_usage)
 
 
 @app.route('/health')
@@ -309,8 +348,20 @@ def cancel_task(task_id):
 def image_results(task_id):
     """Show results from completed image processing"""
     try:
+        from services.user_service import get_user_service
+        user_service = get_user_service()
+        
         redis_url = os.getenv('REDIS_URL')
         source_type = request.args.get('type', 'Image')
+        
+        # Get user data for authenticated users
+        user_subscription = None
+        daily_usage = 0
+        
+        if g.is_authenticated:
+            email = session.get('user_email')
+            user_subscription = user_service.get_subscription(email)
+            daily_usage = user_service.get_daily_usage(email)
         
         # Check if we're using actual Redis (not memory:// for local dev)
         if redis_url and not redis_url.startswith('memory://'):
@@ -319,21 +370,38 @@ def image_results(task_id):
             if task.state == 'SUCCESS' and safe_get_task_result(task.result, 'status') == 'success':
                 books = safe_get_task_result(task.result, 'books', [])
                 
+                # Save to history for authenticated premium users
+                if g.is_authenticated and books:
+                    email = session.get('user_email')
+                    scan_result = {
+                        'books': books,
+                        'source_type': source_type,
+                        'task_id': task_id
+                    }
+                    user_service.add_to_history(email, scan_result)
+                
+                
                 if not books:
                     return render_template('results.html', 
                                          books=[], 
                                          query=f"{source_type} analysis",
-                                         error="No books were detected in this image. Try with a clearer photo showing book covers or spines.")
+                                         error="No books were detected in this image. Try with a clearer photo showing book covers or spines.",
+                                         user_subscription=user_subscription,
+                                         daily_usage=daily_usage)
                 
                 return render_template('results.html', 
                                      books=books, 
-                                     query=f"Image analysis")
+                                     query=f"Image analysis",
+                                     user_subscription=user_subscription,
+                                     daily_usage=daily_usage)
             else:
                 error_msg = safe_get_task_result(task.result, 'error', 'Task failed or is still processing')
                 return render_template('results.html', 
                                      books=[], 
                                      query=f"{source_type} analysis",
-                                     error=error_msg)
+                                     error=error_msg,
+                                     user_subscription=user_subscription,
+                                     daily_usage=daily_usage)
         else:
             if task_id in app.task_results:
                 task_data = app.task_results[task_id]
@@ -341,33 +409,53 @@ def image_results(task_id):
                 if task_data['state'] == 'SUCCESS' and 'result' in task_data:
                     books = task_data['result'].get('books', [])
                     
+                    # Save to history for authenticated premium users
+                    if g.is_authenticated and books:
+                        email = session.get('user_email')
+                        scan_result = {
+                            'books': books,
+                            'source_type': source_type,
+                            'task_id': task_id
+                        }
+                        user_service.add_to_history(email, scan_result)
+                    
                     if not books:
                         return render_template('results.html', 
                                              books=[], 
                                              query=f"{source_type} analysis",
-                                             error="No books were detected in this image.")
+                                             error="No books were detected in this image.",
+                                             user_subscription=user_subscription,
+                                             daily_usage=daily_usage)
                     
                     return render_template('results.html', 
                                          books=books, 
-                                         query=f"{source_type} analysis")
+                                         query=f"{source_type} analysis",
+                                         user_subscription=user_subscription,
+                                         daily_usage=daily_usage)
                 else:
                     error_msg = task_data.get('error', 'Task failed or is still processing')
                     return render_template('results.html', 
                                          books=[], 
                                          query=f"{source_type} analysis",
-                                         error=error_msg)
+                                         error=error_msg,
+                                         user_subscription=user_subscription,
+                                         daily_usage=daily_usage)
             else:
                 return render_template('results.html', 
                                      books=[], 
                                      query=f"{source_type} analysis",
-                                     error="Task not found or expired")
+                                     error="Task not found or expired",
+                                     user_subscription=user_subscription,
+                                     daily_usage=daily_usage)
                 
     except Exception as e:
         logger.error(f"❌ Results error: {e}")
         return render_template('results.html', 
                              books=[], 
                              query=f"{source_type} analysis",
-                             error="Failed to load results")
+                             error="Failed to load results",
+                             user_subscription=None,
+                             daily_usage=0)
 
 
 # Static content routes

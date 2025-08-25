@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="subscribe-container">
+    <div class="subscribe-header">
+        <h1>Upgrade to Premium</h1>
+        <p>Unlock unlimited scans and premium features</p>
+    </div>
+    
+    <div class="pricing-cards">
+        <!-- Monthly Plan -->
+        <div class="pricing-card monthly">
+            <div class="plan-header">
+                <h3>Monthly</h3>
+                <div class="plan-price">
+                    <span class="price">$2.99</span>
+                    <span class="period">/month</span>
+                </div>
+            </div>
+            
+            <div class="plan-features">
+                <div class="feature">
+                    <span class="feature-icon"></span>
+                    <span>Unlimited daily scans</span>
+                </div>
+                <div class="feature">
+                    <span class="feature-icon"></span>
+                    <span>Save scan history</span>
+                </div>
+            </div>
+            
+            <form method="POST" action="{{ url_for('create_checkout_session') }}" class="plan-form" onsubmit="showLoading(this)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="plan" value="monthly"/>
+                <button type="submit" class="plan-button">
+                    <span class="button-text">Choose Monthly</span>
+                    <span class="loading-spinner" style="display: none;">⏳ Processing...</span>
+                </button>
+            </form>
+        </div>
+        
+        <!-- Yearly Plan -->
+        <div class="pricing-card yearly featured">
+            <div class="plan-badge">Most Popular</div>
+            <div class="plan-header">
+                <h3>Yearly</h3>
+                <div class="plan-price">
+                    <span class="price">$30</span>
+                    <span class="period">/year</span>
+                </div>
+                <div class="savings">Save $5.88 per year!</div>
+            </div>
+            
+            <div class="plan-features">
+                <div class="feature">
+                    <span class="feature-icon"></span>
+                    <span>Unlimited daily scans</span>
+                </div>
+                <div class="feature">
+                    <span class="feature-icon"></span>
+                    <span>Save scan history</span>
+                </div>
+            </div>
+            
+            <form method="POST" action="{{ url_for('create_checkout_session') }}" class="plan-form" onsubmit="showLoading(this)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="plan" value="yearly"/>
+                <button type="submit" class="plan-button featured-button">
+                    <span class="button-text">Choose Yearly</span>
+                    <span class="loading-spinner" style="display: none;">⏳ Processing...</span>
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="comparison-section">
+        <h2>What's included with Premium?</h2>
+        
+        <div class="comparison-table">
+            <div class="comparison-header">
+                <div class="feature-column">Features</div>
+                <div class="plan-column">Free</div>
+                <div class="plan-column premium">Premium</div>
+            </div>
+            
+            <div class="comparison-row">
+                <div class="feature-name">Daily scans</div>
+                <div class="plan-value">1 per day</div>
+                <div class="plan-value premium">Unlimited</div>
+            </div>
+            
+            <div class="comparison-row">
+                <div class="feature-name">Book identification</div>
+                <div class="plan-value">✓</div>
+                <div class="plan-value premium">✓</div>
+            </div>
+            
+            <div class="comparison-row">
+                <div class="feature-name">Purchase links</div>
+                <div class="plan-value">✓</div>
+                <div class="plan-value premium">✓</div>
+            </div>
+            
+            <div class="comparison-row">
+                <div class="feature-name">Scan history</div>
+                <div class="plan-value">✗</div>
+                <div class="plan-value premium">✓</div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <div class="faq-section">
+        <h2>Frequently Asked Questions</h2>
+        
+        <div class="faq-item">
+            <h3>Can I cancel anytime?</h3>
+            <p>Yes! You can cancel your subscription at any time through your account dashboard. Your premium features will remain active until the end of your current billing period.</p>
+        </div>
+        
+        <div class="faq-item">
+            <h3>What payment methods do you accept?</h3>
+            <p>We accept all major credit cards (Visa, Mastercard, American Express) and many local payment methods through Stripe.</p>
+        </div>
+        
+        <div class="faq-item">
+            <h3>Is my payment information secure?</h3>
+            <p>Absolutely. All payments are processed securely through Stripe, a PCI-compliant payment processor. We never store your payment information.</p>
+        </div>
+        
+        <div class="faq-item">
+            <h3>What happens to my scan history if I cancel?</h3>
+            <p>Your scan history will be preserved for 30 days after cancellation, giving you time to upgrade again if you change your mind.</p>
+        </div>
+    </div>
+    
+    <div class="trust-signals">
+        <div class="signal">
+            <span class="signal-icon">🔒</span>
+            <span>Secure payments with Stripe</span>
+        </div>
+        <div class="signal">
+            <span class="signal-icon">💰</span>
+            <span>30-day money-back guarantee</span>
+        </div>
+        <div class="signal">
+            <span class="signal-icon">🚀</span>
+            <span>Instant activation</span>
+        </div>
+    </div>
+</div>
+
+<style>
+.subscribe-container {
+    max-width: 1000px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.subscribe-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.subscribe-header h1 {
+    color: #1f2937;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.subscribe-header p {
+    color: #6b7280;
+    font-size: 1.2rem;
+}
+
+.pricing-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+    margin-bottom: 4rem;
+}
+
+.pricing-card {
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 2rem;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.pricing-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+}
+
+.pricing-card.featured {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(29, 78, 216, 0.05));
+}
+
+.plan-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.plan-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.plan-header h3 {
+    color: #1f2937;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.plan-price {
+    margin-bottom: 0.5rem;
+}
+
+.price {
+    color: #3b82f6;
+    font-size: 3rem;
+    font-weight: 700;
+}
+
+.period {
+    color: #6b7280;
+    font-size: 1.1rem;
+    font-weight: 400;
+}
+
+.savings {
+    color: #059669;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: #d1fae5;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    display: inline-block;
+}
+
+.plan-features {
+    margin-bottom: 2rem;
+}
+
+.feature {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    color: #374151;
+}
+
+.feature-icon {
+    color: #059669;
+    font-weight: 600;
+}
+
+.plan-button {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
+    border: none;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #374151;
+    color: white;
+}
+
+.plan-button:hover {
+    background: #1f2937;
+    transform: translateY(-2px);
+}
+
+.featured-button {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.featured-button:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+}
+
+.comparison-section {
+    margin-bottom: 4rem;
+}
+
+.comparison-section h2 {
+    text-align: center;
+    color: #1f2937;
+    font-size: 2rem;
+    margin-bottom: 2rem;
+}
+
+.comparison-table {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+}
+
+.comparison-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    background: #f9fafb;
+    padding: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.comparison-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    padding: 1rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.comparison-row:last-child {
+    border-bottom: none;
+}
+
+.feature-name {
+    color: #374151;
+    font-weight: 500;
+}
+
+.plan-value {
+    text-align: center;
+    color: #6b7280;
+}
+
+.plan-value.premium {
+    color: #059669;
+    font-weight: 600;
+}
+
+.faq-section {
+    margin-bottom: 4rem;
+}
+
+.faq-section h2 {
+    text-align: center;
+    color: #1f2937;
+    font-size: 2rem;
+    margin-bottom: 2rem;
+}
+
+.faq-item {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.faq-item h3 {
+    color: #1f2937;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.faq-item p {
+    color: #6b7280;
+    line-height: 1.6;
+}
+
+.trust-signals {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    padding: 2rem 0;
+    border-top: 1px solid #e5e7eb;
+}
+
+.signal {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.signal-icon {
+    font-size: 1.2rem;
+}
+
+.loading-spinner {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+}
+
+.plan-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .subscribe-header h1 {
+        font-size: 2rem;
+    }
+    
+    .pricing-cards {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .comparison-header,
+    .comparison-row {
+        grid-template-columns: 1.5fr 1fr 1fr;
+        font-size: 0.9rem;
+    }
+    
+    .trust-signals {
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+}
+</style>
+
+<script>
+function showLoading(form) {
+    const button = form.querySelector('.plan-button');
+    const buttonText = button.querySelector('.button-text');
+    const loadingSpinner = button.querySelector('.loading-spinner');
+    
+    // Disable button and show loading state
+    button.disabled = true;
+    buttonText.style.display = 'none';
+    loadingSpinner.style.display = 'inline';
+    
+    // Add some visual feedback
+    button.style.transform = 'scale(0.98)';
+    
+    // Re-enable after 10 seconds as fallback
+    setTimeout(() => {
+        if (button.disabled) {
+            button.disabled = false;
+            buttonText.style.display = 'inline';
+            loadingSpinner.style.display = 'none';
+            button.style.transform = 'scale(1)';
+        }
+    }, 10000);
+}
+</script>
+{% endblock %}

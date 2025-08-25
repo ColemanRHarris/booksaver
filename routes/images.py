@@ -5,12 +5,13 @@ Image processing routes for book detection.
 import os
 import uuid
 import threading
-from flask import request, render_template, redirect, url_for, current_app
+from flask import request, render_template, redirect, url_for, current_app, session, flash, g
 from werkzeug.utils import secure_filename
 
 from core.utils import sanitize_input
 from tasks import process_image
 from services.recommendation_engine import get_recommendation_engine
+from services.user_service import get_user_service
 
 # Global task results storage for local development
 task_results = {}
@@ -67,10 +68,29 @@ def process_image_background(task_id: str, image_path: str):
 def register_image_routes(app, limiter):
     """Register image processing routes"""
     
+    user_service = get_user_service()
+    
     @app.route('/process-image', methods=['POST'])
-    @limiter.limit("30 per hour")
+    @limiter.limit("30 per hour")  # Keep IP-based limit as backup
     def process_image_upload():
         current_app.logger.info(f"📸 Image processing request received from {request.remote_addr}")
+        
+        # Check if user is authenticated
+        if not g.is_authenticated:
+            flash("Please sign in to scan books.", "warning")
+            return redirect(url_for('login', next=request.url))
+        
+        email = session.get('user_email')
+        
+        # Check if user can scan (usage limits)
+        if not user_service.can_scan(email):
+            subscription = user_service.get_subscription(email)
+            if subscription.get('tier') == 'free':
+                flash("You've reached your daily limit of 1 scan. Upgrade to Premium for unlimited scans!", "warning")
+                return redirect(url_for('subscribe'))
+            else:
+                flash("Unable to process scan at this time. Please try again later.", "error")
+                return redirect(url_for('index'))
         
         # Check if the post request has the file part
         if 'image' not in request.files:
@@ -104,6 +124,10 @@ def register_image_routes(app, limiter):
                 file.save(image_path)
                 
                 current_app.logger.info(f"✅ Image saved: {image_path}")
+                
+                # Increment usage count
+                usage_count = user_service.increment_usage(email)
+                current_app.logger.info(f"📊 Usage incremented for {email}: {usage_count}")
                 
                 # Process the image
                 redis_url = os.getenv('REDIS_URL')

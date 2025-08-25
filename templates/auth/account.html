@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="account-container">
+    <div class="account-header">
+        <h1>My Account</h1>
+        <p>Manage your subscription and view your activity</p>
+    </div>
+    
+    <div class="account-grid">
+        <!-- Subscription Status -->
+        <div class="account-card subscription-card">
+            <div class="card-header">
+                <h2>
+                    {% if subscription.tier == 'premium' %}
+                        🌟 Premium Plan
+                    {% else %}
+                        📚 Free Plan  
+                    {% endif %}
+                </h2>
+                <div class="subscription-status {{ subscription.status }}">
+                    {{ subscription.status|title }}
+                </div>
+            </div>
+            
+            <div class="card-content">
+                {% if subscription.tier == 'premium' %}
+                    <div class="subscription-benefits">
+                        <div class="benefit">☑️ Unlimited daily scans</div>
+                        <div class="benefit">☑️ Scan history saved</div>
+                    </div>
+                    
+                    <div class="subscription-actions">
+                        <a href="{{ url_for('manage_subscription') }}" class="btn secondary-btn">
+                            Manage Subscription
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="upgrade-prompt">
+                        <p>Upgrade to Premium for unlimited scans and scan history!</p>
+                        <div class="upgrade-pricing">
+                            <div class="price-option">
+                                <strong>$2.99/month</strong> or <strong>$30/year</strong>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('subscribe') }}" class="btn primary-btn">
+                            Upgrade to Premium
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Usage Stats -->
+        <div class="account-card usage-card">
+            <div class="card-header">
+                <h2>📊 Today's Usage</h2>
+            </div>
+            
+            <div class="card-content">
+                {% if subscription.tier == 'premium' %}
+                    <div class="usage-stat">
+                        <div class="usage-number">{{ daily_usage }}</div>
+                        <div class="usage-label">Scans Today</div>
+                        <div class="usage-note">Unlimited remaining</div>
+                    </div>
+                {% else %}
+                    <div class="usage-stat">
+                        <div class="usage-number">{{ daily_usage }} / 1</div>
+                        <div class="usage-label">Scans Used</div>
+                        {% if daily_usage >= 1 %}
+                            <div class="usage-note warning">Daily limit reached</div>
+                        {% else %}
+                            <div class="usage-note">{{ 1 - daily_usage }} scan remaining</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                
+                <div class="usage-reset">
+                    <small>Resets daily at midnight UTC</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Account Info -->
+        <div class="account-card profile-card">
+            <div class="card-header">
+                <h2>👤 Account Information</h2>
+            </div>
+            
+            <div class="card-content">
+                <div class="profile-info">
+                    <div class="info-item">
+                        <label>Email</label>
+                        <div class="info-value">{{ user.email }}</div>
+                    </div>
+                    <div class="info-item">
+                        <label>Member Since</label>
+                        <div class="info-value">
+                            {{ user.created_at[:10] if user.created_at else 'N/A' }}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="profile-actions">
+                    <form method="POST" action="{{ url_for('logout') }}" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn outline-btn">Sign Out</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scan History -->
+        {% if subscription.tier == 'premium' %}
+        <div class="account-card history-card">
+            <div class="card-header">
+                <h2>📖 Recent Scans</h2>
+                <div class="card-action">
+                    {% if scan_history|length > 0 %}
+                        <small>{{ scan_history|length }} recent scans</small>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card-content">
+                {% if scan_history and scan_history|length > 0 %}
+                    <div class="history-list">
+                        {% for scan in scan_history[:5] %}
+                        <div class="history-item">
+                            <div class="history-info">
+                                <div class="history-books">
+                                    {% if scan.books and scan.books|length > 0 %}
+                                        {{ scan.books|length }} book(s) found
+                                    {% else %}
+                                        No books detected
+                                    {% endif %}
+                                </div>
+                                <div class="history-date">
+                                    {{ scan.scanned_at[:10] if scan.scanned_at else 'Unknown date' }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if scan_history|length > 5 %}
+                    <div class="history-more">
+                        <small>And {{ scan_history|length - 5 }} more scans...</small>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No scan history yet. Start scanning books to see your history here!</p>
+                        <a href="{{ url_for('index') }}" class="btn primary-btn">
+                            Scan Your First Book
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.account-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.account-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.account-header h1 {
+    color: #1f2937;
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.account-header p {
+    color: #6b7280;
+    font-size: 1.1rem;
+}
+
+.account-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+.account-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+}
+
+.account-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    padding: 1.5rem 1.5rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: between;
+}
+
+.card-header h2 {
+    color: #1f2937;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    flex: 1;
+}
+
+.subscription-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.subscription-status.active {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.card-content {
+    padding: 1.5rem;
+}
+
+.subscription-benefits {
+    margin-bottom: 1.5rem;
+}
+
+.benefit {
+    color: #059669;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.upgrade-prompt {
+    text-align: center;
+}
+
+.upgrade-prompt p {
+    color: #374151;
+    margin-bottom: 1rem;
+}
+
+.upgrade-pricing {
+    background: #f3f4f6;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.price-option {
+    color: #1f2937;
+    font-size: 1.1rem;
+}
+
+.usage-stat {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.usage-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+}
+
+.usage-label {
+    color: #6b7280;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.usage-note {
+    color: #059669;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.usage-note.warning {
+    color: #dc2626;
+}
+
+.usage-reset {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.8rem;
+}
+
+.profile-info {
+    margin-bottom: 1.5rem;
+}
+
+.info-item {
+    margin-bottom: 1rem;
+}
+
+.info-item label {
+    display: block;
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.info-value {
+    color: #1f2937;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.history-list {
+    margin-bottom: 1rem;
+}
+
+.history-item {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-books {
+    color: #1f2937;
+    font-weight: 500;
+}
+
+.history-date {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.history-more {
+    text-align: center;
+    color: #6b7280;
+    margin-top: 1rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.empty-state p {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+}
+
+/* Button Styles */
+.btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+.primary-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+}
+
+.secondary-btn {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.secondary-btn:hover {
+    background: #e5e7eb;
+}
+
+.outline-btn {
+    background: transparent;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+}
+
+.outline-btn:hover {
+    background: #f9fafb;
+    color: #374151;
+}
+
+@media (max-width: 768px) {
+    .account-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .history-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+}
+</style>
+
+<script>
+function manageSubscription() {
+    // This would integrate with Stripe customer portal
+    alert('Subscription management coming soon!');
+}
+</script>
+{% endblock %}

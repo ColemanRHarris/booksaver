@@ -1,7 +1,7 @@
 # BookSaver – the Shazam for Books (`claude.md`)
 
 ## 1. Overall Goal
-Your job is to improve the **existing, functional web app** that takes images as input and runs requests to the Gemini model and Google Books API. Your primary goal is to improve the UI and user flow to make a cutting edge web app.
+Your job is to improve the **existing, functional web app** that takes images as input and runs requests to the Gemini model and Google Books API. Your primary goal is to implement the Stripe API integration.
 
 ---
 
@@ -38,4 +38,9 @@ Your job is to improve the **existing, functional web app** that takes images as
 ---
 
 ## 5. Improvements
-- Streamline UI for mobile web app users to reel in subscriptions.
+- Implement Stripe API for user accounts.
+- Take email addresses as input and save them tied to user accounts.
+- Limit users to 1 scan per day unless they have a premium account.
+- Offer as a feature that users can save previous searches only if they have a premium account.
+- Ensure that input images are deleted.
+- Price at $2.99/month or $30/year.

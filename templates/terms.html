@@ -5,57 +5,89 @@
 {% block content %}
 <div class="legal-container">
     <h1>Terms of Service</h1>
-    <p><strong>Last updated:</strong> {{ current_date }}</p>
+    <p><strong>Last updated:</strong> January 2025</p>
     
     <h2>1. Acceptance of Terms</h2>
     <p>By accessing and using Book Saver, you accept and agree to be bound by the terms and provision of this agreement.</p>
     
     <h2>2. Description of Service</h2>
-    <p>Book Saver is a web application that:</p>
+    <p>BookSaver is a web application that:</p>
     <ul>
-        <li>Extracts book information from TikTok videos and Instagram Reels</li>
-        <li>Provides book search functionality</li>
-        <li>Offers book recommendations</li>
-        <li>Provides links to purchase books from various retailers</li>
+        <li>Uses AI technology to identify books from uploaded photos and images</li>
+        <li>Provides intelligent book search and discovery functionality</li>
+        <li>Offers personalized book recommendations and reading insights</li>
+        <li>Integrates with reading platforms (Goodreads, OverDrive, StoryGraph)</li>
+        <li>Provides purchase links to various book retailers</li>
+        <li>Offers both free (limited) and premium subscription tiers</li>
     </ul>
     
-    <h2>3. User Responsibilities</h2>
-    <p>You agree to:</p>
+    <h2>3. User Account and Responsibilities</h2>
+    <h3>Free Users</h3>
+    <p>Free users can access limited features including up to 3 book scans per day.</p>
+    
+    <h3>Premium Subscribers</h3>
+    <p>Premium subscribers receive unlimited scans, batch processing, AI recommendations, and priority support.</p>
+    
+    <h3>All Users Agree To:</h3>
     <ul>
-        <li>Provide accurate and truthful information</li>
-        <li>Use the service only for lawful purposes</li>
-        <li>Not attempt to circumvent security measures</li>
-        <li>Not use the service to infringe on intellectual property rights</li>
-        <li>Not submit malicious or harmful content</li>
+        <li>Provide accurate information when creating accounts</li>
+        <li>Use the service only for lawful, personal purposes</li>
+        <li>Not attempt to circumvent usage limits or security measures</li>
+        <li>Not upload inappropriate, harmful, or copyrighted content</li>
+        <li>Not use automated tools or bots to access the service</li>
+        <li>Maintain the security of your account credentials</li>
+        <li>Pay applicable subscription fees on time</li>
     </ul>
     
-    <h2>4. Content and Copyright</h2>
-    <h3>User-Submitted Content</h3>
+    <h2>4. Content and Intellectual Property</h2>
+    <h3>User-Uploaded Content</h3>
     <ul>
-        <li>You retain ownership of URLs and search queries you submit</li>
-        <li>You grant us permission to process this content to provide our service</li>
-        <li>You must have the right to submit any content you provide</li>
+        <li>You retain ownership of photos and images you upload</li>
+        <li>You grant us a limited license to process uploaded content for book identification</li>
+        <li>Uploaded images are processed temporarily and deleted within 24 hours</li>
+        <li>You must own or have rights to any content you upload</li>
+        <li>You must not upload copyrighted material without permission</li>
     </ul>
     
-    <h3>Third-Party Content</h3>
+    <h3>Third-Party Content and Services</h3>
     <ul>
-        <li>Book information is sourced from Google Books and other public APIs</li>
-        <li>Video content remains the property of original creators</li>
-        <li>We respect intellectual property rights and comply with DMCA</li>
+        <li>Book information sourced from Google Books, Amazon, and publisher databases</li>
+        <li>AI analysis powered by Google Gemini and proprietary algorithms</li>
+        <li>Book covers and metadata remain property of respective publishers</li>
+        <li>We comply with DMCA takedown procedures and respect intellectual property</li>
+        <li>Third-party platform integrations subject to their respective terms</li>
     </ul>
     
     <h2>5. Privacy and Data</h2>
     <p>Your privacy is important to us. Please review our <a href="{{ url_for('privacy') }}">Privacy Policy</a> to understand how we collect, use, and protect your information.</p>
     
-    <h2>6. Affiliate Relationships</h2>
-    <p>Book Saver participates in affiliate programs including:</p>
+    <h2>6. Subscription Terms and Billing</h2>
+    <h3>Premium Subscription</h3>
+    <ul>
+        <li><strong>Price:</strong> $9.99/month (subject to change with 30-day notice)</li>
+        <li><strong>Billing:</strong> Automatic monthly renewal unless cancelled</li>
+        <li><strong>Free Trial:</strong> 7-day free trial for new premium subscribers</li>
+        <li><strong>Cancellation:</strong> Cancel anytime; access continues until period end</li>
+        <li><strong>Refunds:</strong> 30-day money-back guarantee for new subscriptions</li>
+        <li><strong>Price Changes:</strong> We will notify you 30 days before any price increases</li>
+    </ul>
+    
+    <h3>Usage Limits</h3>
+    <ul>
+        <li><strong>Free Users:</strong> 3 book scans per day, basic features only</li>
+        <li><strong>Premium Users:</strong> Unlimited scans, all features, priority support</li>
+    </ul>
+    
+    <h2>7. Affiliate Relationships and Commissions</h2>
+    <p>BookSaver participates in affiliate programs including:</p>
     <ul>
         <li><strong>Amazon Associates:</strong> We earn commissions from qualifying purchases</li>
+        <li><strong>Bookshop.org:</strong> Supporting independent bookstores through affiliate links</li>
         <li><strong>Other retailers:</strong> We may earn commissions from book sales</li>
     </ul>
-    <p>These relationships do not affect our book recommendations or search results.</p>
+    <p>Affiliate relationships do not influence our book identification accuracy or recommendations. All purchase links are clearly marked.</p>
     
-    <h2>7. Disclaimers</h2>
+    <h2>8. Service Disclaimers</h2>
     <h3>Service Availability</h3>
     <ul>
         <li>We strive for high uptime but cannot guarantee uninterrupted service</li>
@@ -63,14 +95,25 @@
         <li>We are not responsible for third-party service outages</li>
     </ul>
     
-    <h3>Content Accuracy</h3>
+    <h3>AI and Content Accuracy</h3>
     <ul>
-        <li>Book information is sourced from third parties and may contain errors</li>
-        <li>We do not guarantee the accuracy of search results</li>
-        <li>Video analysis results may not be 100% accurate</li>
+        <li>AI book identification has approximately 98% accuracy but may contain errors</li>
+        <li>Book information is sourced from third parties and may be incomplete</li>
+        <li>Recommendation algorithms are based on data patterns and may not suit all preferences</li>
+        <li>We do not guarantee the availability or pricing of books from retailers</li>
     </ul>
     
-    <h2>9. Limitation of Liability</h2>
+    <h2>9. AI Technology and Data Usage</h2>
+    <p>Our service uses artificial intelligence and machine learning technologies:</p>
+    <ul>
+        <li>Uploaded images are analyzed using Google Gemini AI for book identification</li>
+        <li>Usage data helps improve our AI algorithms and recommendation systems</li>
+        <li>AI processing is performed on secure cloud infrastructure</li>
+        <li>No personal information is used to train external AI models</li>
+        <li>AI-generated content may occasionally be inaccurate or inappropriate</li>
+    </ul>
+    
+    <h2>10. Limitation of Liability</h2>
     <p>To the fullest extent permitted by law:</p>
     <ul>
         <li>We provide the service "as is" without warranties</li>
@@ -78,33 +121,55 @@
         <li>Our total liability is limited to the amount you paid for the service (if any)</li>
     </ul>
     
-    <h2>10. Prohibited Uses</h2>
+    <h2>11. Prohibited Uses</h2>
     <p>You may not use our service to:</p>
     <ul>
         <li>Violate any laws or regulations</li>
         <li>Infringe on intellectual property rights</li>
         <li>Transmit malicious code or spam</li>
         <li>Attempt to gain unauthorized access to our systems</li>
-        <li>Use automated tools to scrape our content</li>
+        <li>Use automated tools, bots, or scripts to access our service</li>
+        <li>Abuse or exploit the free usage limits</li>
+        <li>Upload inappropriate, illegal, or harmful content</li>
+        <li>Reverse engineer our AI algorithms or proprietary technology</li>
     </ul>
     
-    <h2>11. Termination</h2>
-    <p>We may terminate or suspend your access to our service:</p>
+    <h2>12. Account Termination and Data Deletion</h2>
+    <h3>Termination by Us</h3>
+    <p>We may terminate your account for:</p>
     <ul>
-        <li>For violations of these terms</li>
-        <li>For suspicious or harmful activity</li>
-        <li>At our sole discretion with or without cause</li>
+        <li>Violations of these terms or our community guidelines</li>
+        <li>Fraudulent activity or payment disputes</li>
+        <li>Abuse of service features or excessive usage</li>
+        <li>At our discretion for business reasons (with 30-day notice)</li>
     </ul>
     
-    <h2>12. Changes to Terms</h2>
+    <h3>Termination by You</h3>
+    <ul>
+        <li>Cancel premium subscription anytime through account settings</li>
+        <li>Request account deletion and data removal</li>
+        <li>Export your data before account closure (premium users)</li>
+    </ul>
+    
+    <h2>13. Changes to Terms</h2>
     <p>We reserve the right to modify these terms at any time. Continued use of the service constitutes acceptance of any changes.</p>
     
-    <h2>13. Governing Law</h2>
-    <p>These terms are governed by the laws of the United States of America. Any disputes will be resolved in the courts of the State of Tennessee.</p>
+    <h2>14. Governing Law and Disputes</h2>
+    <p>These terms are governed by the laws of the United States of America. Any disputes will be resolved through binding arbitration or in the courts of the State of Tennessee. You agree to resolve disputes individually, not as part of a class action.</p>
     
-    <h2>14. Contact Information</h2>
-    <p>For questions about these terms, please contact us at:</p>
-    <p>viscidlabs.com</p>
+    <h2>15. Contact Information</h2>
+    <p>For questions about these terms, billing issues, or account support, please contact us at:</p>
+    <p><strong>General Support:</strong> support@viscidlabs.com<br>
+    <strong>Billing Questions:</strong> billing@viscidlabs.com<br>
+    <strong>Legal Inquiries:</strong> legal@viscidlabs.com<br>
+    <strong>Website:</strong> viscidlabs.com</p>
+    
+    <p><strong>Response Times:</strong></p>
+    <ul>
+        <li>Premium subscribers: Within 24 hours</li>
+        <li>Free users: Within 72 hours</li>
+        <li>Billing issues: Within 48 hours</li>
+    </ul>
     
     <div class="back-link">
         <a href="{{ url_for('index') }}">← Back to Book Saver</a>

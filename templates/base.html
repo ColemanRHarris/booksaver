@@ -27,11 +27,48 @@
 </head>
 <body>
     <header>
-        <h1><a href="{{ url_for('index') }}">Book Saver</a></h1>
-        <p>Find books on #BookTok and add them to the platform of your choice!</p>
+        <div class="header-content">
+            <div class="header-brand">
+                <h1><a href="{{ url_for('index') }}">Book Saver</a></h1>
+                <p>Find books on #BookTok and add them to the platform of your choice!</p>
+            </div>
+            <div class="header-auth">
+                {% if g.is_authenticated %}
+                    <div class="user-menu">
+                        <span class="user-email">{{ g.current_user.email }}</span>
+                        <div class="user-actions">
+                            <a href="{{ url_for('account_dashboard') }}" class="auth-btn account-btn">Account</a>
+                            <form method="POST" action="{{ url_for('logout') }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="auth-btn logout-btn">Sign Out</button>
+                            </form>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="auth-buttons">
+                        <a href="{{ url_for('login') }}" class="auth-btn login-btn">Sign In</a>
+                        <a href="{{ url_for('signup') }}" class="auth-btn signup-btn">Sign Up</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
     </header>
     
     <main>
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                            <button class="flash-close" onclick="this.parentElement.remove()">×</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
         {% block content %}{% endblock %}
     </main>
     
@@ -48,6 +85,181 @@
     </footer>
 
 <style>
+/* Header styling */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.header-brand h1 a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.header-auth {
+    display: flex;
+    align-items: center;
+}
+
+.auth-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.auth-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.login-btn {
+    background: transparent;
+    color: #4a5568;
+    border: 1px solid #e2e8f0;
+}
+
+.login-btn:hover {
+    background: #f7fafc;
+    color: #2d3748;
+}
+
+.signup-btn {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+.signup-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+}
+
+.account-btn {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    margin-right: 0.5rem;
+}
+
+.account-btn:hover {
+    background: #e5e7eb;
+}
+
+.logout-btn {
+    background: transparent;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+}
+
+.logout-btn:hover {
+    background: #f9fafb;
+    color: #374151;
+}
+
+.user-menu {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-email {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.user-actions {
+    display: flex;
+    align-items: center;
+}
+
+/* Flash messages */
+.flash-messages {
+    max-width: 1200px;
+    margin: 1rem auto;
+    padding: 0 1rem;
+}
+
+.flash-message {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.flash-success {
+    background: #d1fae5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+}
+
+.flash-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+}
+
+.flash-warning {
+    background: #fffbeb;
+    border: 1px solid #fed7aa;
+    color: #d97706;
+}
+
+.flash-info {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+}
+
+.flash-close {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0;
+    margin-left: 1rem;
+    opacity: 0.7;
+}
+
+.flash-close:hover {
+    opacity: 1;
+}
+
+/* Responsive header */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .header-auth {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .user-menu {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .user-actions {
+        gap: 0.5rem;
+    }
+}
+
 /* Footer links styling */
 .footer-links {
     text-align: center;
