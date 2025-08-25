@@ -1,22 +1,19 @@
-# BookSaver, the TikTok Book Finder – TikTok Development Plan (`claude.md`)
+# BookSaver – the Shazam for Books (`claude.md`)
 
-## 1. New Goal
-Refine the **existing, functional web app** to streamline the user experience and OCR to make an addicting TikTok book search app.
+## 1. Overall Goal
+Your job is to refine the **existing, functional web app** to take images as input and run the same requests to the Gemini model and Google Books API. These images can either be taken from the device camera or upload. You will need to remove the functionality for Instagram and TikTok videos as these break terms of service.
 
 ---
 
 ## 2. Core Flow (Updated)
-1. **TikTok Ingestion**  
-   - Input: TikTok share-link  
-   - Output: `video.mp4` saved to **local tmp**  
-   - Method: `yt-dlp` (community downloader) wrapped in **Celery** task
+1. **Image Ingestion**  
+   - Input: Image of a book
+   - Output: `image.jpg` saved to **local tmp**  
 
-2. **Book Detection (CV)**  
-   - Extract 1 fps frames with `opencv-python`  
-   - Run **YOLO11-n** model fine-tuned on ~1 k book images → bounding boxes
+2. **Book Detection**  
+   - Extract using image input and existing prompt to the Google Gemini model
 
-3. **OCR & Title/Author Extraction**  
-   - Crop bounding boxes → **EasyOCR**  
+3. **Author Extraction**  
    - Clean & fuzzy-deduplicate titles → Google Books API → canonical title + **ASIN**
 
 ---
@@ -24,18 +21,16 @@ Refine the **existing, functional web app** to streamline the user experience an
 ## 3. Tech Stack (Additions)
 | Component        | Library / Service                         |
 |------------------|------------------------------------------|
-| Video download   | `yt-dlp`,               |
-| CV + ML          | `ultralytics==8.0.200`, `opencv-python`, `easyocr` |
+| CV + ML          | `google-genai`  | 
 | Async processing | **Celery**                   |
 | Object storage   | local `/tmp`                             |
-| Framework        | **Flask** (kept from previous MVP)       |
+| Framework        | **Flask**       |
 
 ---
 
 ## 4. Privacy & Compliance (TikTok + Amazon)
-- **TikTok Terms**: store only the video ID, no user data; respect rate limits.  
 - **GDPR / CCPA**: cookie banner for Amazon tracking cookies.  
-- **Amazon Associates** and **Google Ads**:  
+- **Amazon Associates**:
   - Display **prominent disclosure** on every page:  
     “As an Amazon Associate I earn from qualifying purchases.”
   - Link to Amazon Privacy Policy.  
@@ -43,6 +38,4 @@ Refine the **existing, functional web app** to streamline the user experience an
 ---
 
 ## 5. Improvements
-- Implement recommendation engine for training.
 - Streamline UI for mobile web app users.
-- Optimize for Google Ads implementation.

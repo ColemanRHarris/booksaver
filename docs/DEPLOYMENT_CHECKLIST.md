@@ -37,21 +37,11 @@
 - **Worker Service**: Celery worker (Starter tier - needed for CPU-intensive tasks)  
 - **Redis**: Message broker (Free tier)
 
-## AdSense Integration
-
-✅ **AdSense Script** - Added to base template  
-✅ **Ad Units** - Placed strategically on all pages  
-✅ **ads.txt** - Created and configured for AdSense verification  
-✅ **Compliance** - Amazon Associate and AdSense disclosures added  
-
-**Important**: Replace placeholder ad slot IDs with actual slot IDs from your AdSense account before deployment.
-
 ## Post-Deployment Testing
 
 After deployment, test these endpoints:
 - `GET /` - Main page
 - `GET /health` - Health check  
-- `GET /ads.txt` - AdSense verification file
 - `POST /process-tiktok` - TikTok processing (requires valid URL)
 
 ## Notes

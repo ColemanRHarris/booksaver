@@ -12,12 +12,12 @@ import os
 import logging
 from logging.config import dictConfig
 
-from services.books_client import GoogleBooksClient, build_reader_app_links
+from services.books_client import build_reader_app_links
 from celery_app import celery_app
 from services.recommendation_engine import get_recommendation_engine
 from system_monitor import get_system_monitor
-from core.utils import sanitize_input, validate_search_query, serialize_task_result, safe_get_task_result
-from routes.video import register_video_routes
+from core.utils import sanitize_input, serialize_task_result, safe_get_task_result
+from routes.images import register_image_routes
 
 load_dotenv()
 
@@ -148,7 +148,7 @@ def add_security_headers(response):
 
 
 # Register route modules
-register_video_routes(app, limiter)
+register_image_routes(app, limiter)
 
 
 # Main routes
@@ -182,35 +182,6 @@ def health_check():
             'error': str(e)
         }), 500
 
-
-@app.route('/search', methods=['POST'])
-@limiter.limit("30 per minute")
-def search():
-    """Search for books using Google Books API"""
-    try:
-        raw_query = request.form.get('query', '').strip()
-        query = validate_search_query(raw_query)
-        
-        # Initialize Google Books client
-        books_client = GoogleBooksClient()
-        
-        # Search for books
-        books = books_client.search_books(query, max_results=10)
-        
-        if not books:
-            return render_template('results.html', 
-                                 books=[], 
-                                 query=query,
-                                 error="No books found for your search. Try different keywords or check spelling.")
-        
-        logger.info(f"✅ Search completed: {len(books)} books found for '{query}'")
-        return render_template('results.html', books=books, query=query)
-        
-    except ValueError as e:
-        return render_template('index.html', error=str(e))
-    except Exception as e:
-        logger.error(f"❌ Search error: {e}")
-        return render_template('index.html', error="Search failed. Please try again.")
 
 
 @app.route('/processing/<task_id>')
@@ -334,13 +305,12 @@ def cancel_task(task_id):
         return jsonify({'error': 'Failed to cancel task'}), 500
 
 
-@app.route('/tiktok-results/<task_id>')
-def tiktok_results(task_id):
-    """Show results from completed video processing"""
+@app.route('/image-results/<task_id>')
+def image_results(task_id):
+    """Show results from completed image processing"""
     try:
         redis_url = os.getenv('REDIS_URL')
-        video_url = request.args.get('url', '')
-        video_type = request.args.get('type', 'Video')
+        source_type = request.args.get('type', 'Image')
         
         # Check if we're using actual Redis (not memory:// for local dev)
         if redis_url and not redis_url.startswith('memory://'):
@@ -352,18 +322,17 @@ def tiktok_results(task_id):
                 if not books:
                     return render_template('results.html', 
                                          books=[], 
-                                         query=f"{video_type} analysis",
-                                         error="No books were detected in this video. Try with a different video that shows book covers more clearly.")
+                                         query=f"{source_type} analysis",
+                                         error="No books were detected in this image. Try with a clearer photo showing book covers or spines.")
                 
                 return render_template('results.html', 
                                      books=books, 
-                                     query=f"TikTok analysis",
-                                     video_url="Lorem")
+                                     query=f"Image analysis")
             else:
                 error_msg = safe_get_task_result(task.result, 'error', 'Task failed or is still processing')
                 return render_template('results.html', 
                                      books=[], 
-                                     query=f"{video_type} analysis",
+                                     query=f"{source_type} analysis",
                                      error=error_msg)
         else:
             if task_id in app.task_results:
@@ -375,30 +344,29 @@ def tiktok_results(task_id):
                     if not books:
                         return render_template('results.html', 
                                              books=[], 
-                                             query=f"{video_type} analysis",
-                                             error="No books were detected in this video.")
+                                             query=f"{source_type} analysis",
+                                             error="No books were detected in this image.")
                     
                     return render_template('results.html', 
                                          books=books, 
-                                         query=f"{video_type} analysis",
-                                         video_url=video_url)
+                                         query=f"{source_type} analysis")
                 else:
                     error_msg = task_data.get('error', 'Task failed or is still processing')
                     return render_template('results.html', 
                                          books=[], 
-                                         query=f"{video_type} analysis",
+                                         query=f"{source_type} analysis",
                                          error=error_msg)
             else:
                 return render_template('results.html', 
                                      books=[], 
-                                     query=f"{video_type} analysis",
+                                     query=f"{source_type} analysis",
                                      error="Task not found or expired")
                 
     except Exception as e:
         logger.error(f"❌ Results error: {e}")
         return render_template('results.html', 
                              books=[], 
-                             query=f"{video_type} analysis",
+                             query=f"{source_type} analysis",
                              error="Failed to load results")
 
 
@@ -428,11 +396,6 @@ def privacy():
     """Privacy policy page"""
     return render_template('privacy.html')
 
-
-@app.route('/ads.txt')
-def ads_txt():
-    """Google AdSense ads.txt file"""
-    return app.send_static_file('ads.txt')
 
 
 @app.route('/site.webmanifest')

@@ -3,7 +3,7 @@
 {% block content %}
 <div class="search-container">
     <div class="page-header">
-        <h2>Search for Books</h2>
+        <h2>Scan Books</h2>
         <div class="nav-links">
             <a href="{{ url_for('recommendations') }}" class="recommendations-link">📚 Our Recommendations</a>
         </div>
@@ -14,112 +14,187 @@
     {% endif %}
     
     <div class="search-options">
-        <div class="search-box tiktok-search">
+        <div class="search-box image-search">
             <div class="search-box-header">
-                <h3>🎥 Find BookTok Books</h3>
-                <p>Extract books from TikTok videos and Instragram reels!</p>
+                <h3>📸 Scan Books with Camera</h3>
+                <p>Take a photo or upload an image to find books!</p>
             </div>
-            <form method="POST" action="{{ url_for('process_tiktok') }}" class="search-form">
+            <form method="POST" action="{{ url_for('process_image_upload') }}" enctype="multipart/form-data" class="search-form" id="image-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <div class="form-group">
-                    <input type="url" 
-                           id="tiktok_url" 
-                           name="tiktok_url" 
-                           placeholder="Paste TikTok or Instragram video URL..." 
-                           value="{{ request.form.tiktok_url if request.form else '' }}"
-                           required>
+                
+                <!-- Dual Input Options -->
+                <div class="input-options">
+                    <!-- Camera Input -->
+                    <div class="input-option">
+                        <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
+                        <button type="button" id="camera-btn" class="option-btn camera-btn">
+                            📸 Take Photo
+                        </button>
+                    </div>
+                    
+                    <!-- File Input -->
+                    <div class="input-option">
+                        <input type="file" id="file-input" accept="image/*" style="display: none;">
+                        <button type="button" id="file-btn" class="option-btn file-btn">
+                            📁 Choose File
+                        </button>
+                    </div>
                 </div>
-                <button type="submit" class="search-btn tiktok-search-btn" id="tiktok-submit">
-                    <span class="btn-text">Find Books in Video</span>
-                    <span class="btn-loading" style="display: none;">Processing Video...</span>
+                <p class="input-help" id="input-help">Take a photo or choose from your device</p>
+                
+                <!-- Preview Section -->
+                <div id="image-preview-section" style="display: none;">
+                    <img id="image-preview" src="" alt="Selected image" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin: 10px 0;">
+                    <button type="button" id="clear-image" class="clear-btn">Clear Image</button>
+                </div>
+                
+                <button type="submit" class="search-btn scan-submit-btn" id="scan-submit" disabled>
+                    <span class="btn-text">Analyze Photo</span>
+                    <span class="btn-loading" style="display: none;">Processing Photo...</span>
                 </button>
             </form>
             
             <div class="box-instructions">
                 <h4>How it works:</h4>
                 <ol>
-                    <li>Paste a TikTok or Instagram Reel URL</li>
-                    <li>We'll detect books in the video</li>
+                    <li>Take a photo or upload an image of books</li>
+                    <li>We'll detect books in your image</li>
                     <li>Get purchase links for found books</li>
-                </ol>
-            </div>
-        </div>
-<!--    yt-dlp + Instagram not working together nicely
-
-        <div class="search-box instagram-search">
-            <div class="search-box-header">
-                <h3>📸 Instagram Reels Book Finder</h3>
-                <p>Extract books from Instagram Reels</p>
-            </div>
-            <form method="POST" action="{{ url_for('process_instagram_reel') }}" class="search-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <div class="form-group">
-                    <input type="url" 
-                           id="reel_url" 
-                           name="reel_url" 
-                           placeholder="Paste Instagram Reel URL..." 
-                           value="{{ request.form.reel_url if request.form else '' }}"
-                           required>
-                </div>
-                <button type="submit" class="search-btn instagram-search-btn" id="instagram-submit">
-                    <span class="btn-text">Find Books in Reel</span>
-                    <span class="btn-loading" style="display: none;">Processing Reel...</span>
-                </button>
-            </form>
-
-            <div class="box-instructions">
-                <h4>How it works:</h4>
-                <ol>
-                    <li>Paste an Instagram Reel URL</li>
-                    <li>We'll detect books in the video</li>
-                    <li>Get purchase links for found books</li>
-                </ol>
-            </div>
-        </div>
-        
- -->         
-        <div class="search-box book-search">
-            <div class="search-box-header">
-                <h3>📚 Search Books</h3>
-                <p>Find books by title or ISBN</p>
-            </div>
-            <form method="POST" action="{{ url_for('search') }}" class="search-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <div class="form-group">
-                    <input type="text" 
-                           id="query" 
-                           name="query" 
-                           placeholder="Enter book title or ISBN..." 
-                           value="{{ request.form.query if request.form else '' }}"
-                           required>
-                </div>
-                <button type="submit" class="search-btn book-search-btn">Search Books</button>
-            </form>
-            
-            <div class="box-instructions">
-                <h4>How it works:</h4>
-                <ol>
-                    <li>Enter a book title or ISBN</li>
-                    <li>Browse results from Google Books</li>
-                    <li>Buy from your favorite retailer</li>
                 </ol>
             </div>
         </div>
         
     </div>
     
-    <!-- AdSense Banner Ad - Bottom of page 
-    <div class="ad-container" style="text-align: center; margin: 30px 0;">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-client="ca-pub-4992548313793866"
-             data-ad-slot="0987654321"
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
-        <script>
-             (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-    </div>
-    -->
 </div>
+
+<script>
+// Dual input book scanning functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const cameraInput = document.getElementById('camera-input');
+    const fileInput = document.getElementById('file-input');
+    const cameraBtn = document.getElementById('camera-btn');
+    const fileBtn = document.getElementById('file-btn');
+    const imagePreview = document.getElementById('image-preview');
+    const imagePreviewSection = document.getElementById('image-preview-section');
+    const clearImageBtn = document.getElementById('clear-image');
+    const submitBtn = document.getElementById('scan-submit');
+    const form = document.getElementById('image-form');
+    const inputHelp = document.getElementById('input-help');
+    
+    // Device detection for smart UI behavior
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isDesktop = !isMobile;
+    
+    // Device-specific button visibility and help text
+    if (isDesktop) {
+        // Hide camera button on desktop, show file only
+        cameraBtn.style.display = 'none';
+        inputHelp.textContent = 'Click to choose image file from your computer';
+    } else {
+        // Show both options on mobile
+        inputHelp.textContent = 'Take a new photo or choose from your gallery';
+    }
+    
+    // Button click handlers
+    cameraBtn.addEventListener('click', function() {
+        clearOtherInput(fileInput);
+        cameraInput.click();
+    });
+    
+    fileBtn.addEventListener('click', function() {
+        clearOtherInput(cameraInput);
+        fileInput.click();
+    });
+    
+    // File selection handlers for both inputs
+    cameraInput.addEventListener('change', handleFileSelection);
+    fileInput.addEventListener('change', handleFileSelection);
+    
+    function handleFileSelection(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                e.target.value = ''; // Clear invalid selection
+                return;
+            }
+            
+            // Check file size (10MB limit)
+            const maxSize = 10 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert('Image file is too large. Please use an image smaller than 10MB.');
+                e.target.value = ''; // Clear invalid selection
+                return;
+            }
+            
+            // Clear the other input to avoid conflicts and manage form names
+            if (e.target === cameraInput) {
+                fileInput.value = '';
+                // Set this input as the active one for form submission
+                cameraInput.name = 'image';
+                fileInput.removeAttribute('name');
+            } else {
+                cameraInput.value = '';
+                // Set this input as the active one for form submission  
+                fileInput.name = 'image';
+                cameraInput.removeAttribute('name');
+            }
+            
+            showImagePreview(URL.createObjectURL(file));
+            submitBtn.disabled = false;
+        }
+    }
+    
+    function clearOtherInput(otherInput) {
+        if (otherInput.files.length > 0) {
+            otherInput.value = '';
+        }
+    }
+    
+    function showImagePreview(src) {
+        imagePreview.src = src;
+        imagePreviewSection.style.display = 'block';
+    }
+    
+    // Clear image functionality
+    clearImageBtn.addEventListener('click', function() {
+        cameraInput.value = '';
+        fileInput.value = '';
+        // Reset name attributes - no active input
+        cameraInput.removeAttribute('name');
+        fileInput.removeAttribute('name');
+        imagePreviewSection.style.display = 'none';
+        submitBtn.disabled = true;
+        URL.revokeObjectURL(imagePreview.src);
+    });
+    
+    // Form submission with loading state
+    form.addEventListener('submit', function(e) {
+        const hasCameraFile = cameraInput.files.length > 0;
+        const hasRegularFile = fileInput.files.length > 0;
+        
+        if (!hasCameraFile && !hasRegularFile) {
+            e.preventDefault();
+            alert('Please select an image first');
+            return;
+        }
+        
+        // Double-check that the active input has the correct name attribute
+        if (hasCameraFile && !cameraInput.name) {
+            cameraInput.name = 'image';
+            fileInput.removeAttribute('name');
+        } else if (hasRegularFile && !fileInput.name) {
+            fileInput.name = 'image';
+            cameraInput.removeAttribute('name');
+        }
+        
+        // Show loading state
+        submitBtn.querySelector('.btn-text').style.display = 'none';
+        submitBtn.querySelector('.btn-loading').style.display = 'inline';
+        submitBtn.disabled = true;
+    });
+});
+</script>
 {% endblock %}

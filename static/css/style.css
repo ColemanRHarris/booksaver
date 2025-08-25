@@ -1181,17 +1181,6 @@ footer {
     }
 }
 
-/* AdSense Styling */
-.ad-container {
-    margin: 20px auto;
-    max-width: 100%;
-    overflow: hidden;
-}
-
-.ad-container ins {
-    display: block;
-    text-align: center;
-}
 
 /* Footer Disclosure */
 footer .disclosure {

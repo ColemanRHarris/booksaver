@@ -3,8 +3,8 @@
 {% block content %}
 <div class="processing-container">
     <div class="processing-header">
-        <h2>Processing TikTok Video</h2>
-        <p class="processing-url">{{ tiktok_url }}</p>
+        <h2>Processing Image</h2>
+        <p class="processing-url">Analyzing your image for books...</p>
     </div>
     
     <div class="progress-section">
@@ -20,49 +20,23 @@
         </div>
     </div>
     
-    <!-- AdSense Banner Ad - Processing page top 
-    <div class="ad-container" style="text-align: center; margin: 20px 0;">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-client="ca-pub-4992548313793866"
-             data-ad-slot="3691470258"
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
-        <script>
-             (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-    </div>
-    -->
     
     <div class="processing-info">
         <div class="info-item">
             <strong>What we're doing:</strong>
             <ul>
-                <li>Downloading your video from the platform</li>
-                <li>Detecting books using AI vision</li>
+                <li>Analyzing your image using AI vision</li>
+                <li>Detecting books and extracting titles</li>
                 <li>Finding matching books in our database</li>
             </ul>
         </div>
         
         <div class="info-item">
             <strong>This usually takes:</strong>
-            <p>30-60 seconds depending on video length</p>
+            <p>15-30 seconds depending on image complexity</p>
         </div>
     </div>
     
-    <!-- AdSense Square Ad - Processing page middle 
-    <div class="ad-container" style="text-align: center; margin: 30px 0;">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-client="ca-pub-4992548313793866"
-             data-ad-slot="5814736927"
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
-        <script>
-             (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-    </div>
-    -->
     
     <div id="results-section" class="results-section" style="display: none;">
         <!-- Results will be loaded here -->
@@ -92,8 +66,8 @@ function pollTaskStatus() {
                 console.log('Task completed, redirecting to results');
                 
                 // Redirect to results page
-                const tiktokUrl = encodeURIComponent('{{ tiktok_url }}');
-                window.location.href = `/tiktok-results/${taskId}?url=${tiktokUrl}`;
+                const sourceType = encodeURIComponent('{{ source_type | default("Image") }}');
+                window.location.href = `/image-results/${taskId}?type=${sourceType}`;
             } else if (data.state === 'FAILURE' || data.state === 'REVOKED') {
                 clearInterval(pollInterval);
                 console.error('Task failed or cancelled:', data.result);
@@ -137,8 +111,8 @@ function showResults(result) {
         resultsSection.innerHTML = `
             <div class="no-books">
                 <h3>No Books Found</h3>
-                <p>We couldn't detect any books in this video. Try with a different video that shows book covers more clearly.</p>
-                <a href="{{ url_for('index') }}" class="back-btn">← Try Another Video</a>
+                <p>We couldn't detect any books in this image. Try with a clearer photo showing book covers or spines.</p>
+                <a href="{{ url_for('index') }}" class="back-btn">← Try Another Image</a>
             </div>
         `;
     } else {
@@ -185,7 +159,7 @@ function showResults(result) {
         booksHtml += `
                 </div>
                 <div class="try-again">
-                    <a href="{{ url_for('index') }}" class="back-btn">← Process Another Video</a>
+                    <a href="{{ url_for('index') }}" class="back-btn">← Process Another Image</a>
                 </div>
             </div>
         `;

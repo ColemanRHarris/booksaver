@@ -9,7 +9,6 @@ os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 
 import tempfile
-import yt_dlp
 import threading
 import ast
 import uuid
@@ -50,9 +49,9 @@ logger = get_logger(__name__)
 # YOLO model initialization removed (using Gemini AI for video analysis instead)
 
 # File processing limits
-MAX_VIDEO_SIZE_MB = 100  # 100MB max size
+MAX_IMAGE_SIZE_MB = 10  # 10MB max size for images
 MAX_TEMP_DIR_LIFETIME = 3600  # 1 hour in seconds
-MAX_PROCESSING_TIME = 600  # 10 minutes timeout
+MAX_PROCESSING_TIME = 300  # 5 minutes timeout for images
 
 
 def cleanup_temp_directory(temp_dir: str, delay: int = MAX_TEMP_DIR_LIFETIME):
@@ -69,7 +68,7 @@ def cleanup_temp_directory(temp_dir: str, delay: int = MAX_TEMP_DIR_LIFETIME):
     cleanup_thread = threading.Thread(target=cleanup, daemon=True)
     cleanup_thread.start()
 
-def check_file_size(file_path: str, max_size_mb: int = MAX_VIDEO_SIZE_MB) -> bool:
+def check_file_size(file_path: str, max_size_mb: int = MAX_IMAGE_SIZE_MB) -> bool:
     """Check if file size is within limits"""
     try:
         # Resolve path to prevent path traversal
@@ -145,50 +144,42 @@ def safe_join_path(base_dir: str, filename: str) -> str:
         raise ValueError("Invalid file path")
 
 
-@celery_app.task(bind=True, time_limit=MAX_PROCESSING_TIME, soft_time_limit=MAX_PROCESSING_TIME-60)
-def process_video(self, video_url: str, video_type: str):
+@celery_app.task(bind=True, time_limit=MAX_PROCESSING_TIME, soft_time_limit=MAX_PROCESSING_TIME-30)
+def process_image(self, image_path: str):
     """
-    Celery task to process a video (TikTok, Instagram Reel) and extract books.
+    Celery task to process an image and extract books from it.
     """
-    logger.info(f"🚀 Starting {video_type.title()} video processing for: {video_url}")
+    logger.info(f"🚀 Starting image processing for: {image_path}")
     
     # Check cache first
     rec_engine = get_recommendation_engine()
-    cached_result = rec_engine.get_cached_results(video_url)
+    cached_result = rec_engine.get_cached_results(image_path)
     if cached_result:
-        logger.info(f"🎉 Cache hit! Returning cached results for: {video_url[:50]}...")
+        logger.info(f"🎉 Cache hit! Returning cached results for: {image_path[:50]}...")
         return cached_result
     
     try:
         # Get Gemini API key from environment
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
-            error_msg = "GEMINI_API_KEY environment variable is required for video processing"
+            error_msg = "GEMINI_API_KEY environment variable is required for image processing"
             logger.error(f"❌ {error_msg}")
             raise ValueError(error_msg)
         
         logger.info("✅ Gemini API key loaded from environment")
         genai_client = genai.Client(api_key=api_key)
-        self.update_state(state='PROGRESS', meta={'step': 'Downloading video', 'progress': 10})
+        self.update_state(state='PROGRESS', meta={'step': 'Analyzing image', 'progress': 10})
         
-        temp_dir_prefix = f"{video_type}_{uuid.uuid4().hex}_"
-        temp_dir = tempfile.mkdtemp(prefix=temp_dir_prefix)
-        logger.debug(f"📁 Created temp directory: {temp_dir}")
-        
-        # Schedule cleanup of temp directory
-        cleanup_temp_directory(temp_dir)
-        
-        video_path = None
-        video_path = download_video(video_url, temp_dir)
-        logger.info(f"✅ Video downloaded successfully: {video_path}")
-        
-        # Check file size limits
-        if not check_file_size(video_path):
-            raise Exception(f"Video file exceeds {MAX_VIDEO_SIZE_MB}MB size limit")
+        # Verify image exists and check file size limits
+        if not os.path.exists(image_path):
+            raise Exception(f"Image file not found: {image_path}")
+            
+        if not check_file_size(image_path):
+            raise Exception(f"Image file exceeds {MAX_IMAGE_SIZE_MB}MB size limit")
 
-        gen_file = genai_client.files.upload(file=video_path)
+        gen_file = genai_client.files.upload(file=image_path)
         # update to delay prompt
-        self.update_state(state='PROGRESS', meta={'step': 'Extracting frames', 'progress': 30})
+        self.update_state(state='PROGRESS', meta={'step': 'Processing image', 'progress': 30})
         # Check whether the file is ready to be used.
         while gen_file.state.name == "PROCESSING":
             print('.', end='')
@@ -199,17 +190,17 @@ def process_video(self, video_url: str, video_type: str):
           raise ValueError(gen_file.state.name)
         # prompt and request
         prompt = """
-        Please review this video and tell me what books, if any, are present in the video. 
-        Please provide results formatted as a Python, with the following format:
+        Please review this image and identify what books, if any, are present in the image. Look for book covers, spines, or any visible book titles and authors.
+        Please provide results formatted as a Python list, with the following format:
         ["TITLE by AUTHOR"]
-        If there are no videos, please return an empty list.
+        If there are no books visible in the image, please return an empty list.
         Do NOT return in a code chunk and do NOT return with any additional text.
         """
         response = genai_client.models.generate_content(
             model="gemini-2.0-flash-lite", 
             contents=[gen_file,prompt]
         )
-        self.update_state(state='PROGRESS', meta={'step': 'Selecting books from shelves', 'progress': 50})
+        self.update_state(state='PROGRESS', meta={'step': 'Identifying books in image', 'progress': 50})
         book_texts = ast.literal_eval(response.text)
         self.update_state(state='PROGRESS', meta={'step': 'Finding book details', 'progress': 85})
         print("📚 Starting book search...")
@@ -225,7 +216,7 @@ def process_video(self, video_url: str, video_type: str):
         }
         
         # Cache the successful result
-        rec_engine.cache_results(video_url, video_type, result)
+        rec_engine.cache_results(image_path, 'image', result)
         
         logger.info(f"🎉 Task completed successfully!")
         logger.info(f"📊 Final result: {len(books)} books, {len(book_texts)} texts")
@@ -239,195 +230,24 @@ def process_video(self, video_url: str, video_type: str):
         error_message = str(e)
         
         if isinstance(e, SoftTimeLimitExceeded):
-            error_message = 'Video processing timed out. Please try with a shorter video.'
+            error_message = 'Image processing timed out. Please try with a smaller image.'
         else:
             # Clean up technical error messages for user-friendly display
-            if "Unable to download webpage: HTTP Error 404" in error_message:
-                error_message = "Video not found. The video may have been deleted, made private, or the URL may be incorrect."
-            elif "HTTP Error 403" in error_message:
-                error_message = "Access denied. The video may be private or age-restricted."
-            elif "Video unavailable" in error_message:
-                error_message = "Video is unavailable. It may have been removed or made private."
-            elif "Sign in to confirm" in error_message or "login" in error_message.lower():
-                error_message = "This video requires login to access. Please use a public video."
-            elif "Age-restricted" in error_message:
-                error_message = "This video is age-restricted and cannot be processed."
+            if "Image file not found" in error_message:
+                error_message = "Image file not found. Please try uploading again."
+            elif "Image file exceeds" in error_message:
+                error_message = "Image file is too large. Please use an image smaller than 10MB."
+            elif "No books" in error_message or "empty list" in error_message:
+                error_message = "No books were detected in this image. Try with a clearer photo showing book covers or spines."
+            elif "Invalid image format" in error_message:
+                error_message = "Invalid image format. Please use JPG or PNG files."
         
-        logger.error(f"Video processing failed: {e}")  # Log the technical error
+        logger.error(f"Image processing failed: {e}")  # Log the technical error
         return {
             'status': 'error',
             'error': error_message  # Return user-friendly error
         }
 
-def normalize_tiktok_url(url: str) -> str:
-    """Normalize TikTok URL to the correct format"""
-    import re
-    
-    # If it already has @ in the username part, return as is
-    if '/@' in url:
-        return url
-    
-    # If it's a short link with /t/ pattern, return as is (yt-dlp handles these directly)
-    if '/t/' in url:
-        print(f"🔗 TikTok short link detected, using as-is: {url}")
-        return url
-    
-    # Convert format like tiktok.com/username/video/123 to tiktok.com/@username/video/123
-    # More flexible pattern to handle various URL structures
-    tiktok_pattern = r'(https?://(?:www\.)?tiktok\.com/)([^/@?\s]+)((?:/video/\d+)?(?:\?.*)?)'
-    match = re.match(tiktok_pattern, url.strip())
-    
-    if match:
-        base_url, username, rest = match.groups()
-        # Only add @ if username doesn't start with it and isn't a known system path
-        system_paths = ['explore', 'discover', 'trending', 'search', 'foryou', 'following', 'live', 't']
-        if not username.startswith('@') and username not in system_paths:
-            normalized = f"{base_url}@{username}{rest or ''}"
-            print(f"🔄 TikTok URL normalization: {url} -> {normalized}")
-            return normalized
-    
-    return url
-
-def normalize_instagram_url(url: str) -> str:
-    """Normalize Instagram URL to the correct format"""
-    import re
-    original_url = url
-    
-    # Convert ddinstagram.com to instagram.com (InstaFix service)
-    if 'ddinstagram.com' in url.lower():
-        url = url.replace('ddinstagram.com', 'instagram.com')
-    
-    # Remove mobile prefix if present
-    if 'm.instagram.com' in url.lower():
-        url = url.replace('m.instagram.com', 'instagram.com')
-    
-    # Add www if missing (some yt-dlp versions prefer this)
-    if url.startswith('https://instagram.com'):
-        url = url.replace('https://instagram.com', 'https://www.instagram.com')
-    
-    # Log the normalization if URL changed
-    if url != original_url:
-        print(f"🔄 Instagram URL normalized: {original_url} -> {url}")
-    
-    return url
-
-def download_video(url: str, output_dir: str) -> str:
-    """Download video using yt-dlp (supports TikTok, Instagram, etc.)"""
-    
-    # Normalize TikTok URLs to proper format
-    if 'tiktok.com' in url.lower():
-        original_url = url
-        url = normalize_tiktok_url(url)
-        if url != original_url:
-            print(f"🔄 Normalized URL: {original_url} -> {url}")
-    
-    # Normalize Instagram URLs to proper format
-    if 'instagram' in url.lower():
-        original_url = url
-        url = normalize_instagram_url(url)
-        if url != original_url:
-            print(f"🔄 Normalized URL: {original_url} -> {url}") 
-
-    print(f"⬇️  Starting download of: {url}")
-    print(f"📂 Output directory: {output_dir}")
-    
-    # Use safe path joining for output template
-    try:
-        safe_output_path = safe_join_path(output_dir, 'video.%(ext)s')
-        base_dir = os.path.dirname(safe_output_path)
-        output_template = os.path.join(base_dir, 'video.%(ext)s')
-    except Exception:
-        # Fallback to secure directory
-        output_template = os.path.join(output_dir, 'video.%(ext)s')
-    
-    ydl_opts = {
-        'outtmpl': output_template,
-        'quiet': False,
-        'no_warnings': False,
-        # Add more robust options for social media platforms
-        'format': 'best[height<=720]/best',  # Prefer lower quality for faster processing
-        'extract_flat': False,
-        'writesubtitles': False,
-        'writeautomaticsub': False,
-        'ignoreerrors': False,
-        # Add user agent and headers to avoid blocking
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
-        # Add timeout settings
-        'socket_timeout': 30,
-    }
-    
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print("🔄 Starting yt-dlp download...")
-            
-            # First try to extract info to check if URL is valid
-            try:
-                print("🔍 Extracting video info...")
-                info = ydl.extract_info(url, download=False)
-                title = info.get('title', 'Unknown')
-                duration = info.get('duration', 'Unknown')
-                print(f"📱 Video found: '{title}' (duration: {duration}s)")
-            except Exception as info_error:
-                print(f"❌ Failed to extract video info: {info_error}")
-                # Common error messages that users should understand
-                error_msg = str(info_error).lower()
-                if '404' in error_msg or 'not found' in error_msg:
-                    raise Exception("Video not found. The URL may be incorrect, the video may have been deleted, or it may be private.")
-                elif 'private' in error_msg or 'unavailable' in error_msg:
-                    raise Exception("Video is private or unavailable. Please use a public video URL.")
-                elif 'age-restricted' in error_msg or 'login' in error_msg:
-                    raise Exception("Video is age-restricted or requires login. Please use a different video.")
-                else:
-                    raise Exception(f"Unable to access video: {info_error}")
-            
-            # If info extraction succeeded, proceed with download
-            print("⬇️  Downloading video...")
-            ydl.download([url])
-            print("✅ yt-dlp download completed")
-            
-    except Exception as e:
-        error_msg = str(e)
-        print(f"❌ yt-dlp download failed: {error_msg}")
-        # Clean up error messages for users
-        if "ERROR:" in error_msg and "[" in error_msg:
-            # Extract the actual error from yt-dlp format
-            try:
-                # Remove ANSI color codes
-                import re
-                clean_error = re.sub(r'\x1b\[[0-9;]*m', '', error_msg)
-                if "]" in clean_error:
-                    actual_error = clean_error.split("]", 1)[1].strip()
-                    if actual_error:
-                        error_msg = actual_error
-            except:
-                pass
-        
-        raise Exception(error_msg)
-    
-    print("🔍 Looking for downloaded video file...")
-    try:
-        files = os.listdir(output_dir)
-        print(f"📋 Files in directory: {files}")
-        
-        for file in files:
-            # Validate filename to prevent path traversal
-            if file.startswith('video.') and file.endswith(('.mp4', '.webm', '.mkv', '.mov')):
-                # Use safe path joining
-                try:
-                    video_path = safe_join_path(output_dir, file)
-                    print(f"✅ Found video: {video_path}")
-                    return video_path
-                except ValueError as e:
-                    print(f"⚠️ Skipping potentially unsafe file: {file} ({e})")
-                    continue
-    except Exception as e:
-        print(f"❌ Error listing directory: {e}")
-        raise Exception("Failed to list downloaded files")
-    
-    print("❌ No video file found after download")
-    raise Exception("Video download failed - no output file found")
 
 def search_books_from_text(texts: List[str]) -> List[Dict]:
     """Search for using extracted text with fuzzy matching for near-misses"""

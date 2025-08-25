@@ -7,7 +7,6 @@ requires-python = ">=3.11"
 dependencies = [
     "celery>=5.5.3",
     "easyocr>=1.7.0",
-    "ffmpeg-python>=0.2.0",
     "flask>=3.1.1",
     "fuzzywuzzy>=0.18.0",
     "gunicorn>=23.0.0",
@@ -22,7 +21,6 @@ dependencies = [
     "torch<2.6",
     "torchvision<0.20",
     "ultralytics>=8.3.182",
-    "yt-dlp>=2025.8.11",
     "paddleocr>=3.1.1",
     "paddlepaddle>=3.1.0",
     "flask-limiter>=3.12",
