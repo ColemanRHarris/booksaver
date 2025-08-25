@@ -1,7 +1,7 @@
 # BookSaver – the Shazam for Books (`claude.md`)
 
 ## 1. Overall Goal
-Your job is to refine the **existing, functional web app** to take images as input and run the same requests to the Gemini model and Google Books API. These images can either be taken from the device camera or upload. You will need to remove the functionality for Instagram and TikTok videos as these break terms of service.
+Your job is to improve the **existing, functional web app** that takes images as input and runs requests to the Gemini model and Google Books API. Your primary goal is to improve the UI and user flow to make a cutting edge web app.
 
 ---
 
@@ -38,4 +38,4 @@ Your job is to refine the **existing, functional web app** to take images as inp
 ---
 
 ## 5. Improvements
-- Streamline UI for mobile web app users.
+- Streamline UI for mobile web app users to reel in subscriptions.

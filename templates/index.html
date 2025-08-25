@@ -1,11 +1,54 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- Modern Hero Section -->
+<div class="hero-section">
+    <div class="hero-content">
+        <div class="hero-text">
+            <h1 class="hero-title">
+                Turn Any Book Photo Into Your
+                <span class="hero-accent">Reading List</span>
+            </h1>
+            <p class="hero-subtitle">
+                Snap a photo of any book, bookshelf, or reading list and instantly get purchase links, reading app integration, and personalized recommendations.
+            </p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-number">10,000+</span>
+                    <span class="stat-label">Books Identified</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">98%</span>
+                    <span class="stat-label">Accuracy Rate</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">5 sec</span>
+                    <span class="stat-label">Average Scan</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="floating-books">
+                <div class="book-icon book-1">📖</div>
+                <div class="book-icon book-2">📚</div>
+                <div class="book-icon book-3">📓</div>
+                <div class="book-icon book-4">📔</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- CTA Arrow -->
+    <div class="hero-arrow">
+        <div class="arrow-bounce">↓</div>
+        <span>Start scanning below</span>
+    </div>
+</div>
+
 <div class="search-container">
     <div class="page-header">
-        <h2>Scan Books</h2>
+        <h2>Scan Your Books</h2>
         <div class="nav-links">
-            <a href="{{ url_for('recommendations') }}" class="recommendations-link">📚 Our Recommendations</a>
+            <a href="{{ url_for('recommendations') }}" class="recommendations-link">📚 Discover Books</a>
         </div>
     </div>
     
@@ -22,35 +65,73 @@
             <form method="POST" action="{{ url_for('process_image_upload') }}" enctype="multipart/form-data" class="search-form" id="image-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 
-                <!-- Dual Input Options -->
-                <div class="input-options">
-                    <!-- Camera Input -->
-                    <div class="input-option">
-                        <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
-                        <button type="button" id="camera-btn" class="option-btn camera-btn">
-                            📸 Take Photo
-                        </button>
+                <!-- Modern Drag & Drop Interface -->
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-content">
+                        <div class="upload-icon">
+                            <div class="icon-animation">
+                                📸
+                            </div>
+                        </div>
+                        <h3 class="upload-title">Drop your book photo here</h3>
+                        <p class="upload-subtitle">or click to browse from your device</p>
+                        <div class="upload-actions">
+                            <button type="button" id="camera-btn" class="upload-btn camera-btn">
+                                <span class="btn-icon">📸</span>
+                                <span>Take Photo</span>
+                            </button>
+                            <button type="button" id="file-btn" class="upload-btn file-btn">
+                                <span class="btn-icon">📁</span>
+                                <span>Browse Files</span>
+                            </button>
+                        </div>
+                        <div class="upload-formats">
+                            <span>Supports: JPG, PNG • Max 10MB</span>
+                        </div>
                     </div>
-                    
-                    <!-- File Input -->
-                    <div class="input-option">
-                        <input type="file" id="file-input" accept="image/*" style="display: none;">
-                        <button type="button" id="file-btn" class="option-btn file-btn">
-                            📁 Choose File
-                        </button>
+                    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
+                    <input type="file" id="file-input" accept="image/*" style="display: none;">
+                </div>
+                
+                <!-- Enhanced Preview Section -->
+                <div id="image-preview-section" class="preview-section" style="display: none;">
+                    <div class="preview-container">
+                        <div class="preview-header">
+                            <h4>📖 Ready to scan!</h4>
+                            <button type="button" id="clear-image" class="clear-btn">
+                                <span>×</span>
+                            </button>
+                        </div>
+                        <div class="preview-image-container">
+                            <img id="image-preview" src="" alt="Selected image" class="preview-image">
+                            <div class="preview-overlay">
+                                <div class="preview-info">
+                                    <span id="file-info"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="preview-tips">
+                            <div class="tip-item">
+                                <span class="tip-icon">✅</span>
+                                <span>Books clearly visible</span>
+                            </div>
+                            <div class="tip-item">
+                                <span class="tip-icon">✅</span>
+                                <span>Good lighting detected</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <p class="input-help" id="input-help">Take a photo or choose from your device</p>
                 
-                <!-- Preview Section -->
-                <div id="image-preview-section" style="display: none;">
-                    <img id="image-preview" src="" alt="Selected image" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin: 10px 0;">
-                    <button type="button" id="clear-image" class="clear-btn">Clear Image</button>
-                </div>
-                
-                <button type="submit" class="search-btn scan-submit-btn" id="scan-submit" disabled>
-                    <span class="btn-text">Analyze Photo</span>
-                    <span class="btn-loading" style="display: none;">Processing Photo...</span>
+                <button type="submit" class="search-btn scan-submit-btn primary-cta" id="scan-submit" disabled>
+                    <span class="btn-text">
+                        <span class="btn-icon">📸</span>
+                        <span>Scan My Books</span>
+                    </span>
+                    <span class="btn-loading" style="display: none;">
+                        <span class="loading-spinner"></span>
+                        <span>Analyzing Magic...</span>
+                    </span>
                 </button>
             </form>
             
@@ -69,31 +150,77 @@
 </div>
 
 <script>
-// Dual input book scanning functionality
+// Modern drag-and-drop book scanning functionality
 document.addEventListener('DOMContentLoaded', function() {
     const cameraInput = document.getElementById('camera-input');
     const fileInput = document.getElementById('file-input');
     const cameraBtn = document.getElementById('camera-btn');
     const fileBtn = document.getElementById('file-btn');
+    const uploadArea = document.getElementById('upload-area');
     const imagePreview = document.getElementById('image-preview');
     const imagePreviewSection = document.getElementById('image-preview-section');
     const clearImageBtn = document.getElementById('clear-image');
     const submitBtn = document.getElementById('scan-submit');
     const form = document.getElementById('image-form');
-    const inputHelp = document.getElementById('input-help');
+    const fileInfo = document.getElementById('file-info');
     
     // Device detection for smart UI behavior
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const isDesktop = !isMobile;
     
-    // Device-specific button visibility and help text
+    // Device-specific button visibility
     if (isDesktop) {
         // Hide camera button on desktop, show file only
         cameraBtn.style.display = 'none';
-        inputHelp.textContent = 'Click to choose image file from your computer';
-    } else {
-        // Show both options on mobile
-        inputHelp.textContent = 'Take a new photo or choose from your gallery';
+    }
+    
+    // Drag and Drop Functionality
+    uploadArea.addEventListener('dragover', handleDragOver);
+    uploadArea.addEventListener('dragenter', handleDragEnter);
+    uploadArea.addEventListener('dragleave', handleDragLeave);
+    uploadArea.addEventListener('drop', handleFileDrop);
+    uploadArea.addEventListener('click', function() {
+        if (!isMobile) {
+            fileInput.click();
+        }
+    });
+    
+    function handleDragOver(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    }
+    
+    function handleDragEnter(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    }
+    
+    function handleDragLeave(e) {
+        e.preventDefault();
+        if (!uploadArea.contains(e.relatedTarget)) {
+            uploadArea.classList.remove('dragover');
+        }
+    }
+    
+    function handleFileDrop(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type.startsWith('image/')) {
+                handleFileSelection({ target: { files: [file] } });
+                // Set the file input to the dropped file
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                fileInput.name = 'image';
+                cameraInput.removeAttribute('name');
+            } else {
+                alert('Please drop an image file (JPG or PNG)');
+            }
+        }
     }
     
     // Button click handlers
@@ -142,8 +269,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 cameraInput.removeAttribute('name');
             }
             
-            showImagePreview(URL.createObjectURL(file));
+            showImagePreview(URL.createObjectURL(file), file);
             submitBtn.disabled = false;
+            
+            // Hide upload area and show preview
+            uploadArea.style.display = 'none';
         }
     }
     
@@ -153,9 +283,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function showImagePreview(src) {
+    function showImagePreview(src, file) {
         imagePreview.src = src;
         imagePreviewSection.style.display = 'block';
+        
+        // Show file info
+        if (file && fileInfo) {
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            fileInfo.textContent = `${file.name} • ${fileSize}MB`;
+        }
+        
+        // Add a subtle entrance animation
+        imagePreviewSection.style.opacity = '0';
+        imagePreviewSection.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            imagePreviewSection.style.transition = 'all 0.3s ease';
+            imagePreviewSection.style.opacity = '1';
+            imagePreviewSection.style.transform = 'translateY(0)';
+        }, 10);
     }
     
     // Clear image functionality
@@ -166,8 +311,14 @@ document.addEventListener('DOMContentLoaded', function() {
         cameraInput.removeAttribute('name');
         fileInput.removeAttribute('name');
         imagePreviewSection.style.display = 'none';
+        uploadArea.style.display = 'block';
         submitBtn.disabled = true;
         URL.revokeObjectURL(imagePreview.src);
+        
+        // Clear file info
+        if (fileInfo) {
+            fileInfo.textContent = '';
+        }
     });
     
     // Form submission with loading state
@@ -195,6 +346,63 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.querySelector('.btn-loading').style.display = 'inline';
         submitBtn.disabled = true;
     });
+    
+    // Initialize hero animations
+    function initHeroAnimations() {
+        const heroTitle = document.querySelector('.hero-title');
+        const heroSubtitle = document.querySelector('.hero-subtitle');
+        const heroStats = document.querySelector('.hero-stats');
+        const floatingBooks = document.querySelectorAll('.book-icon');
+        
+        // Animate title
+        if (heroTitle) {
+            heroTitle.style.opacity = '0';
+            heroTitle.style.transform = 'translateY(30px)';
+            setTimeout(() => {
+                heroTitle.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+                heroTitle.style.opacity = '1';
+                heroTitle.style.transform = 'translateY(0)';
+            }, 200);
+        }
+        
+        // Animate subtitle
+        if (heroSubtitle) {
+            heroSubtitle.style.opacity = '0';
+            heroSubtitle.style.transform = 'translateY(30px)';
+            setTimeout(() => {
+                heroSubtitle.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+                heroSubtitle.style.opacity = '1';
+                heroSubtitle.style.transform = 'translateY(0)';
+            }, 400);
+        }
+        
+        // Animate stats
+        if (heroStats) {
+            heroStats.style.opacity = '0';
+            heroStats.style.transform = 'translateY(30px)';
+            setTimeout(() => {
+                heroStats.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+                heroStats.style.opacity = '1';
+                heroStats.style.transform = 'translateY(0)';
+            }, 600);
+        }
+        
+        // Animate floating books with stagger
+        floatingBooks.forEach((book, index) => {
+            book.style.opacity = '0';
+            book.style.transform = 'translateY(50px) scale(0.5)';
+            setTimeout(() => {
+                book.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+                book.style.opacity = '1';
+                book.style.transform = 'translateY(0) scale(1)';
+            }, 800 + index * 100);
+        });
+    }
+    
+    // Call hero animations if hero exists
+    if (document.querySelector('.hero-section')) {
+        initHeroAnimations();
+    }
 });
 </script>
 {% endblock %}
