@@ -77,7 +77,7 @@
             <div class="prompt-icon">🎆</div>
             <div class="prompt-text">
                 <h3>Love finding books? Go Premium!</h3>
-                <p>Unlimited scans, batch processing, reading recommendations, and priority support for just $9.99/month.</p>
+                <p>Unlimited scans, batch processing, reading recommendations, and priority support for just $2.99/month.</p>
             </div>
             <button class="upgrade-btn" onclick="showSubscriptionModal()">
                 <span>Upgrade Now</span>
@@ -258,7 +258,7 @@
                 <div class="plan-name">Premium Monthly</div>
                 <div class="plan-price">
                     <span class="currency">$</span>
-                    <span class="amount">9</span>
+                    <span class="amount">2</span>
                     <span class="period">.99/month</span>
                 </div>
                 <ul class="plan-features">
@@ -270,8 +270,8 @@
                     <li><span class="feature-icon">✓</span> No ads</li>
                 </ul>
                 <button class="subscribe-btn primary">
-                    <span>Start Free Trial</span>
-                    <small>7 days free, then $9.99/month</small>
+                    <span>Start Subscription Now</span>
+                    <small>$2.99/month or $30/year</small>
                 </button>
             </div>
             
@@ -410,7 +410,7 @@ function showSubscriptionModal() {
     if (typeof gtag !== 'undefined') {
         gtag('event', 'begin_checkout', {
             currency: 'USD',
-            value: 9.99
+            value: 2.99
         });
     }
 }
