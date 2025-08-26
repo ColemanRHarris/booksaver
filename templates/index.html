@@ -44,6 +44,63 @@
     </div>
 </div>
 
+<!-- Premium Benefits Banner -->
+{% if not g.is_authenticated or (g.subscription and g.subscription.tier != 'premium') %}
+<div class="premium-banner">
+    <div class="banner-content">
+        <div class="banner-header">
+            <div class="banner-icon">🌟</div>
+            <div class="banner-text">
+                <h3>Unlock Premium Features</h3>
+                <p>Get unlimited daily scans, save your scan history, and never miss a book!</p>
+            </div>
+        </div>
+        <div class="banner-features">
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <span class="feature-icon">∞</span>
+                    <span>Unlimited Scans</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">💾</span>
+                    <span>Save History</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <span>Export Data</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🚀</span>
+                    <span>Priority Support</span>
+                </div>
+            </div>
+        </div>
+        <div class="banner-pricing">
+            <div class="price-highlight">
+                <span class="price-label">Starting at</span>
+                <span class="price-amount">$2.99/month</span>
+                <span class="price-savings">or $30/year (save $6)</span>
+            </div>
+            <div class="banner-actions">
+                {% if g.is_authenticated %}
+                    <a href="{{ url_for('subscribe') }}" class="banner-btn primary">
+                        Upgrade to Premium
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('signup') }}" class="banner-btn primary">
+                        Start Free Trial
+                    </a>
+                    <a href="{{ url_for('login') }}" class="banner-btn secondary">
+                        Sign In
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <button class="banner-close" onclick="closeBanner()" title="Close banner">×</button>
+    </div>
+</div>
+{% endif %}
+
 <div class="search-container">
     <div class="page-header">
         <h2>Scan Your Books</h2>
@@ -75,27 +132,114 @@
                         <div class="status-subtitle">
                             {{ g.daily_usage or 0 }}/1 scans used today
                             {% if g.daily_usage >= 1 %}
-                                • <a href="{{ url_for('subscribe') }}" class="upgrade-link">Upgrade for unlimited</a>
+                                • <span class="limit-reached">Daily limit reached!</span>
+                            {% else %}
+                                • {{ 1 - (g.daily_usage or 0) }} scan remaining
                             {% endif %}
                         </div>
                     </div>
-                    {% if g.daily_usage >= 1 %}
-                        <div class="upgrade-prompt">
-                            <p>Daily limit reached! Upgrade to Premium for unlimited scans.</p>
-                            <a href="{{ url_for('subscribe') }}" class="upgrade-btn">Upgrade Now</a>
+                    
+                    <!-- Enhanced upgrade prompt for free users -->
+                    <div class="free-user-upgrade">
+                        {% if g.daily_usage >= 1 %}
+                            <div class="upgrade-urgency">
+                                <div class="urgency-icon">⏰</div>
+                                <div class="urgency-text">
+                                    <strong>Out of scans for today!</strong>
+                                    <p>Upgrade to Premium for unlimited daily scans and never miss a book again.</p>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="upgrade-preview">
+                                <div class="preview-text">
+                                    <strong>Want unlimited scans?</strong>
+                                    <p>Premium users get unlimited scans, scan history, and export features.</p>
+                                </div>
+                                <div class="preview-benefits">
+                                    <span class="benefit-tag">∞ Unlimited</span>
+                                    <span class="benefit-tag">💾 History</span>
+                                    <span class="benefit-tag">📊 Export</span>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="upgrade-action">
+                            <a href="{{ url_for('subscribe') }}" class="enhanced-upgrade-btn">
+                                <span class="btn-icon">🌟</span>
+                                <span class="btn-text">
+                                    <strong>Upgrade to Premium</strong>
+                                    <small>$2.99/month • Cancel anytime</small>
+                                </span>
+                            </a>
                         </div>
-                    {% endif %}
+                    </div>
                 </div>
             {% endif %}
         </div>
     {% else %}
-        <div class="auth-prompt">
-            <div class="prompt-content">
-                <h3>Sign in to start scanning books!</h3>
-                <p>Track your scans and upgrade to Premium for unlimited daily scans.</p>
-                <div class="prompt-actions">
-                    <a href="{{ url_for('signup') }}" class="prompt-btn primary">Create Account</a>
-                    <a href="{{ url_for('login') }}" class="prompt-btn secondary">Sign In</a>
+        <!-- Enhanced anonymous user conversion section -->
+        <div class="conversion-section">
+            <div class="conversion-content">
+                <div class="conversion-header">
+                    <h3>🎯 Ready to build your ultimate reading list?</h3>
+                    <p>Join thousands of book lovers who use BookSaver to discover and organize their next great reads.</p>
+                </div>
+                
+                <div class="plan-comparison">
+                    <div class="plan-card free-preview">
+                        <div class="plan-header">
+                            <h4>📚 Free Plan</h4>
+                            <div class="plan-price">$0/month</div>
+                        </div>
+                        <div class="plan-features">
+                            <div class="feature">✅ 1 scan per day</div>
+                            <div class="feature">✅ Basic book detection</div>
+                            <div class="feature">✅ Purchase links</div>
+                            <div class="feature disabled">❌ Scan history</div>
+                            <div class="feature disabled">❌ Data export</div>
+                        </div>
+                        <div class="plan-action">
+                            <a href="{{ url_for('signup') }}" class="plan-btn secondary">
+                                Start Free
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="plan-card premium-preview featured">
+                        <div class="plan-badge">⭐ Most Popular</div>
+                        <div class="plan-header">
+                            <h4>🌟 Premium Plan</h4>
+                            <div class="plan-price">
+                                <span class="price-main">$2.99/month</span>
+                                <span class="price-annual">or $30/year (save $6)</span>
+                            </div>
+                        </div>
+                        <div class="plan-features">
+                            <div class="feature">✅ Unlimited daily scans</div>
+                            <div class="feature">✅ Advanced book detection</div>
+                            <div class="feature">✅ Complete scan history</div>
+                            <div class="feature">✅ CSV export & backup</div>
+                            <div class="feature">✅ Priority support</div>
+                            <div class="feature">✅ Early access to features</div>
+                        </div>
+                        <div class="plan-action">
+                            <a href="{{ url_for('signup') }}" class="plan-btn primary">
+                                Start Premium Trial
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="conversion-footer">
+                    <p class="login-prompt">
+                        Already have an account? 
+                        <a href="{{ url_for('login') }}" class="login-link">Sign in here</a>
+                    </p>
+                    <div class="trust-indicators">
+                        <span class="indicator">🔒 Secure & Private</span>
+                        <span class="indicator">📱 Works on all devices</span>
+                        <span class="indicator">⚡ Cancel anytime</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -446,9 +590,591 @@ document.addEventListener('DOMContentLoaded', function() {
         initHeroAnimations();
     }
 });
+
+// Banner close functionality
+function closeBanner() {
+    const banner = document.querySelector('.premium-banner');
+    if (banner) {
+        banner.style.transition = 'all 0.3s ease';
+        banner.style.opacity = '0';
+        banner.style.transform = 'translateY(-20px)';
+        setTimeout(() => {
+            banner.style.display = 'none';
+        }, 300);
+        
+        // Store banner closure preference
+        localStorage.setItem('premiumBannerClosed', 'true');
+    }
+}
+
+// Check banner preference on load
+document.addEventListener('DOMContentLoaded', function() {
+    const banner = document.querySelector('.premium-banner');
+    if (banner && localStorage.getItem('premiumBannerClosed') === 'true') {
+        banner.style.display = 'none';
+    }
+});
 </script>
 
 <style>
+/* Premium Banner Styles */
+.premium-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.premium-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+Cjwvc3ZnPg==') repeat;
+    opacity: 0.5;
+    animation: float 20s infinite linear;
+}
+
+@keyframes float {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-40px); }
+}
+
+.banner-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    position: relative;
+    z-index: 2;
+}
+
+.banner-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    justify-content: center;
+}
+
+.banner-icon {
+    font-size: 2rem;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.banner-text h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem 0;
+}
+
+.banner-text p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 1rem;
+}
+
+.banner-features {
+    margin-bottom: 1.5rem;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    justify-content: center;
+}
+
+.feature-icon {
+    font-size: 1.2rem;
+}
+
+.banner-pricing {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.price-highlight {
+    margin-bottom: 1rem;
+}
+
+.price-label {
+    display: block;
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 0.25rem;
+}
+
+.price-amount {
+    font-size: 1.8rem;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.price-savings {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.banner-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.banner-btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+    border: 2px solid transparent;
+}
+
+.banner-btn.primary {
+    background: white;
+    color: #667eea;
+    border-color: white;
+}
+
+.banner-btn.primary:hover {
+    background: #f8fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.banner-btn.secondary {
+    background: transparent;
+    color: white;
+    border-color: rgba(255,255,255,0.3);
+}
+
+.banner-btn.secondary:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: white;
+    transform: translateY(-2px);
+}
+
+.banner-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.banner-close:hover {
+    background: rgba(255,255,255,0.3);
+    transform: scale(1.1);
+}
+
+/* Enhanced Free User Upgrade Styles */
+.free-user-upgrade {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.upgrade-urgency {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+}
+
+.urgency-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.urgency-text strong {
+    color: #dc2626;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.urgency-text p {
+    color: #7f1d1d;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.upgrade-preview {
+    margin-bottom: 1rem;
+}
+
+.preview-text {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.preview-text strong {
+    color: #1f2937;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.preview-text p {
+    color: #6b7280;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.preview-benefits {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.benefit-tag {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: 1px solid #d1d5db;
+}
+
+.upgrade-action {
+    text-align: center;
+}
+
+.enhanced-upgrade-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    padding: 0.875rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.enhanced-upgrade-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.enhanced-upgrade-btn .btn-icon {
+    font-size: 1.2rem;
+}
+
+.enhanced-upgrade-btn .btn-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.enhanced-upgrade-btn .btn-text strong {
+    font-size: 0.95rem;
+    margin-bottom: 0.125rem;
+}
+
+.enhanced-upgrade-btn .btn-text small {
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+.limit-reached {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+/* Conversion Section for Anonymous Users */
+.conversion-section {
+    max-width: 900px;
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+}
+
+.conversion-content {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    padding: 2rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+.conversion-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.conversion-header h3 {
+    color: #1f2937;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+.conversion-header p {
+    color: #6b7280;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.plan-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.plan-card {
+    background: #f9fafb;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.plan-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.plan-card.featured {
+    background: linear-gradient(135deg, #fefce8, #fef3c7);
+    border-color: #fbbf24;
+    transform: scale(1.05);
+}
+
+.plan-card.featured:hover {
+    transform: scale(1.05) translateY(-4px);
+}
+
+.plan-badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fbbf24;
+    color: #92400e;
+    padding: 0.25rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.plan-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.plan-header h4 {
+    color: #1f2937;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.plan-price {
+    color: #374151;
+    font-weight: 700;
+}
+
+.price-main {
+    font-size: 1.5rem;
+    display: block;
+}
+
+.price-annual {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    font-weight: 500;
+}
+
+.plan-features {
+    margin-bottom: 1.5rem;
+}
+
+.plan-features .feature {
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+.plan-features .feature.disabled {
+    opacity: 0.5;
+}
+
+.plan-action {
+    text-align: center;
+}
+
+.plan-btn {
+    display: inline-block;
+    width: 100%;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+}
+
+.plan-btn.primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border: 2px solid transparent;
+}
+
+.plan-btn.primary:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.plan-btn.secondary {
+    background: white;
+    color: #374151;
+    border: 2px solid #d1d5db;
+}
+
+.plan-btn.secondary:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    transform: translateY(-2px);
+}
+
+.conversion-footer {
+    text-align: center;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 1.5rem;
+}
+
+.login-prompt {
+    color: #6b7280;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+.login-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.login-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.trust-indicators {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.indicator {
+    color: #059669;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .banner-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .feature-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .banner-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .banner-btn {
+        width: 100%;
+        max-width: 250px;
+    }
+    
+    .plan-comparison {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .plan-card.featured {
+        transform: none;
+    }
+    
+    .plan-card.featured:hover {
+        transform: translateY(-4px);
+    }
+    
+    .trust-indicators {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .upgrade-urgency {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .enhanced-upgrade-btn {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .enhanced-upgrade-btn .btn-text {
+        align-items: center;
+    }
+}
+
 /* User Status Styles */
 .user-status {
     max-width: 800px;
