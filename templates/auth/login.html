@@ -34,6 +34,9 @@
                        required 
                        placeholder="Enter your password"
                        class="form-input">
+                <div class="password-help">
+                    <a href="{{ url_for('forgot_password') }}" class="forgot-password-link">Forgot your password?</a>
+                </div>
             </div>
             
             <button type="submit" class="auth-btn primary-btn">
@@ -123,6 +126,24 @@
     outline: none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.password-help {
+    margin-top: 0.5rem;
+    text-align: right;
+}
+
+.forgot-password-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.forgot-password-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
 }
 
 .auth-btn {

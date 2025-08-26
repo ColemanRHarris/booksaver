@@ -30,7 +30,7 @@ def register_subscription_routes(app, limiter, require_auth):
             # If there's an active Stripe subscription, sync and redirect
             if validation_result['has_active_stripe_subscription']:
                 if validation_result['discrepancy_found']:
-                    current_app.logger.info(f"\ud83d\udd04 Syncing subscription data for {email} from Stripe")
+                    current_app.logger.info(f"🔄 Syncing subscription data for {email} from Stripe")
                     stripe_service.sync_subscription_from_stripe(email)
                 
                 flash("You already have an active Premium subscription!", "info")
@@ -38,7 +38,7 @@ def register_subscription_routes(app, limiter, require_auth):
             
             # If local data shows premium but Stripe doesn't, sync to fix discrepancy
             elif validation_result['discrepancy_found']:
-                current_app.logger.info(f"\ud83d\udd04 Fixing subscription discrepancy for {email}")
+                current_app.logger.info(f"🔄 Fixing subscription discrepancy for {email}")
                 stripe_service.sync_subscription_from_stripe(email)
                 # Refresh subscription data after sync
                 subscription_data = user_service.get_subscription(email)
@@ -76,7 +76,7 @@ def register_subscription_routes(app, limiter, require_auth):
             # Block checkout if user has active Stripe subscription
             if validation_result['has_active_stripe_subscription']:
                 if validation_result['discrepancy_found']:
-                    current_app.logger.info(f"\ud83d\udd04 Syncing subscription for {email} before blocking checkout")
+                    current_app.logger.info(f"🔄 Syncing subscription for {email} before blocking checkout")
                     stripe_service.sync_subscription_from_stripe(email)
                 
                 flash("You already have an active Premium subscription! Redirecting to your account.", "info")
@@ -84,7 +84,7 @@ def register_subscription_routes(app, limiter, require_auth):
             
             # If validation found discrepancies but no active subscription, fix local data
             elif validation_result['discrepancy_found']:
-                current_app.logger.info(f"\ud83d\udd04 Fixing subscription data for {email} before checkout")
+                current_app.logger.info(f"🔄 Fixing subscription data for {email} before checkout")
                 stripe_service.sync_subscription_from_stripe(email)
             
             # Additional local check after potential sync
@@ -108,7 +108,7 @@ def register_subscription_routes(app, limiter, require_auth):
             if isinstance(checkout_result, dict):
                 if 'url' in checkout_result:
                     # Success - redirect to Stripe
-                    current_app.logger.info(f"\ud83d\udcb3 Redirecting {email} to Stripe checkout for {plan} plan")
+                    current_app.logger.info(f"💳 Redirecting {email} to Stripe checkout for {plan} plan")
                     return redirect(checkout_result['url'])
                 elif 'error' in checkout_result:
                     # Specific error message from Stripe service
@@ -138,7 +138,7 @@ def register_subscription_routes(app, limiter, require_auth):
     @app.route('/manage-subscription')
     @require_auth
     def manage_subscription():
-        """Redirect to Stripe billing portal with improved error handling."""
+        """Redirect to Stripe billing portal."""
         try:
             email = session.get('user_email')
             
@@ -147,22 +147,15 @@ def register_subscription_routes(app, limiter, require_auth):
                 flash("Session expired. Please log in again.", "error")
                 return redirect(url_for('login'))
             
-            # Verify user has subscription
+            # Check if user has premium subscription
             subscription_data = user_service.get_subscription(email)
-            if not subscription_data or not subscription_data.get('stripe_customer_id'):
-                flash("No subscription found. Please subscribe first.", "error")
+            if not subscription_data or subscription_data.get('tier') != 'premium':
+                flash("You need a premium subscription to manage billing. Subscribe now!", "warning")
                 return redirect(url_for('subscribe'))
             
-            return_url = url_for('account_dashboard', _external=True)
-            
-            portal_url = stripe_service.create_billing_portal_session(email, return_url)
-            
-            if portal_url:
-                current_app.logger.info(f"\ud83c\udfe6 Redirecting {email} to Stripe billing portal")
-                return redirect(portal_url)
-            else:
-                flash("Unable to access subscription management. Please try again or contact support.", "error")
-                return redirect(url_for('account_dashboard'))
+            # Direct redirect to Stripe billing portal
+            current_app.logger.info(f"🏦 Redirecting {email} to Stripe billing portal")
+            return redirect("https://billing.stripe.com/p/login/dRm28sdpm0NE0j97XjaIM00")
                 
         except Exception as e:
             current_app.logger.error(f"❌ Unexpected billing portal error: {e}")
@@ -185,7 +178,7 @@ def register_subscription_routes(app, limiter, require_auth):
                 current_app.logger.error("❌ Missing Stripe signature header")
                 return 'Missing signature', 400
             
-            current_app.logger.debug(f"\ud83d\udcee Webhook payload size: {len(payload)} bytes")
+            current_app.logger.debug(f"📧 Webhook payload size: {len(payload)} bytes")
             
             # Handle webhook
             success = stripe_service.handle_webhook(payload, sig_header)
@@ -252,7 +245,7 @@ def register_subscription_routes(app, limiter, require_auth):
             response_data = {
                 'validation_result': validation_result,
                 'sync_performed': sync_performed,
-                'message': self._get_validation_message(validation_result, sync_performed)
+                'message': _get_validation_message(validation_result, sync_performed)
             }
             
             return jsonify(response_data), 200
@@ -261,7 +254,7 @@ def register_subscription_routes(app, limiter, require_auth):
             current_app.logger.error(f"❌ Validation and sync API error: {e}")
             return jsonify({'error': 'Failed to validate and sync subscription'}), 500
     
-    def _get_validation_message(self, validation_result, sync_performed):
+    def _get_validation_message(validation_result, sync_performed):
         """Get human-readable message for validation result."""
         if validation_result.get('error'):
             return f"Error validating subscription: {validation_result['error']}"

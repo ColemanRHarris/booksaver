@@ -12,6 +12,7 @@ from flask import request, render_template, redirect, url_for, session, flash, j
 from werkzeug.utils import secure_filename
 
 from services.user_service import get_user_service
+from services.email_service import get_email_service
 
 
 def is_valid_email(email: str) -> bool:
@@ -36,6 +37,7 @@ def register_auth_routes(app, limiter):
     """Register authentication routes."""
     
     user_service = get_user_service()
+    email_service = get_email_service()
     
     @app.route('/signup', methods=['GET', 'POST'])
     @limiter.limit("10 per minute")
@@ -145,6 +147,102 @@ def register_auth_routes(app, limiter):
             current_app.logger.error(f"❌ Logout error: {e}")
             session.clear()
             return redirect(url_for('index'))
+    
+    @app.route('/forgot-password', methods=['GET', 'POST'])
+    @limiter.limit("5 per minute")
+    def forgot_password():
+        """Handle forgot password requests."""
+        if request.method == 'GET':
+            return render_template('auth/forgot_password.html')
+        
+        try:
+            email = request.form.get('email', '').strip().lower()
+            
+            if not email:
+                return render_template('auth/forgot_password.html', 
+                                     error="Email address is required")
+            
+            if not is_valid_email(email):
+                return render_template('auth/forgot_password.html', 
+                                     error="Please enter a valid email address")
+            
+            # Always show success message for security (don't reveal if email exists)
+            success_message = "If an account with that email exists, we've sent you a password reset link."
+            
+            # Try to create reset token (will fail silently if user doesn't exist)
+            reset_token = user_service.create_password_reset_token(email)
+            
+            if reset_token:
+                # Generate reset URL
+                reset_url = url_for('reset_password', token=reset_token, _external=True)
+                
+                # Send reset email
+                email_sent = email_service.send_password_reset_email(email, reset_token, reset_url)
+                
+                if email_sent:
+                    current_app.logger.info(f"✅ Password reset email sent to {email}")
+                else:
+                    current_app.logger.error(f"❌ Failed to send password reset email to {email}")
+            else:
+                current_app.logger.warning(f"⚠️ Password reset requested for non-existent email: {email}")
+            
+            # Always show same success message for security
+            flash(success_message, "info")
+            return render_template('auth/forgot_password.html', success=True)
+            
+        except Exception as e:
+            current_app.logger.error(f"❌ Forgot password error: {e}")
+            return render_template('auth/forgot_password.html', 
+                                 error="An error occurred. Please try again later.")
+    
+    @app.route('/reset-password/<token>', methods=['GET', 'POST'])
+    @limiter.limit("10 per minute")
+    def reset_password(token):
+        """Handle password reset with token."""
+        if request.method == 'GET':
+            # Validate token before showing form
+            email = user_service.validate_reset_token(token)
+            if not email:
+                flash("This password reset link is invalid or has expired. Please request a new one.", "error")
+                return redirect(url_for('forgot_password'))
+            
+            return render_template('auth/reset_password.html', token=token, email=email)
+        
+        try:
+            new_password = request.form.get('password', '')
+            confirm_password = request.form.get('confirm_password', '')
+            
+            if not new_password or not confirm_password:
+                return render_template('auth/reset_password.html', 
+                                     token=token, 
+                                     error="Both password fields are required")
+            
+            if new_password != confirm_password:
+                return render_template('auth/reset_password.html', 
+                                     token=token,
+                                     error="Passwords do not match")
+            
+            if not is_valid_password(new_password):
+                return render_template('auth/reset_password.html', 
+                                     token=token,
+                                     error="Password must be at least 8 characters with letters and numbers")
+            
+            # Reset password using token
+            success = user_service.reset_password_with_token(token, new_password)
+            
+            if success:
+                current_app.logger.info(f"✅ Password reset completed via token")
+                flash("Your password has been reset successfully! You can now log in with your new password.", "success")
+                return redirect(url_for('login'))
+            else:
+                flash("This password reset link is invalid or has expired. Please request a new one.", "error")
+                return redirect(url_for('forgot_password'))
+                
+        except Exception as e:
+            current_app.logger.error(f"❌ Reset password error: {e}")
+            return render_template('auth/reset_password.html', 
+                                 token=token,
+                                 error="An error occurred. Please try again later.")
     
     @app.route('/account')
     def account_dashboard():

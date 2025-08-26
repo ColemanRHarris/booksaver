@@ -7,6 +7,8 @@ import os
 import json
 import bcrypt
 import redis
+import secrets
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 from core.logging_utils import get_safe_logger
@@ -19,12 +21,19 @@ class InMemoryRedis:
         self._data = {}
         self._expiry = {}
     
-    def hset(self, key: str, mapping: Dict[str, str]) -> int:
-        """Set hash fields."""
+    def hset(self, key: str, field: str = None, value: str = None, mapping: Dict[str, str] = None) -> int:
+        """Set hash fields - supports both single field/value and mapping formats."""
         if key not in self._data:
             self._data[key] = {}
-        self._data[key].update(mapping)
-        return len(mapping)
+        
+        if mapping:
+            self._data[key].update(mapping)
+            return len(mapping)
+        elif field is not None and value is not None:
+            self._data[key][field] = value
+            return 1
+        else:
+            raise TypeError("Must provide either field/value or mapping")
     
     def hgetall(self, key: str) -> Dict[str, str]:
         """Get all hash fields."""
@@ -163,6 +172,10 @@ class UserService:
     def _get_session_key(self, session_id: str) -> str:
         """Get Redis key for session data."""
         return f"session:{session_id}"
+    
+    def _get_reset_token_key(self, token: str) -> str:
+        """Get Redis key for password reset token."""
+        return f"reset_token:{token}"
     
     def register_user(self, email: str, password: str) -> bool:
         """Register a new user."""
@@ -416,6 +429,111 @@ class UserService:
         except Exception as e:
             self.logger.error(f"❌ Failed to delete session: {e}")
             return False
+    
+    def create_password_reset_token(self, email: str) -> Optional[str]:
+        """Create a secure password reset token for the user."""
+        try:
+            email = email.lower().strip()
+            
+            # Check if user exists
+            user_key = self._get_user_key(email)
+            if not self.redis_client.exists(user_key):
+                self.logger.warning(f"⚠️ Password reset requested for non-existent user: {email}")
+                return None
+            
+            # Generate cryptographically secure token
+            raw_token = secrets.token_urlsafe(32)
+            
+            # Hash the token for storage (prevents token theft if Redis is compromised)
+            token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+            
+            # Store token data with 1 hour expiration
+            token_data = {
+                'email': email,
+                'created_at': datetime.now(timezone.utc).isoformat(),
+                'expires_at': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+            }
+            
+            token_key = self._get_reset_token_key(token_hash)
+            self.redis_client.hset(token_key, mapping=self._ensure_string_values(token_data))
+            self.redis_client.expire(token_key, 3600)  # 1 hour
+            
+            self.logger.info(f"✅ Password reset token created for {email}")
+            return raw_token  # Return unhashed token for email
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to create reset token: {e}")
+            return None
+    
+    def validate_reset_token(self, token: str) -> Optional[str]:
+        """Validate a password reset token and return the associated email."""
+        try:
+            if not token:
+                return None
+            
+            # Hash the provided token to match stored hash
+            token_hash = hashlib.sha256(token.encode()).hexdigest()
+            token_key = self._get_reset_token_key(token_hash)
+            
+            # Get token data
+            token_data = self.redis_client.hgetall(token_key)
+            if not token_data:
+                return None
+            
+            # Check if token has expired
+            expires_at = datetime.fromisoformat(token_data['expires_at'].replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) > expires_at:
+                # Clean up expired token
+                self.redis_client.delete(token_key)
+                return None
+            
+            return token_data['email']
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to validate reset token: {e}")
+            return None
+    
+    def reset_password_with_token(self, token: str, new_password: str) -> bool:
+        """Reset user's password using a valid reset token."""
+        try:
+            # Validate token and get email
+            email = self.validate_reset_token(token)
+            if not email:
+                return False
+            
+            # Hash the provided token to get the key
+            token_hash = hashlib.sha256(token.encode()).hexdigest()
+            token_key = self._get_reset_token_key(token_hash)
+            
+            # Update user password
+            user_key = self._get_user_key(email)
+            new_password_hash = self._hash_password(new_password)
+            
+            self.redis_client.hset(user_key, 'password_hash', new_password_hash)
+            self.redis_client.hset(user_key, 'password_updated_at', datetime.now(timezone.utc).isoformat())
+            
+            # Delete the used token (one-time use)
+            self.redis_client.delete(token_key)
+            
+            self.logger.info(f"✅ Password reset successful for {email}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to reset password: {e}")
+            return False
+    
+    def cleanup_expired_reset_tokens(self) -> int:
+        """Clean up expired password reset tokens (maintenance method)."""
+        try:
+            # This would be called periodically by a background job
+            # Redis TTL should handle most cleanup automatically
+            cleaned = 0
+            # Implementation could scan for reset_token:* keys and check expiration
+            self.logger.info(f"🧹 Cleaned up {cleaned} expired reset tokens")
+            return cleaned
+        except Exception as e:
+            self.logger.error(f"❌ Failed to cleanup reset tokens: {e}")
+            return 0
 
 
 # Global user service instance - will be initialized with app context
