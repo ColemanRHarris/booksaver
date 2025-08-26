@@ -1077,7 +1077,12 @@ main {
     gap: 0.5rem;
 }
 
-.modern-retailer-grid,
+.modern-retailer-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+}
+
 .modern-app-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1088,8 +1093,9 @@ main {
 .modern-app-btn {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.75rem;
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     border: 2px solid #e9ecef;
     border-radius: 12px;
     text-decoration: none;
@@ -1103,36 +1109,6 @@ main {
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
-.retailer-icon,
-.app-icon {
-    font-size: 1.5rem;
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.retailer-info,
-.app-info {
-    flex: 1;
-}
-
-.retailer-name,
-.app-name {
-    font-weight: 600;
-    color: #333;
-    font-size: 0.9rem;
-}
-
-.retailer-sub,
-.app-sub {
-    font-size: 0.8rem;
-    color: #666;
-    margin-top: 0.1rem;
-}
 
 /* Retailer-specific styling */
 .amazon-btn {
@@ -1142,9 +1118,6 @@ main {
     border-color: #ff9900;
     background: rgba(255, 153, 0, 0.05);
 }
-.amazon-btn .retailer-icon {
-    background: rgba(255, 153, 0, 0.1);
-}
 
 .audible-btn {
     border-color: #f46500;
@@ -1152,9 +1125,6 @@ main {
 .audible-btn:hover {
     border-color: #f46500;
     background: rgba(244, 101, 0, 0.05);
-}
-.audible-btn .retailer-icon {
-    background: rgba(244, 101, 0, 0.1);
 }
 
 .bn-btn {
@@ -1164,9 +1134,6 @@ main {
     border-color: #00704a;
     background: rgba(0, 112, 74, 0.05);
 }
-.bn-btn .retailer-icon {
-    background: rgba(0, 112, 74, 0.1);
-}
 
 .bookshop-btn {
     border-color: #664228;
@@ -1174,9 +1141,6 @@ main {
 .bookshop-btn:hover {
     border-color: #664228;
     background: rgba(102, 66, 40, 0.05);
-}
-.bookshop-btn .retailer-icon {
-    background: rgba(102, 66, 40, 0.1);
 }
 
 /* App-specific styling */
@@ -1187,9 +1151,6 @@ main {
     border-color: #8d6748;
     background: rgba(141, 103, 72, 0.05);
 }
-.goodreads-btn .app-icon {
-    background: rgba(141, 103, 72, 0.1);
-}
 
 .overdrive-btn {
     border-color: #003d71;
@@ -1197,9 +1158,6 @@ main {
 .overdrive-btn:hover {
     border-color: #003d71;
     background: rgba(0, 61, 113, 0.05);
-}
-.overdrive-btn .app-icon {
-    background: rgba(0, 61, 113, 0.1);
 }
 
 .storygraph-btn {
@@ -1209,15 +1167,11 @@ main {
     border-color: #f05237;
     background: rgba(240, 82, 55, 0.05);
 }
-.storygraph-btn .app-icon {
-    background: rgba(240, 82, 55, 0.1);
-}
 
 .modern-preview-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
     width: 100%;
     padding: 1rem;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -2371,6 +2325,14 @@ footer {
 }
 
 /* Responsive processing page */
+/* Tablets and larger mobile devices - fallback styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .modern-books-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+}
+
 @media (max-width: 768px) {
     .processing-info {
         grid-template-columns: 1fr;
@@ -2440,24 +2402,12 @@ footer {
         gap: 1rem;
     }
     
-    .modern-books-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-    }
-    
-    .modern-book-card {
-        padding: 1rem;
-    }
+    /* Books grid handled by specific breakpoints above */
     
     .book-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 0.5rem;
-    }
-    
-    .modern-retailer-grid,
-    .modern-app-grid {
-        grid-template-columns: 1fr;
     }
     
     .modal-body {
@@ -2939,6 +2889,183 @@ footer .disclosure {
     margin-top: 10px;
     padding: 0 20px;
     line-height: 1.4;
+}
+
+/* Mobile Books Grid Optimizations */
+
+/* Small phones - Extra compact layout */
+@media (max-width: 480px) {
+    .modern-books-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+    
+    .modern-book-card {
+        padding: 0.75rem;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 280px;
+    }
+    
+    .book-cover-container {
+        height: 120px;
+        margin-bottom: 0.75rem;
+        flex-shrink: 0;
+    }
+    
+    .modern-book-info {
+        margin-bottom: 0.75rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .modern-book-title {
+        font-size: 0.95rem;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .modern-book-authors {
+        font-size: 0.8rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .book-description {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 0.8rem;
+        line-height: 1.3;
+        margin-bottom: 0.5rem;
+    }
+    
+    .modern-book-actions {
+        gap: 0.75rem;
+        margin-top: auto;
+    }
+    
+    .action-section {
+        padding-top: 0.75rem;
+    }
+    
+    .action-title {
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .modern-retailer-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .modern-app-grid {
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+    }
+    
+    .modern-retailer-btn {
+        padding: 0.5rem;
+        font-size: 0.75rem;
+        text-align: center;
+    }
+    
+    .modern-app-btn {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.7rem;
+        text-align: center;
+        justify-content: center;
+    }
+    
+    .book-rating {
+        align-self: flex-start;
+        margin-top: 0.25rem;
+    }
+    
+    .stars {
+        font-size: 0.8rem;
+    }
+    
+    .rating-text {
+        font-size: 0.75rem;
+    }
+}
+
+/* Medium phones - Balanced layout */
+@media (min-width: 481px) and (max-width: 600px) {
+    .modern-books-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .modern-book-card {
+        padding: 0.875rem;
+        min-height: 320px;
+    }
+    
+    .book-cover-container {
+        height: 140px;
+        margin-bottom: 1rem;
+    }
+    
+    .modern-book-title {
+        font-size: 1rem;
+        -webkit-line-clamp: 2;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .book-description {
+        -webkit-line-clamp: 2;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 0.85rem;
+    }
+    
+    .modern-retailer-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+    
+    .modern-app-grid {
+        grid-template-columns: 1fr;
+        gap: 0.4rem;
+    }
+}
+
+/* Large phones/small tablets - Enhanced layout */
+@media (min-width: 601px) and (max-width: 768px) {
+    .modern-books-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+    }
+    
+    .modern-book-card {
+        padding: 1rem;
+        min-height: 360px;
+    }
+    
+    .book-cover-container {
+        height: 160px;
+        margin-bottom: 1.25rem;
+    }
+    
+    .book-description {
+        -webkit-line-clamp: 3;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
 }
 
 /* Responsive ad adjustments */

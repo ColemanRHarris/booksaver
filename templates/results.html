@@ -25,12 +25,10 @@
         </p>
         <div class="results-actions">
             <a href="{{ url_for('index') }}" class="action-btn secondary-btn">
-                <span class="btn-icon">📸</span>
                 <span>Scan Another</span>
             </a>
             {% if books|length > 0 %}
             <button class="action-btn primary-btn" onclick="scrollToBooks()">
-                <span class="btn-icon">📚</span>
                 <span>View Results</span>
             </button>
             {% endif %}
@@ -82,7 +80,6 @@
                 <p>Unlimited scans, batch processing, reading recommendations, and priority support for just $9.99/month.</p>
             </div>
             <button class="upgrade-btn" onclick="showSubscriptionModal()">
-                <span class="btn-icon">✨</span>
                 <span>Upgrade Now</span>
             </button>
         </div>
@@ -105,7 +102,6 @@
                             data-book-thumbnail="{{ book.thumbnail or '' }}"
                             data-book-published="{{ book.published_date or 'Unknown' }}"
                             data-book-isbn="{{ book.isbn or 'N/A' }}">
-                        <span>👁️</span>
                         <span>Quick View</span>
                     </button>
                 </div>
@@ -148,7 +144,6 @@
                             <a href="{{ book.purchase_links.amazon }}" 
                                target="_blank" 
                                class="modern-retailer-btn amazon-btn">
-                                <span class="retailer-icon">📚</span>
                                 <span>Amazon</span>
                             </a>
                             {% endif %}
@@ -157,7 +152,6 @@
                             <a href="{{ book.purchase_links.audible }}" 
                                target="_blank" 
                                class="modern-retailer-btn audible-btn">
-                                <span class="retailer-icon">🎧</span>
                                 <span>Audible</span>
                             </a>
                             {% endif %}
@@ -166,7 +160,6 @@
                             <a href="{{ book.purchase_links.barnes_noble }}" 
                                target="_blank" 
                                class="modern-retailer-btn bn-btn">
-                                <span class="retailer-icon">🏪</span>
                                 <span>B&N</span>
                             </a>
                             {% endif %}
@@ -175,7 +168,6 @@
                             <a href="{{ book.purchase_links.bookshop }}" 
                                target="_blank" 
                                class="modern-retailer-btn bookshop-btn">
-                                <span class="retailer-icon">🏬</span>
                                 <span>Bookshop</span>
                             </a>
                             {% endif %}
@@ -184,7 +176,6 @@
                             <a href="{{ book.purchase_links.google_books }}" 
                                target="_blank" 
                                class="modern-retailer-btn google-btn">
-                                <span class="retailer-icon">📖</span>
                                 <span>Google</span>
                             </a>
                             {% endif %}
@@ -200,7 +191,6 @@
                             <a href="{{ book.reader_app_links.goodreads }}" 
                                target="_blank" 
                                class="modern-app-btn goodreads-btn">
-                                <span class="app-icon">📈</span>
                                 <span>Goodreads</span>
                             </a>
                             {% endif %}
@@ -209,7 +199,6 @@
                             <a href="{{ book.reader_app_links.overdrive }}" 
                                target="_blank" 
                                class="modern-app-btn overdrive-btn">
-                                <span class="app-icon">📚</span>
                                 <span>OverDrive</span>
                             </a>
                             {% endif %}
@@ -218,7 +207,6 @@
                             <a href="{{ book.reader_app_links.storygraph }}" 
                                target="_blank" 
                                class="modern-app-btn storygraph-btn">
-                                <span class="app-icon">📈</span>
                                 <span>StoryGraph</span>
                             </a>
                             {% endif %}
@@ -236,7 +224,6 @@
                         <a href="{{ book.preview_link }}" 
                            target="_blank" 
                            class="modern-preview-btn">
-                            <span class="btn-icon">👁️</span>
                             <span>Preview Book</span>
                         </a>
                     </div>

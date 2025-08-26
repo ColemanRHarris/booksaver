@@ -17,11 +17,9 @@
         </p>
         <div class="results-actions">
             <a href="{{ url_for('index') }}" class="action-btn secondary-btn">
-                <span class="btn-icon">📸</span>
                 <span>Scan Books</span>
             </a>
             <button class="action-btn primary-btn" onclick="scrollToBooks()">
-                <span class="btn-icon">📚</span>
                 <span>Browse Books</span>
             </button>
         </div>
@@ -69,7 +67,6 @@
                             data-book-thumbnail="{{ book.thumbnail or '' }}"
                             data-book-published="{{ book.published_date or 'Unknown' }}"
                             data-book-isbn="{{ book.isbn or 'N/A' }}">
-                        <span>👁️</span>
                         <span>Quick View</span>
                     </button>
                 </div>
@@ -112,7 +109,6 @@
                             <a href="{{ book.purchase_links.amazon }}" 
                                target="_blank" 
                                class="modern-retailer-btn amazon-btn">
-                                <span class="retailer-icon">📚</span>
                                 <span>Amazon</span>
                             </a>
                             {% endif %}
@@ -121,7 +117,6 @@
                             <a href="{{ book.purchase_links.audible }}" 
                                target="_blank" 
                                class="modern-retailer-btn audible-btn">
-                                <span class="retailer-icon">🎧</span>
                                 <span>Audible</span>
                             </a>
                             {% endif %}
@@ -130,7 +125,6 @@
                             <a href="{{ book.purchase_links.barnes_noble }}" 
                                target="_blank" 
                                class="modern-retailer-btn bn-btn">
-                                <span class="retailer-icon">🏪</span>
                                 <span>B&N</span>
                             </a>
                             {% endif %}
@@ -139,7 +133,6 @@
                             <a href="{{ book.purchase_links.bookshop }}" 
                                target="_blank" 
                                class="modern-retailer-btn bookshop-btn">
-                                <span class="retailer-icon">🏬</span>
                                 <span>Bookshop</span>
                             </a>
                             {% endif %}
@@ -148,7 +141,6 @@
                             <a href="{{ book.purchase_links.google_books }}" 
                                target="_blank" 
                                class="modern-retailer-btn google-btn">
-                                <span class="retailer-icon">📖</span>
                                 <span>Google</span>
                             </a>
                             {% endif %}
@@ -164,7 +156,6 @@
                             <a href="{{ book.reader_app_links.goodreads }}" 
                                target="_blank" 
                                class="modern-app-btn goodreads-btn">
-                                <span class="app-icon">📊</span>
                                 <span>Goodreads</span>
                             </a>
                             {% endif %}
@@ -173,7 +164,6 @@
                             <a href="{{ book.reader_app_links.overdrive }}" 
                                target="_blank" 
                                class="modern-app-btn overdrive-btn">
-                                <span class="app-icon">📚</span>
                                 <span>OverDrive</span>
                             </a>
                             {% endif %}
@@ -182,7 +172,6 @@
                             <a href="{{ book.reader_app_links.storygraph }}" 
                                target="_blank" 
                                class="modern-app-btn storygraph-btn">
-                                <span class="app-icon">📈</span>
                                 <span>StoryGraph</span>
                             </a>
                             {% endif %}
@@ -200,7 +189,6 @@
                         <a href="{{ book.preview_link }}" 
                            target="_blank" 
                            class="modern-preview-btn">
-                            <span class="btn-icon">👁️</span>
                             <span>Preview Book</span>
                         </a>
                     </div>
@@ -221,341 +209,6 @@
     margin-bottom: 10px;
 }
 
-/* Modern Books Grid Styles */
-.modern-books-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-    gap: 2rem;
-    padding: 2rem 0;
-}
-
-.modern-book-card {
-    background: white;
-    border-radius: 16px;
-    border: 1px solid #e5e7eb;
-    overflow: hidden;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-.modern-book-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
-    border-color: #3b82f6;
-}
-
-.book-cover-container {
-    position: relative;
-    height: 200px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modern-book-cover {
-    width: auto;
-    height: 180px;
-    max-width: 120px;
-    object-fit: cover;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-}
-
-.modern-no-cover {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    color: white;
-}
-
-.no-cover-icon {
-    font-size: 3rem;
-}
-
-.no-cover-text {
-    font-weight: 500;
-}
-
-.cover-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: all 0.3s ease;
-}
-
-.book-cover-container:hover .cover-overlay {
-    opacity: 1;
-}
-
-.quick-preview-btn {
-    background: white;
-    color: #1f2937;
-    border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.quick-preview-btn:hover {
-    background: #f8fafc;
-    transform: scale(1.05);
-}
-
-.modern-book-info {
-    padding: 1.5rem;
-}
-
-.book-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0.5rem;
-    gap: 1rem;
-}
-
-.modern-book-title {
-    color: #1f2937;
-    font-size: 1.1rem;
-    font-weight: 700;
-    line-height: 1.4;
-    margin: 0;
-    flex: 1;
-}
-
-.book-rating {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.stars {
-    font-size: 0.8rem;
-    color: #fbbf24;
-}
-
-.rating-text {
-    font-size: 0.7rem;
-    color: #6b7280;
-    font-weight: 600;
-}
-
-.modern-book-authors {
-    color: #6b7280;
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-    font-weight: 500;
-}
-
-.book-date, .book-isbn {
-    color: #9ca3af;
-    font-size: 0.8rem;
-    margin-bottom: 0.25rem;
-}
-
-.book-description {
-    color: #4b5563;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    margin-bottom: 1.5rem;
-}
-
-.modern-book-actions {
-    border-top: 1px solid #f3f4f6;
-    padding-top: 1rem;
-}
-
-.action-section {
-    margin-bottom: 1.5rem;
-}
-
-.action-section:last-child {
-    margin-bottom: 0;
-}
-
-.action-title {
-    color: #374151;
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.modern-retailer-grid, .modern-app-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 0.5rem;
-}
-
-.modern-retailer-btn, .modern-app-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: 6px;
-    text-decoration: none;
-    font-size: 0.8rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    border: 1px solid #d1d5db;
-    background: white;
-    color: #374151;
-}
-
-.modern-retailer-btn:hover, .modern-app-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.amazon-btn {
-    border-color: #ff9900;
-    color: #ff9900;
-}
-
-.amazon-btn:hover {
-    background: #fff3e0;
-    border-color: #ff8c00;
-}
-
-.audible-btn {
-    border-color: #f56500;
-    color: #f56500;
-}
-
-.audible-btn:hover {
-    background: #fff4e6;
-    border-color: #e55a00;
-}
-
-.bn-btn {
-    border-color: #00a651;
-    color: #00a651;
-}
-
-.bn-btn:hover {
-    background: #f0f9f4;
-    border-color: #009645;
-}
-
-.bookshop-btn {
-    border-color: #8b1538;
-    color: #8b1538;
-}
-
-.bookshop-btn:hover {
-    background: #fdf2f4;
-    border-color: #7a1230;
-}
-
-.google-btn {
-    border-color: #4285f4;
-    color: #4285f4;
-}
-
-.google-btn:hover {
-    background: #f1f5ff;
-    border-color: #3367d6;
-}
-
-.goodreads-btn {
-    border-color: #553b08;
-    color: #553b08;
-}
-
-.goodreads-btn:hover {
-    background: #fefce8;
-    border-color: #4a3207;
-}
-
-.overdrive-btn {
-    border-color: #0066cc;
-    color: #0066cc;
-}
-
-.overdrive-btn:hover {
-    background: #eff6ff;
-    border-color: #0052a3;
-}
-
-.storygraph-btn {
-    border-color: #ff6b35;
-    color: #ff6b35;
-}
-
-.storygraph-btn:hover {
-    background: #fff2ef;
-    border-color: #e55a2b;
-}
-
-.no-apps-message {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #9ca3af;
-    font-size: 0.9rem;
-    font-style: italic;
-}
-
-.modern-preview-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 600;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-    color: white;
-    transition: all 0.2s ease;
-}
-
-.modern-preview-btn:hover {
-    background: linear-gradient(135deg, #1d4ed8, #1e40af);
-    transform: translateY(-1px);
-}
-
-.retailer-icon, .app-icon, .no-apps-icon {
-    font-size: 0.9rem;
-}
-
-@media (max-width: 768px) {
-    .modern-books-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-        padding: 1rem 0;
-    }
-    
-    .book-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
-    }
-    
-    .modern-retailer-grid, .modern-app-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
 </style>
 
 <script>
@@ -564,11 +217,6 @@ function scrollToBooks() {
         behavior: 'smooth',
         block: 'start'
     });
-}
-
-function showBookModal(index) {
-    // Simple alert for now - can be enhanced later
-    alert('Book details modal coming soon!');
 }
 </script>
 
