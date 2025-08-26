@@ -35,7 +35,7 @@
             <div class="header-auth">
                 {% if g.is_authenticated %}
                     <div class="user-menu">
-                        <span class="user-email">{{ g.current_user.email }}</span>
+                        <span class="user-email">{{ g.user.email }}</span>
                         <div class="user-actions">
                             <a href="{{ url_for('account_dashboard') }}" class="auth-btn account-btn">Account</a>
                             <form method="POST" action="{{ url_for('logout') }}" style="display: inline;">

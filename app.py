@@ -4,6 +4,7 @@ Streamlined version with modular structure.
 """
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash, g
+from datetime import datetime
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_wtf.csrf import CSRFProtect
@@ -66,13 +67,33 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Configure Flask-Session with Redis
-redis_url = os.getenv('REDIS_URL')
-if redis_url and not redis_url.startswith('memory://'):
-    app.config['SESSION_TYPE'] = 'redis'
-    app.config['SESSION_REDIS'] = redis.from_url(redis_url)
-else:
-    # Fallback to filesystem sessions for local development
-    app.config['SESSION_TYPE'] = 'filesystem'
+redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+
+# Set up session configuration before Session() initialization
+def configure_session():
+    """Configure session type with Redis fallback"""
+    try:
+        test_redis_url = redis_url
+        if test_redis_url.startswith('memory://'):
+            # Use Redis for session even in memory mode - better consistency
+            test_redis_url = 'redis://localhost:6379'
+        
+        # Test Redis connection
+        session_redis = redis.from_url(test_redis_url, decode_responses=False)  # Session needs bytes
+        session_redis.ping()  # Test connection
+        
+        app.config['SESSION_TYPE'] = 'redis'
+        app.config['SESSION_REDIS'] = session_redis
+        print(f"✅ Flask-Session configured for Redis: {test_redis_url}")
+        
+    except Exception as e:
+        print(f"⚠️ Redis connection failed ({e}), configuring filesystem sessions")
+        app.config['SESSION_TYPE'] = 'filesystem'
+        app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(__file__), 'flask_session')
+        app.config['SESSION_FILE_THRESHOLD'] = 100
+
+# Configure session before initialization
+configure_session()
     
 app.config['SESSION_PERMANENT'] = True
 app.config['SESSION_USE_SIGNER'] = True
@@ -82,7 +103,66 @@ app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
 # Initialize session
 Session(app)
 
+# Initialize UserService with app context for Redis consistency
+from services.user_service import initialize_user_service_with_app
+initialize_user_service_with_app(app)
+
 logger = logging.getLogger(__name__)
+
+
+@app.before_request
+def load_user_context():
+    """Load user context before each request."""
+    from services.user_service import get_user_service
+    
+    # Clear previous context
+    g.user = None
+    g.subscription = None
+    g.is_authenticated = False
+    g.is_premium = False
+    
+    # Check if user is logged in
+    if 'user_email' in session:
+        try:
+            user_service = get_user_service()
+            email = session['user_email']
+            
+            # Load user data
+            user_data = user_service.get_user(email)
+            subscription_data = user_service.get_subscription(email)
+            
+            if user_data and subscription_data:
+                g.user = user_data
+                g.subscription = subscription_data
+                g.is_authenticated = True
+                g.is_premium = subscription_data.get('tier') == 'premium' and subscription_data.get('status') == 'active'
+                g.daily_usage = user_service.get_daily_usage(email)
+                g.can_scan = user_service.can_scan(email)
+                
+                # Validate subscription with Stripe periodically (every hour)
+                last_validation = session.get('last_stripe_validation', 0)
+                current_time = datetime.now().timestamp()
+                if current_time - last_validation > 3600:  # 1 hour
+                    from services.stripe_service import get_stripe_service
+                    stripe_service = get_stripe_service()
+                    validation_result = stripe_service.validate_user_subscription_status(email)
+                    
+                    if validation_result.get('discrepancy_found'):
+                        logger.info(f"🔄 Auto-syncing subscription for {email}")
+                        stripe_service.sync_subscription_from_stripe(email)
+                        # Reload subscription data after sync
+                        subscription_data = user_service.get_subscription(email)
+                        g.subscription = subscription_data
+                        g.is_premium = subscription_data.get('tier') == 'premium' and subscription_data.get('status') == 'active'
+                    
+                    session['last_stripe_validation'] = current_time
+            else:
+                # User data not found - clear session
+                session.clear()
+                
+        except Exception as e:
+            logger.error(f"❌ Error loading user context: {e}")
+            # Don't clear session on temporary errors, just set safe defaults
 
 
 def log_environment_status():
@@ -180,20 +260,8 @@ register_subscription_routes(app, limiter, require_auth)
 # Main routes
 @app.route('/')
 def index():
-    # Get user data for authenticated users
-    user_subscription = None
-    daily_usage = 0
-    
-    if g.is_authenticated:
-        from services.user_service import get_user_service
-        user_service = get_user_service()
-        email = session.get('user_email')
-        user_subscription = user_service.get_subscription(email)
-        daily_usage = user_service.get_daily_usage(email)
-    
-    return render_template('index.html', 
-                         user_subscription=user_subscription,
-                         daily_usage=daily_usage)
+    # User data is now available globally via g object
+    return render_template('index.html')
 
 
 @app.route('/health')
@@ -348,20 +416,10 @@ def cancel_task(task_id):
 def image_results(task_id):
     """Show results from completed image processing"""
     try:
-        from services.user_service import get_user_service
-        user_service = get_user_service()
-        
         redis_url = os.getenv('REDIS_URL')
         source_type = request.args.get('type', 'Image')
         
-        # Get user data for authenticated users
-        user_subscription = None
-        daily_usage = 0
-        
-        if g.is_authenticated:
-            email = session.get('user_email')
-            user_subscription = user_service.get_subscription(email)
-            daily_usage = user_service.get_daily_usage(email)
+        # User data now available globally via g object
         
         # Check if we're using actual Redis (not memory:// for local dev)
         if redis_url and not redis_url.startswith('memory://'):
@@ -372,6 +430,8 @@ def image_results(task_id):
                 
                 # Save to history for authenticated premium users
                 if g.is_authenticated and books:
+                    from services.user_service import get_user_service
+                    user_service = get_user_service()
                     email = session.get('user_email')
                     scan_result = {
                         'books': books,
@@ -385,23 +445,17 @@ def image_results(task_id):
                     return render_template('results.html', 
                                          books=[], 
                                          query=f"{source_type} analysis",
-                                         error="No books were detected in this image. Try with a clearer photo showing book covers or spines.",
-                                         user_subscription=user_subscription,
-                                         daily_usage=daily_usage)
+                                         error="No books were detected in this image. Try with a clearer photo showing book covers or spines.")
                 
                 return render_template('results.html', 
                                      books=books, 
-                                     query=f"Image analysis",
-                                     user_subscription=user_subscription,
-                                     daily_usage=daily_usage)
+                                     query=f"Image analysis")
             else:
                 error_msg = safe_get_task_result(task.result, 'error', 'Task failed or is still processing')
                 return render_template('results.html', 
                                      books=[], 
                                      query=f"{source_type} analysis",
-                                     error=error_msg,
-                                     user_subscription=user_subscription,
-                                     daily_usage=daily_usage)
+                                     error=error_msg)
         else:
             if task_id in app.task_results:
                 task_data = app.task_results[task_id]
@@ -423,39 +477,29 @@ def image_results(task_id):
                         return render_template('results.html', 
                                              books=[], 
                                              query=f"{source_type} analysis",
-                                             error="No books were detected in this image.",
-                                             user_subscription=user_subscription,
-                                             daily_usage=daily_usage)
+                                             error="No books were detected in this image.")
                     
                     return render_template('results.html', 
                                          books=books, 
-                                         query=f"{source_type} analysis",
-                                         user_subscription=user_subscription,
-                                         daily_usage=daily_usage)
+                                         query=f"{source_type} analysis")
                 else:
                     error_msg = task_data.get('error', 'Task failed or is still processing')
                     return render_template('results.html', 
                                          books=[], 
                                          query=f"{source_type} analysis",
-                                         error=error_msg,
-                                         user_subscription=user_subscription,
-                                         daily_usage=daily_usage)
+                                         error=error_msg)
             else:
                 return render_template('results.html', 
                                      books=[], 
                                      query=f"{source_type} analysis",
-                                     error="Task not found or expired",
-                                     user_subscription=user_subscription,
-                                     daily_usage=daily_usage)
+                                     error="Task not found or expired")
                 
     except Exception as e:
         logger.error(f"❌ Results error: {e}")
         return render_template('results.html', 
                              books=[], 
                              query=f"{source_type} analysis",
-                             error="Failed to load results",
-                             user_subscription=None,
-                             daily_usage=0)
+                             error="Failed to load results")
 
 
 # Static content routes

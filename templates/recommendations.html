@@ -149,6 +149,18 @@
                         </div>
                         {% endif %}
                     </div>
+                    
+                    {% if book.preview_link %}
+                    <div class="action-section">
+                        <a href="{{ book.preview_link }}" 
+                           target="_blank" 
+                           class="modern-preview-btn">
+                            <span class="btn-icon">👁️</span>
+                            <span>Preview Book</span>
+                        </a>
+                    </div>
+                    {% endif %}
+                    
                 </div>
             </div>
         </div>
@@ -455,6 +467,27 @@
     color: #9ca3af;
     font-size: 0.9rem;
     font-style: italic;
+}
+
+.modern-preview-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.modern-preview-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
 }
 
 .retailer-icon, .app-icon, .no-apps-icon {

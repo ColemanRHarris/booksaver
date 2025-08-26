@@ -93,17 +93,29 @@ class InMemoryRedis:
 
 
 class UserService:
-    def __init__(self):
-        """Initialize Redis connection using existing configuration."""
-        redis_url = os.getenv('REDIS_URL')
-        if redis_url and not redis_url.startswith('memory://'):
-            self.redis_client = redis.from_url(redis_url, decode_responses=True)
+    def __init__(self, redis_client=None):
+        """Initialize Redis connection using provided client or create new one."""
+        if redis_client:
+            # Use provided Redis client (from Flask app)
+            self.redis_client = redis_client
             self.using_real_redis = True
+            current_app.logger.info("✅ UserService using shared Redis client")
         else:
-            # Local development - use in-memory storage
-            self.redis_client = InMemoryRedis()
-            self.using_real_redis = False
-            print("🔧 UserService using in-memory storage for local development")
+            # Fallback: create own Redis connection
+            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+            try:
+                if redis_url.startswith('memory://'):
+                    redis_url = 'redis://localhost:6379'
+                
+                self.redis_client = redis.from_url(redis_url, decode_responses=True)
+                self.redis_client.ping()  # Test connection
+                self.using_real_redis = True
+                current_app.logger.info(f"✅ UserService using Redis: {redis_url}")
+            except Exception as e:
+                # Only fall back to in-memory if Redis is truly unavailable
+                current_app.logger.warning(f"⚠️ UserService Redis failed ({e}), using in-memory storage")
+                self.redis_client = InMemoryRedis()
+                self.using_real_redis = False
     
     def _hash_password(self, password: str) -> str:
         """Hash password using bcrypt."""
@@ -131,6 +143,20 @@ class UserService:
         """Get Redis key for scan history."""
         return f"history:{email.lower()}"
     
+    def _ensure_string_values(self, data: Dict[str, Any]) -> Dict[str, str]:
+        """Convert all values in dict to strings for Redis compatibility."""
+        string_data = {}
+        for key, value in data.items():
+            if value is None:
+                string_data[key] = ''
+            elif isinstance(value, bool):
+                string_data[key] = 'true' if value else 'false'
+            elif isinstance(value, (int, float)):
+                string_data[key] = str(value)
+            else:
+                string_data[key] = str(value)
+        return string_data
+    
     def _get_session_key(self, session_id: str) -> str:
         """Get Redis key for session data."""
         return f"session:{session_id}"
@@ -154,8 +180,8 @@ class UserService:
                 'is_active': True
             }
             
-            # Store user data in Redis
-            self.redis_client.hset(user_key, mapping=user_data)
+            # Store user data in Redis - ensure all values are strings
+            self.redis_client.hset(user_key, mapping=self._ensure_string_values(user_data))
             
             # Initialize subscription data
             subscription_data = {
@@ -165,7 +191,7 @@ class UserService:
                 'stripe_customer_id': '',
                 'stripe_subscription_id': ''
             }
-            self.redis_client.hset(self._get_subscription_key(email), mapping=subscription_data)
+            self.redis_client.hset(self._get_subscription_key(email), mapping=self._ensure_string_values(subscription_data))
             
             current_app.logger.info(f"✅ User registered: {email}")
             return True
@@ -238,7 +264,8 @@ class UserService:
             # Add updated_at timestamp
             subscription_data['updated_at'] = datetime.now(timezone.utc).isoformat()
             
-            self.redis_client.hset(subscription_key, mapping=subscription_data)
+            # Ensure all values are strings for Redis
+            self.redis_client.hset(subscription_key, mapping=self._ensure_string_values(subscription_data))
             
             # Also update subscription_tier in user data
             if 'tier' in subscription_data:
@@ -388,10 +415,40 @@ class UserService:
             return False
 
 
-# Global user service instance
-user_service = UserService()
+# Global user service instance - will be initialized with app context
+user_service = None
 
 
 def get_user_service() -> UserService:
-    """Get the user service instance."""
+    """Get the user service instance, creating it if needed."""
+    global user_service
+    if user_service is None:
+        # Try to get Redis client from Flask app context
+        from flask import current_app
+        try:
+            # Use the same Redis client as Flask-Session if available
+            if hasattr(current_app, 'config') and current_app.config.get('SESSION_TYPE') == 'redis':
+                session_redis = current_app.config.get('SESSION_REDIS')
+                if session_redis:
+                    # Create user Redis client from session Redis (with decode_responses=True)
+                    import redis
+                    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+                    user_redis = redis.from_url(redis_url, decode_responses=True)
+                    user_service = UserService(user_redis)
+                else:
+                    user_service = UserService()
+            else:
+                user_service = UserService()
+        except Exception:
+            # Fallback if no app context
+            user_service = UserService()
+    
     return user_service
+
+
+def initialize_user_service_with_app(app):
+    """Initialize user service with Flask app context."""
+    global user_service
+    with app.app_context():
+        user_service = get_user_service()
+        app.logger.info("🔧 UserService initialized with app context")
