@@ -55,7 +55,6 @@ After deployment:
 
 1. Test password reset functionality
 2. Check Render logs for email-related errors
-3. For development: visit `/test-email` to verify SMTP setup
 
 ### Step 3: Gmail Security Settings
 
@@ -70,17 +69,10 @@ After deployment:
 1. Copy `.env.example` to `.env`
 2. Configure Gmail SMTP variables
 3. Run: `python app.py`
-4. Test email at: `http://localhost:5000/test-email`
 
 ### Testing Email Configuration
 
-```bash
-# Test SMTP configuration
-curl -X POST http://localhost:5000/test-email \
-  -d "email=your-test@email.com" \
-  -d "csrf_token=..." \
-  -H "Content-Type: application/x-www-form-urlencoded"
-```
+Test the password reset functionality by attempting to reset a password for a known email address.
 
 ## Troubleshooting
 
@@ -133,6 +125,5 @@ For production with high email volume, consider:
 
 ## Support
 
-- Development email testing: `/test-email`
 - Check application logs for detailed error messages
 - Gmail App Password help: [support.google.com](https://support.google.com/accounts/answer/185833)

@@ -254,54 +254,6 @@ def register_auth_routes(app, limiter):
                                  token=token,
                                  error="An error occurred. Please try again later.")
     
-    @app.route('/test-email', methods=['GET', 'POST'])
-    @limiter.limit("3 per minute")
-    def test_email():
-        """Development route to test SMTP configuration."""
-        # Only allow in development mode
-        if os.getenv('FLASK_ENV') == 'production':
-            return redirect(url_for('index'))
-        
-        if request.method == 'GET':
-            return render_template('auth/test_email.html',
-                                 smtp_server=email_service.smtp_server,
-                                 smtp_port=email_service.smtp_port,
-                                 smtp_username=email_service.smtp_username,
-                                 is_configured=email_service.is_configured)
-        
-        try:
-            email = request.form.get('email', '').strip().lower()
-            
-            if not email:
-                return render_template('auth/test_email.html', 
-                                     error="Email address is required")
-            
-            if not is_valid_email(email):
-                return render_template('auth/test_email.html', 
-                                     error="Please enter a valid email address")
-            
-            # Test email configuration
-            email_sent = email_service.send_test_email(email)
-            
-            if email_sent:
-                current_app.logger.info(f"✅ Test email sent successfully to {email}")
-                flash("Test email sent successfully! Check your inbox.", "success")
-                return render_template('auth/test_email.html', success=True)
-            else:
-                current_app.logger.error(f"❌ Failed to send test email to {email}")
-                error_msg = "Failed to send test email. "
-                if not email_service.is_configured:
-                    error_msg += "SMTP is not configured. Check your environment variables."
-                else:
-                    error_msg += "Please check your SMTP credentials and try again."
-                
-                return render_template('auth/test_email.html', error=error_msg)
-                
-        except Exception as e:
-            current_app.logger.error(f"❌ Test email error: {e}")
-            return render_template('auth/test_email.html', 
-                                 error=f"An error occurred: {str(e)}")
-    
     @app.route('/account')
     def account_dashboard():
         """User account dashboard."""
