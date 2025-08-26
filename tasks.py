@@ -144,21 +144,44 @@ def safe_join_path(base_dir: str, filename: str) -> str:
         raise ValueError("Invalid file path")
 
 
-@celery_app.task(bind=True, time_limit=MAX_PROCESSING_TIME, soft_time_limit=MAX_PROCESSING_TIME-30)
-def process_image(self, image_path: str):
+def _process_image_core(image_id: str, task_self=None):
     """
-    Celery task to process an image and extract books from it.
+    Core image processing logic that can be used by both Celery tasks and local development.
     """
-    logger.info(f"🚀 Starting image processing for: {image_path}")
+    logger.info(f"🚀 Starting image processing for Redis image: {image_id}")
     
-    # Check cache first
+    # Get image storage service
+    from services.image_storage import get_image_storage_service
+    image_storage = get_image_storage_service()
+    
+    # Define update_state function
+    def update_state(state, meta):
+        if task_self:
+            task_self.update_state(state=state, meta=meta)
+    
+    # Replace self.update_state calls with update_state function
+    # Continue with the rest of the processing logic...
+    
+    # Check cache first - use image_id as cache key
     rec_engine = get_recommendation_engine()
-    cached_result = rec_engine.get_cached_results(image_path)
+    cached_result = rec_engine.get_cached_results(image_id)
     if cached_result:
-        logger.info(f"🎉 Cache hit! Returning cached results for: {image_path[:50]}...")
+        logger.info(f"🎉 Cache hit! Returning cached results for: {image_id}")
         return cached_result
     
+    # Temporary file path for cleanup
+    temp_image_path = None
+    
     try:
+        # Retrieve image from Redis
+        logger.info(f"📥 Retrieving image from Redis: {image_id}")
+        temp_image_path = image_storage.create_temp_file(image_id)
+        
+        if not temp_image_path:
+            raise Exception(f"Image not found in Redis or expired: {image_id}")
+        
+        logger.info(f"✅ Created temporary file: {temp_image_path}")
+        
         # Get Gemini API key from environment
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
@@ -168,18 +191,18 @@ def process_image(self, image_path: str):
         
         logger.info("✅ Gemini API key loaded from environment")
         genai_client = genai.Client(api_key=api_key)
-        self.update_state(state='PROGRESS', meta={'step': 'Analyzing image', 'progress': 10})
+        update_state(state='PROGRESS', meta={'step': 'Analyzing image', 'progress': 10})
         
-        # Verify image exists and check file size limits
-        if not os.path.exists(image_path):
-            raise Exception(f"Image file not found: {image_path}")
+        # Verify temporary file exists and check file size limits
+        if not os.path.exists(temp_image_path):
+            raise Exception(f"Temporary image file not found: {temp_image_path}")
             
-        if not check_file_size(image_path):
+        if not check_file_size(temp_image_path):
             raise Exception(f"Image file exceeds {MAX_IMAGE_SIZE_MB}MB size limit")
 
-        gen_file = genai_client.files.upload(file=image_path)
+        gen_file = genai_client.files.upload(file=temp_image_path)
         # update to delay prompt
-        self.update_state(state='PROGRESS', meta={'step': 'Processing image', 'progress': 30})
+        update_state(state='PROGRESS', meta={'step': 'Processing image', 'progress': 30})
         # Check whether the file is ready to be used.
         while gen_file.state.name == "PROCESSING":
             print('.', end='')
@@ -200,9 +223,9 @@ def process_image(self, image_path: str):
             model="gemini-2.0-flash-lite", 
             contents=[gen_file,prompt]
         )
-        self.update_state(state='PROGRESS', meta={'step': 'Identifying books in image', 'progress': 50})
+        update_state(state='PROGRESS', meta={'step': 'Identifying books in image', 'progress': 50})
         book_texts = ast.literal_eval(response.text)
-        self.update_state(state='PROGRESS', meta={'step': 'Finding book details', 'progress': 85})
+        update_state(state='PROGRESS', meta={'step': 'Finding book details', 'progress': 85})
         print("📚 Starting book search...")
         
         books = search_books_from_text(book_texts)
@@ -215,14 +238,18 @@ def process_image(self, image_path: str):
             'total_texts': len(book_texts)
         }
         
-        # Cache the successful result
-        rec_engine.cache_results(image_path, 'image', result)
+        # Cache the successful result using image_id as key
+        rec_engine.cache_results(image_id, 'image', result)
         
         logger.info(f"🎉 Task completed successfully!")
         logger.info(f"📊 Final result: {len(books)} books, {len(book_texts)} texts")
         logger.debug(f"📚 Book titles found: {[book.get('title', 'Unknown') for book in books[:3]]}")
         
-        self.update_state(state='PROGRESS', meta={'step': 'Complete', 'progress': 100})
+        # Clean up Redis image after successful processing
+        image_storage.delete_image(image_id)
+        logger.info(f"🧹 Cleaned up Redis image: {image_id}")
+        
+        update_state(state='PROGRESS', meta={'step': 'Complete', 'progress': 100})
         return result    
                     
     except Exception as e:
@@ -233,7 +260,9 @@ def process_image(self, image_path: str):
             error_message = 'Image processing timed out. Please try with a smaller image.'
         else:
             # Clean up technical error messages for user-friendly display
-            if "Image file not found" in error_message:
+            if "Image not found in Redis" in error_message or "expired" in error_message:
+                error_message = "Image data expired or not found. Please try uploading again."
+            elif "Image file not found" in error_message:
                 error_message = "Image file not found. Please try uploading again."
             elif "Image file exceeds" in error_message:
                 error_message = "Image file is too large. Please use an image smaller than 10MB."
@@ -243,10 +272,43 @@ def process_image(self, image_path: str):
                 error_message = "Invalid image format. Please use JPG or PNG files."
         
         logger.error(f"Image processing failed: {e}")  # Log the technical error
+        
+        # Cleanup on error
+        try:
+            # Clean up temporary file
+            if temp_image_path and os.path.exists(temp_image_path):
+                os.unlink(temp_image_path)
+                logger.info(f"🧹 Cleaned up temp file: {temp_image_path}")
+            
+            # Clean up Redis image
+            if image_storage:
+                image_storage.delete_image(image_id)
+                logger.info(f"🧹 Cleaned up Redis image: {image_id}")
+        except Exception as cleanup_error:
+            logger.warning(f"⚠️ Cleanup failed: {cleanup_error}")
+        
         return {
             'status': 'error',
             'error': error_message  # Return user-friendly error
         }
+    
+    finally:
+        # Final cleanup - ensure temp file is removed
+        try:
+            if temp_image_path and os.path.exists(temp_image_path):
+                os.unlink(temp_image_path)
+                logger.info(f"🧹 Final cleanup: removed temp file {temp_image_path}")
+        except Exception as cleanup_error:
+            logger.warning(f"⚠️ Final cleanup failed: {cleanup_error}")
+
+
+@celery_app.task(bind=True, time_limit=MAX_PROCESSING_TIME, soft_time_limit=MAX_PROCESSING_TIME-30)
+def process_image(self, image_id: str):
+    """
+    Celery task to process an image and extract books from it.
+    Now retrieves image data from Redis using image_id.
+    """
+    return _process_image_core(image_id, task_self=self)
 
 
 def search_books_from_text(texts: List[str]) -> List[Dict]:

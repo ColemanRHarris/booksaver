@@ -12,6 +12,7 @@ from core.utils import sanitize_input
 from tasks import process_image
 from services.recommendation_engine import get_recommendation_engine
 from services.user_service import get_user_service
+from services.image_storage import get_image_storage_service
 
 # Global task results storage for local development
 task_results = {}
@@ -37,14 +38,46 @@ def process_image_background(task_id: str, image_path: str):
             'progress': 5
         }
         
-        # Process the image (this calls the actual Celery task function)
-        result = process_image(image_path)
+        # For local development, we still use file paths
+        # The image_path is already created from Redis data in the route handler
+        # We need to create a mock task object for the process_image function
+        class MockTask:
+            def update_state(self, state, meta):
+                task_results[task_id] = {
+                    'state': state,
+                    **meta
+                }
+        
+        # Process the image using a temporary image ID for local development
+        temp_image_id = f"local_{task_id}"
+        
+        # Store the image temporarily in Redis for consistency
+        image_storage = get_image_storage_service()
+        with open(image_path, 'rb') as f:
+            image_data = f.read()
+        
+        stored_image_id = image_storage.store_image(
+            image_data, 
+            os.path.basename(image_path), 
+            ttl=3600  # 1 hour for local dev
+        )
+        
+        # Create mock task and call the actual process_image core logic
+        mock_task = MockTask()
+        from tasks import _process_image_core
+        result = _process_image_core(stored_image_id, task_self=mock_task)
         
         # Update with final result
         task_results[task_id] = {
             'state': 'SUCCESS',
             'result': result
         }
+        
+        # Clean up the temp file
+        try:
+            os.unlink(image_path)
+        except Exception:
+            pass  # Ignore cleanup errors in local dev
         
     except Exception as e:
         error_message = str(e)
@@ -132,13 +165,13 @@ def register_image_routes(app, limiter):
                 if not filename:
                     filename = f"image_{uuid.uuid4().hex}.jpg"
                 
-                # Save to temp directory
-                import tempfile
-                temp_dir = tempfile.mkdtemp(prefix="book_image_")
-                image_path = os.path.join(temp_dir, filename)
-                file.save(image_path)
+                # Store image in Redis instead of temp directory
+                image_storage = get_image_storage_service()
+                image_data = file.read()
                 
-                current_app.logger.info(f"✅ Image saved: {image_path}")
+                # Store image data in Redis (TTL: 2 hours for processing + buffer)
+                image_id = image_storage.store_image(image_data, filename, ttl=7200)
+                current_app.logger.info(f"✅ Image stored in Redis: {image_id} ({len(image_data)} bytes)")
                 
                 # Increment usage count
                 usage_count = user_service.increment_usage(email)
@@ -149,8 +182,8 @@ def register_image_routes(app, limiter):
                 
                 # Check if we're using actual Redis (not memory:// for local dev)
                 if redis_url and not redis_url.startswith('memory://'):
-                    # Production: Use Celery with Redis
-                    task = process_image.delay(image_path)
+                    # Production: Use Celery with Redis - pass image_id instead of path
+                    task = process_image.delay(image_id)
                     task_id = task.id
                 else:
                     # Local development: Use threading
@@ -162,10 +195,15 @@ def register_image_routes(app, limiter):
                         'progress': 0
                     }
                     
+                    # For local dev, create temp file from Redis data
+                    temp_image_path = image_storage.create_temp_file(image_id)
+                    if not temp_image_path:
+                        raise Exception("Failed to create temporary file for local processing")
+                    
                     # Start background processing
                     thread = threading.Thread(
                         target=process_image_background,
-                        args=(task_id, image_path),
+                        args=(task_id, temp_image_path),
                         daemon=True
                     )
                     thread.start()
