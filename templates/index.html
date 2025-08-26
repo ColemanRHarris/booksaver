@@ -59,12 +59,12 @@
     <!-- User Status Display -->
     {% if g.is_authenticated %}
         <div class="user-status">
-            {% if user_subscription and user_subscription.tier == 'premium' %}
+            {% if g.subscription and g.subscription.tier == 'premium' %}
                 <div class="status-card premium">
                     <div class="status-icon">⭐</div>
                     <div class="status-content">
                         <div class="status-title">Premium Active</div>
-                        <div class="status-subtitle">{{ daily_usage or 0 }} scans today • Unlimited remaining</div>
+                        <div class="status-subtitle">{{ g.daily_usage or 0 }} scans today • Unlimited remaining</div>
                     </div>
                 </div>
             {% else %}
@@ -73,13 +73,13 @@
                     <div class="status-content">
                         <div class="status-title">Free Plan</div>
                         <div class="status-subtitle">
-                            {{ daily_usage or 0 }}/1 scans used today
-                            {% if daily_usage >= 1 %}
+                            {{ g.daily_usage or 0 }}/1 scans used today
+                            {% if g.daily_usage >= 1 %}
                                 • <a href="{{ url_for('subscribe') }}" class="upgrade-link">Upgrade for unlimited</a>
                             {% endif %}
                         </div>
                     </div>
-                    {% if daily_usage >= 1 %}
+                    {% if g.daily_usage >= 1 %}
                         <div class="upgrade-prompt">
                             <p>Daily limit reached! Upgrade to Premium for unlimited scans.</p>
                             <a href="{{ url_for('subscribe') }}" class="upgrade-btn">Upgrade Now</a>

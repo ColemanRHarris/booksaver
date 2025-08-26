@@ -1,13 +1,58 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="results-container">
-    <div class="search-header">
-        <h2>Our Recommendations</h2>
-        <p class="recommendations-subtitle">Handpicked books we think you'll love</p>
-        <a href="{{ url_for('index') }}" class="back-btn">← Back to Search</a>
+<!-- Recommendations Hero Section -->
+<div class="results-hero">
+    <div class="results-hero-content">
+        <div class="success-animation">
+            <div class="check-circle">
+                <div class="check-mark">⭐</div>
+            </div>
+        </div>
+        <h1 class="results-title">
+            Discover Your Next Great Read
+        </h1>
+        <p class="results-subtitle">
+            Handpicked books we think you'll love based on popular trends and reader favorites
+        </p>
+        <div class="results-actions">
+            <a href="{{ url_for('index') }}" class="action-btn secondary-btn">
+                <span class="btn-icon">📸</span>
+                <span>Scan Books</span>
+            </a>
+            <button class="action-btn primary-btn" onclick="scrollToBooks()">
+                <span class="btn-icon">📚</span>
+                <span>Browse Books</span>
+            </button>
+        </div>
     </div>
-    
+</div>
+
+<div class="results-container" id="books-section">
+    <!-- Recommendations Stats -->
+    <div class="results-stats">
+        <div class="stat-card">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-content">
+                <div class="stat-number">{{ books|length }}</div>
+                <div class="stat-label">Curated Books</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+                <div class="stat-number">95%</div>
+                <div class="stat-label">Reader Satisfaction</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🛒</div>
+            <div class="stat-content">
+                <div class="stat-number">5+</div>
+                <div class="stat-label">Buy Options</div>
+            </div>
+        </div>
+    </div>
     
     <!-- Modern Books Grid -->
     <div class="modern-books-grid">
@@ -514,6 +559,13 @@
 </style>
 
 <script>
+function scrollToBooks() {
+    document.getElementById('books-section').scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+    });
+}
+
 function showBookModal(index) {
     // Simple alert for now - can be enhanced later
     alert('Book details modal coming soon!');

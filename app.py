@@ -120,6 +120,8 @@ def load_user_context():
     g.subscription = None
     g.is_authenticated = False
     g.is_premium = False
+    g.daily_usage = 0
+    g.can_scan = False
     
     # Check if user is logged in
     if 'user_email' in session:
@@ -127,42 +129,87 @@ def load_user_context():
             user_service = get_user_service()
             email = session['user_email']
             
-            # Load user data
-            user_data = user_service.get_user(email)
-            subscription_data = user_service.get_subscription(email)
+            # Validate email format
+            if not email or '@' not in email:
+                logger.warning(f"⚠️ Invalid email in session: {email}")
+                session.clear()
+                return
             
-            if user_data and subscription_data:
+            # Load user data with individual error handling
+            user_data = None
+            subscription_data = None
+            daily_usage = 0
+            can_scan = False
+            
+            try:
+                user_data = user_service.get_user(email)
+            except Exception as e:
+                logger.error(f"❌ Failed to load user data for {email}: {e}")
+            
+            try:
+                subscription_data = user_service.get_subscription(email)
+            except Exception as e:
+                logger.error(f"❌ Failed to load subscription data for {email}: {e}")
+                # Set default subscription for graceful fallback
+                subscription_data = {
+                    'tier': 'free',
+                    'status': 'active'
+                }
+            
+            if user_data:
                 g.user = user_data
-                g.subscription = subscription_data
+                g.subscription = subscription_data or {'tier': 'free', 'status': 'active'}
                 g.is_authenticated = True
                 g.is_premium = subscription_data.get('tier') == 'premium' and subscription_data.get('status') == 'active'
-                g.daily_usage = user_service.get_daily_usage(email)
-                g.can_scan = user_service.can_scan(email)
+                
+                # Load usage data with fallback
+                try:
+                    g.daily_usage = user_service.get_daily_usage(email)
+                    g.can_scan = user_service.can_scan(email)
+                except Exception as e:
+                    logger.error(f"❌ Failed to load usage data for {email}: {e}")
+                    g.daily_usage = 0
+                    g.can_scan = True  # Allow scan attempt, will be validated later
                 
                 # Validate subscription with Stripe periodically (every hour)
-                last_validation = session.get('last_stripe_validation', 0)
-                current_time = datetime.now().timestamp()
-                if current_time - last_validation > 3600:  # 1 hour
-                    from services.stripe_service import get_stripe_service
-                    stripe_service = get_stripe_service()
-                    validation_result = stripe_service.validate_user_subscription_status(email)
-                    
-                    if validation_result.get('discrepancy_found'):
-                        logger.info(f"🔄 Auto-syncing subscription for {email}")
-                        stripe_service.sync_subscription_from_stripe(email)
-                        # Reload subscription data after sync
-                        subscription_data = user_service.get_subscription(email)
-                        g.subscription = subscription_data
-                        g.is_premium = subscription_data.get('tier') == 'premium' and subscription_data.get('status') == 'active'
-                    
-                    session['last_stripe_validation'] = current_time
+                try:
+                    last_validation = session.get('last_stripe_validation', 0)
+                    current_time = datetime.now().timestamp()
+                    if current_time - last_validation > 3600:  # 1 hour
+                        from services.stripe_service import get_stripe_service
+                        stripe_service = get_stripe_service()
+                        validation_result = stripe_service.validate_user_subscription_status(email)
+                        
+                        if validation_result.get('discrepancy_found'):
+                            logger.info(f"🔄 Auto-syncing subscription for {email}")
+                            stripe_service.sync_subscription_from_stripe(email)
+                            # Reload subscription data after sync
+                            subscription_data = user_service.get_subscription(email)
+                            g.subscription = subscription_data
+                            g.is_premium = subscription_data.get('tier') == 'premium' and subscription_data.get('status') == 'active'
+                        
+                        session['last_stripe_validation'] = current_time
+                except Exception as e:
+                    logger.error(f"❌ Stripe validation failed for {email}: {e}")
+                    # Continue with cached subscription data
             else:
-                # User data not found - clear session
-                session.clear()
+                # User data not found - only clear session if multiple consecutive failures
+                failure_count = session.get('context_load_failures', 0) + 1
+                session['context_load_failures'] = failure_count
+                
+                if failure_count >= 3:
+                    logger.warning(f"⚠️ Clearing session after {failure_count} consecutive user context load failures for {email}")
+                    session.clear()
+                else:
+                    logger.warning(f"⚠️ User context load failure #{failure_count} for {email}, keeping session")
                 
         except Exception as e:
-            logger.error(f"❌ Error loading user context: {e}")
-            # Don't clear session on temporary errors, just set safe defaults
+            logger.error(f"❌ Critical error loading user context: {e}")
+            # Set minimal safe defaults to prevent app crashes
+            g.is_authenticated = 'user_email' in session
+            g.subscription = {'tier': 'free', 'status': 'active'}
+            g.daily_usage = 0
+            g.can_scan = False
 
 
 def log_environment_status():
@@ -465,6 +512,8 @@ def image_results(task_id):
                     
                     # Save to history for authenticated premium users
                     if g.is_authenticated and books:
+                        from services.user_service import get_user_service
+                        user_service = get_user_service()
                         email = session.get('user_email')
                         scan_result = {
                             'books': books,

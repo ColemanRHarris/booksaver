@@ -12,19 +12,19 @@
         <div class="account-card subscription-card">
             <div class="card-header">
                 <h2>
-                    {% if subscription.tier == 'premium' %}
+                    {% if g.subscription.tier == 'premium' %}
                         🌟 Premium Plan
                     {% else %}
                         📚 Free Plan  
                     {% endif %}
                 </h2>
-                <div class="subscription-status {{ subscription.status }}">
-                    {{ subscription.status|title }}
+                <div class="subscription-status {{ g.subscription.status }}">
+                    {{ g.subscription.status|title }}
                 </div>
             </div>
             
             <div class="card-content">
-                {% if subscription.tier == 'premium' %}
+                {% if g.subscription.tier == 'premium' %}
                     <div class="subscription-benefits">
                         <div class="benefit">☑️ Unlimited daily scans</div>
                         <div class="benefit">☑️ Scan history saved</div>
@@ -58,20 +58,20 @@
             </div>
             
             <div class="card-content">
-                {% if subscription.tier == 'premium' %}
+                {% if g.subscription.tier == 'premium' %}
                     <div class="usage-stat">
-                        <div class="usage-number">{{ daily_usage }}</div>
+                        <div class="usage-number">{{ g.daily_usage }}</div>
                         <div class="usage-label">Scans Today</div>
                         <div class="usage-note">Unlimited remaining</div>
                     </div>
                 {% else %}
                     <div class="usage-stat">
-                        <div class="usage-number">{{ daily_usage }} / 1</div>
+                        <div class="usage-number">{{ g.daily_usage }} / 1</div>
                         <div class="usage-label">Scans Used</div>
-                        {% if daily_usage >= 1 %}
+                        {% if g.daily_usage >= 1 %}
                             <div class="usage-note warning">Daily limit reached</div>
                         {% else %}
-                            <div class="usage-note">{{ 1 - daily_usage }} scan remaining</div>
+                            <div class="usage-note">{{ 1 - g.daily_usage }} scan remaining</div>
                         {% endif %}
                     </div>
                 {% endif %}
@@ -92,12 +92,12 @@
                 <div class="profile-info">
                     <div class="info-item">
                         <label>Email</label>
-                        <div class="info-value">{{ user.email }}</div>
+                        <div class="info-value">{{ g.user.email }}</div>
                     </div>
                     <div class="info-item">
                         <label>Member Since</label>
                         <div class="info-value">
-                            {{ user.created_at[:10] if user.created_at else 'N/A' }}
+                            {{ g.user.created_at[:10] if g.user.created_at else 'N/A' }}
                         </div>
                     </div>
                 </div>
@@ -112,12 +112,15 @@
         </div>
         
         <!-- Scan History -->
-        {% if subscription.tier == 'premium' %}
+        {% if g.subscription.tier == 'premium' %}
         <div class="account-card history-card">
             <div class="card-header">
                 <h2>📖 Recent Scans</h2>
                 <div class="card-action">
                     {% if scan_history|length > 0 %}
+                        <a href="{{ url_for('export_history') }}" class="export-btn" title="Export scan history as CSV">
+                            📥 Export
+                        </a>
                         <small>{{ scan_history|length }} recent scans</small>
                     {% endif %}
                 </div>
@@ -128,25 +131,62 @@
                     <div class="history-list">
                         {% for scan in scan_history[:5] %}
                         <div class="history-item">
-                            <div class="history-info">
-                                <div class="history-books">
-                                    {% if scan.books and scan.books|length > 0 %}
-                                        {{ scan.books|length }} book(s) found
-                                    {% else %}
-                                        No books detected
-                                    {% endif %}
-                                </div>
-                                <div class="history-date">
-                                    {{ scan.scanned_at[:10] if scan.scanned_at else 'Unknown date' }}
+                            <div class="scan-header">
+                                <div class="scan-meta">
+                                    <div class="scan-date">
+                                        📅 {{ scan.scanned_at[:10] if scan.scanned_at else 'Unknown date' }}
+                                    </div>
+                                    <div class="scan-stats">
+                                        {% if scan.books and scan.books|length > 0 %}
+                                            📚 {{ scan.books|length }} book(s) found
+                                        {% else %}
+                                            ❌ No books detected
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
+                            
+                            {% if scan.books and scan.books|length > 0 %}
+                            <div class="scan-books">
+                                {% for book in scan.books[:3] %}
+                                <div class="history-book">
+                                    <div class="book-cover-small">
+                                        {% if book.thumbnail %}
+                                        <img src="{{ book.thumbnail }}" alt="{{ book.title }}" class="history-book-cover">
+                                        {% else %}
+                                        <div class="no-cover-small">📖</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="book-details">
+                                        <div class="book-title">{{ book.title }}</div>
+                                        {% if book.authors %}
+                                        <div class="book-authors">by {{ book.authors | join(', ') }}</div>
+                                        {% endif %}
+                                        {% if book.purchase_links and book.purchase_links.amazon %}
+                                        <a href="{{ book.purchase_links.amazon }}" target="_blank" class="history-buy-link">
+                                            🛒 Buy on Amazon
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                
+                                {% if scan.books|length > 3 %}
+                                <div class="more-books">
+                                    <small>+ {{ scan.books|length - 3 }} more book(s)</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>
                     
                     {% if scan_history|length > 5 %}
                     <div class="history-more">
-                        <small>And {{ scan_history|length - 5 }} more scans...</small>
+                        <button class="btn secondary-btn" onclick="showAllHistory()">
+                            View All {{ scan_history|length }} Scans
+                        </button>
                     </div>
                     {% endif %}
                 {% else %}
@@ -219,6 +259,31 @@
     font-weight: 600;
     margin: 0;
     flex: 1;
+}
+
+.card-action {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.export-btn {
+    display: inline-block;
+    color: #3b82f6;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    padding: 0.375rem 0.75rem;
+    background: #eff6ff;
+    border-radius: 6px;
+    border: 1px solid #dbeafe;
+    transition: all 0.2s ease;
+}
+
+.export-btn:hover {
+    background: #dbeafe;
+    color: #1d4ed8;
+    transform: translateY(-1px);
 }
 
 .subscription-status {
@@ -330,12 +395,123 @@
 }
 
 .history-item {
-    padding: 0.75rem 0;
-    border-bottom: 1px solid #f3f4f6;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 1rem;
 }
 
 .history-item:last-child {
     border-bottom: none;
+}
+
+.scan-header {
+    margin-bottom: 1rem;
+}
+
+.scan-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.scan-date {
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.scan-stats {
+    color: #1f2937;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.scan-books {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.history-book {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.book-cover-small {
+    flex-shrink: 0;
+    width: 50px;
+    height: 75px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.history-book-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.no-cover-small {
+    width: 100%;
+    height: 100%;
+    background: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #6b7280;
+}
+
+.book-details {
+    flex: 1;
+}
+
+.book-title {
+    color: #1f2937;
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+    line-height: 1.3;
+}
+
+.book-authors {
+    color: #6b7280;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.history-buy-link {
+    display: inline-block;
+    color: #3b82f6;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    background: #eff6ff;
+    border-radius: 4px;
+    border: 1px solid #dbeafe;
+    transition: all 0.2s;
+}
+
+.history-buy-link:hover {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.more-books {
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.85rem;
+    padding: 0.5rem;
+    background: #f3f4f6;
+    border-radius: 6px;
 }
 
 .history-info {

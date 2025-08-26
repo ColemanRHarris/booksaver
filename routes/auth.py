@@ -5,7 +5,10 @@ Authentication routes for user login, signup, and session management.
 import os
 import uuid
 import re
-from flask import request, render_template, redirect, url_for, session, flash, jsonify, current_app, g
+import csv
+import io
+from datetime import datetime
+from flask import request, render_template, redirect, url_for, session, flash, jsonify, current_app, g, make_response
 from werkzeug.utils import secure_filename
 
 from services.user_service import get_user_service
@@ -150,23 +153,17 @@ def register_auth_routes(app, limiter):
         if 'user_email' not in session:
             return redirect(url_for('login'))
         
+        # Check if user data is available in global context
+        if not g.is_authenticated or not g.user or not g.subscription:
+            flash("Account data not found. Please log in again.", "error")
+            return redirect(url_for('logout'))
+            
         try:
-            email = session['user_email']
-            user_data = user_service.get_user(email)
-            subscription_data = user_service.get_subscription(email)
-            
-            if not user_data or not subscription_data:
-                flash("Account data not found. Please log in again.", "error")
-                return redirect(url_for('logout'))
-            
-            # Get usage stats
-            daily_usage = user_service.get_daily_usage(email)
-            scan_history = user_service.get_history(email, limit=10)
+            # Get scan history for account page (premium feature)
+            user_service = get_user_service()
+            scan_history = user_service.get_history(g.user['email'], limit=10)
             
             return render_template('auth/account.html',
-                                 user=user_data,
-                                 subscription=subscription_data,
-                                 daily_usage=daily_usage,
                                  scan_history=scan_history)
             
         except Exception as e:
@@ -174,34 +171,80 @@ def register_auth_routes(app, limiter):
             flash("Error loading account data.", "error")
             return redirect(url_for('index'))
     
-    # Authentication middleware
-    @app.before_request
-    def load_user():
-        """Load user data before each request."""
-        # Skip for static files and auth routes
-        if (request.endpoint and 
-            (request.endpoint.startswith('static') or 
-             request.endpoint in ['signup', 'login', 'logout'])):
-            return
+    @app.route('/export-history')
+    @limiter.limit("5 per minute")
+    def export_history():
+        """Export user's scan history as CSV (premium feature)."""
+        # Check if user is logged in and premium
+        if not g.is_authenticated:
+            return redirect(url_for('login'))
         
-        # Check if user has session
-        if 'user_session_id' in session and 'user_email' in session:
-            session_data = user_service.get_session(session['user_session_id'])
+        if not g.is_premium:
+            flash("History export is a premium feature. Upgrade to access this feature.", "warning")
+            return redirect(url_for('subscribe'))
+        
+        try:
+            user_service = get_user_service()
+            scan_history = user_service.get_history(g.user['email'], limit=100)
             
-            if session_data and session_data.get('email') == session['user_email']:
-                # Session is valid, load user data
-                user_data = user_service.get_user(session['user_email'])
-                if user_data:
-                    # Make user available in templates
-                    from flask import g
-                    g.current_user = user_data
-                    g.is_authenticated = True
-                    return
-        
-        # No valid session
-        from flask import g
-        g.current_user = None
-        g.is_authenticated = False
+            if not scan_history:
+                flash("No scan history to export.", "info")
+                return redirect(url_for('account_dashboard'))
+            
+            # Create CSV output
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            writer.writerow([
+                'Scan Date',
+                'Books Found',
+                'Book Titles',
+                'Authors',
+                'ISBNs',
+                'Amazon Links'
+            ])
+            
+            # Write scan data
+            for scan in scan_history:
+                scan_date = scan.get('scanned_at', '')[:10] if scan.get('scanned_at') else 'Unknown'
+                books = scan.get('books', [])
+                book_count = len(books)
+                
+                if books:
+                    titles = '; '.join([book.get('title', '') for book in books])
+                    authors = '; '.join([', '.join(book.get('authors', [])) for book in books])
+                    isbns = '; '.join([book.get('isbn', '') for book in books])
+                    amazon_links = '; '.join([
+                        book.get('purchase_links', {}).get('amazon', '') 
+                        for book in books 
+                        if book.get('purchase_links', {}).get('amazon')
+                    ])
+                else:
+                    titles = authors = isbns = amazon_links = ''
+                
+                writer.writerow([
+                    scan_date,
+                    book_count,
+                    titles,
+                    authors,
+                    isbns,
+                    amazon_links
+                ])
+            
+            # Create response
+            output.seek(0)
+            response = make_response(output.getvalue())
+            response.headers['Content-Type'] = 'text/csv'
+            response.headers['Content-Disposition'] = f'attachment; filename=booksaver_history_{datetime.now().strftime("%Y%m%d")}.csv'
+            
+            current_app.logger.info(f"✅ History export for {g.user['email']}")
+            return response
+            
+        except Exception as e:
+            current_app.logger.error(f"❌ History export error: {e}")
+            flash("Error exporting history. Please try again later.", "error")
+            return redirect(url_for('account_dashboard'))
     
     def require_auth(f):
         """Decorator to require authentication."""

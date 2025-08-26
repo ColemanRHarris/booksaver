@@ -82,6 +82,21 @@ def register_image_routes(app, limiter):
         
         email = session.get('user_email')
         
+        # Ensure subscription status is current before scanning
+        try:
+            from services.stripe_service import get_stripe_service
+            stripe_service = get_stripe_service()
+            validation_result = stripe_service.validate_user_subscription_status(email)
+            
+            if validation_result.get('discrepancy_found'):
+                current_app.logger.info(f"🔄 Auto-syncing subscription for {email} before scan")
+                stripe_service.sync_subscription_from_stripe(email)
+                # Refresh global context after sync using existing user_service
+                g.subscription = user_service.get_subscription(email)
+                g.is_premium = g.subscription.get('tier') == 'premium' and g.subscription.get('status') == 'active'
+        except Exception as e:
+            current_app.logger.warning(f"⚠️ Could not validate subscription before scan: {e}")
+        
         # Check if user can scan (usage limits)
         if not user_service.can_scan(email):
             subscription = user_service.get_subscription(email)
