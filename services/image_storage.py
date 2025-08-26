@@ -10,8 +10,8 @@ import uuid
 import mimetypes
 from typing import Optional, Dict, Any
 from datetime import timedelta
-from flask import current_app
 import redis
+from core.logging_utils import get_safe_logger
 
 
 class ImageStorageService:
@@ -30,6 +30,9 @@ class ImageStorageService:
         self.key_prefix = "image_storage:"
         self.default_ttl = 3600  # 1 hour TTL for temporary images
         self.max_image_size = 10 * 1024 * 1024  # 10MB max
+        
+        # Context-aware logger
+        self.logger = get_safe_logger(__name__)
     
     def store_image(self, image_data: bytes, filename: str, ttl: int = None) -> str:
         """
@@ -87,11 +90,11 @@ class ImageStorageService:
             pipeline.expire(storage_key, ttl_seconds)
             pipeline.execute()
             
-            current_app.logger.info(f"✅ Image stored in Redis: {image_id} ({len(image_data)} bytes, TTL: {ttl_seconds}s)")
+            self.logger.info(f"✅ Image stored in Redis: {image_id} ({len(image_data)} bytes, TTL: {ttl_seconds}s)")
             return image_id
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to store image in Redis: {e}")
+            self.logger.error(f"❌ Failed to store image in Redis: {e}")
             raise
     
     def retrieve_image(self, image_id: str) -> Optional[Dict[str, Any]]:
@@ -110,7 +113,7 @@ class ImageStorageService:
             # Get data from Redis
             image_hash = self.redis.hgetall(storage_key)
             if not image_hash:
-                current_app.logger.warning(f"⚠️ Image not found in Redis: {image_id}")
+                self.logger.warning(f"⚠️ Image not found in Redis: {image_id}")
                 return None
             
             # Decode base64 data
@@ -121,7 +124,7 @@ class ImageStorageService:
                 
                 image_data = base64.b64decode(encoded_data)
             except Exception as decode_error:
-                current_app.logger.error(f"❌ Failed to decode image data for {image_id}: {decode_error}")
+                self.logger.error(f"❌ Failed to decode image data for {image_id}: {decode_error}")
                 return None
             
             # Extract metadata
@@ -131,7 +134,7 @@ class ImageStorageService:
                 'size': int((image_hash.get(b'size') or image_hash.get('size', b'0')).decode('utf-8') if isinstance(image_hash.get(b'size') or image_hash.get('size'), bytes) else image_hash.get('size', '0'))
             }
             
-            current_app.logger.info(f"✅ Image retrieved from Redis: {image_id} ({metadata['size']} bytes)")
+            self.logger.info(f"✅ Image retrieved from Redis: {image_id} ({metadata['size']} bytes)")
             
             return {
                 'data': image_data,
@@ -139,7 +142,7 @@ class ImageStorageService:
             }
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to retrieve image from Redis: {e}")
+            self.logger.error(f"❌ Failed to retrieve image from Redis: {e}")
             return None
     
     def create_temp_file(self, image_id: str) -> Optional[str]:
@@ -169,11 +172,11 @@ class ImageStorageService:
                 temp_file.write(image_info['data'])
                 temp_path = temp_file.name
             
-            current_app.logger.info(f"✅ Created temp file for {image_id}: {temp_path}")
+            self.logger.info(f"✅ Created temp file for {image_id}: {temp_path}")
             return temp_path
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to create temp file for {image_id}: {e}")
+            self.logger.error(f"❌ Failed to create temp file for {image_id}: {e}")
             return None
     
     def delete_image(self, image_id: str) -> bool:
@@ -191,14 +194,14 @@ class ImageStorageService:
             deleted = self.redis.delete(storage_key)
             
             if deleted:
-                current_app.logger.info(f"✅ Image deleted from Redis: {image_id}")
+                self.logger.info(f"✅ Image deleted from Redis: {image_id}")
             else:
-                current_app.logger.warning(f"⚠️ Image not found for deletion: {image_id}")
+                self.logger.warning(f"⚠️ Image not found for deletion: {image_id}")
             
             return bool(deleted)
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to delete image from Redis: {e}")
+            self.logger.error(f"❌ Failed to delete image from Redis: {e}")
             return False
     
     def cleanup_expired(self) -> int:
@@ -220,11 +223,11 @@ class ImageStorageService:
                 if not self.redis.exists(key):
                     cleaned += 1
             
-            current_app.logger.info(f"🧹 Redis TTL auto-cleanup: {cleaned} expired images removed")
+            self.logger.info(f"🧹 Redis TTL auto-cleanup: {cleaned} expired images removed")
             return cleaned
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to cleanup expired images: {e}")
+            self.logger.error(f"❌ Failed to cleanup expired images: {e}")
             return 0
 
 

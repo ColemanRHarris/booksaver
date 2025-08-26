@@ -7,7 +7,8 @@ import stripe
 import json
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
-from flask import current_app, request
+from flask import request
+from core.logging_utils import get_safe_logger
 
 from services.user_service import get_user_service
 
@@ -24,6 +25,9 @@ class StripeService:
         self.yearly_price_id = os.getenv('STRIPE_YEARLY_PRICE_ID')
         
         self.user_service = get_user_service()
+        
+        # Context-aware logger
+        self.logger = get_safe_logger(__name__)
     
     def find_existing_stripe_customer(self, email: str) -> Optional[Dict[str, Any]]:
         """
@@ -32,7 +36,7 @@ class StripeService:
         """
         try:
             email = email.lower().strip()
-            current_app.logger.info(f"🔍 Searching for existing Stripe customer with email: {email}")
+            self.logger.info(f"🔍 Searching for existing Stripe customer with email: {email}")
             
             # Search for customers with this email
             customers = stripe.Customer.list(
@@ -51,15 +55,15 @@ class StripeService:
             
             # Log findings
             if active_customers:
-                current_app.logger.info(f"✅ Found {len(active_customers)} active Stripe customer(s) for {email}")
+                self.logger.info(f"✅ Found {len(active_customers)} active Stripe customer(s) for {email}")
                 for customer in active_customers:
-                    current_app.logger.info(f"   - Customer ID: {customer.id}, Created: {customer.created}")
+                    self.logger.info(f"   - Customer ID: {customer.id}, Created: {customer.created}")
             
             if deleted_customers:
-                current_app.logger.info(f"🗑️ Found {len(deleted_customers)} deleted Stripe customer(s) for {email}")
+                self.logger.info(f"🗑️ Found {len(deleted_customers)} deleted Stripe customer(s) for {email}")
             
             if not active_customers and not deleted_customers:
-                current_app.logger.info(f"❌ No Stripe customers found for {email}")
+                self.logger.info(f"❌ No Stripe customers found for {email}")
                 return None
             
             # Return the most recent active customer, or None if only deleted ones exist
@@ -87,10 +91,10 @@ class StripeService:
             }
             
         except stripe.error.StripeError as e:
-            current_app.logger.error(f"❌ Stripe error searching for customer {email}: {e}")
+            self.logger.error(f"❌ Stripe error searching for customer {email}: {e}")
             return None
         except Exception as e:
-            current_app.logger.error(f"❌ Unexpected error searching for customer {email}: {e}")
+            self.logger.error(f"❌ Unexpected error searching for customer {email}: {e}")
             return None
 
     def create_customer(self, email: str, name: str = None) -> Optional[str]:
@@ -102,11 +106,11 @@ class StripeService:
             if existing_customer:
                 if not existing_customer['deleted']:
                     # Active customer found - return existing ID
-                    current_app.logger.info(f"♻️ Using existing Stripe customer {existing_customer['id']} for {email}")
+                    self.logger.info(f"♻️ Using existing Stripe customer {existing_customer['id']} for {email}")
                     return existing_customer['id']
                 else:
                     # Only deleted customers found
-                    current_app.logger.warning(f"⚠️ Found only deleted Stripe customers for {email}. Creating new customer.")
+                    self.logger.warning(f"⚠️ Found only deleted Stripe customers for {email}. Creating new customer.")
             
             # No existing active customer - create new one
             customer_data = {
@@ -127,23 +131,23 @@ class StripeService:
             
             customer = stripe.Customer.create(**customer_data)
             
-            current_app.logger.info(f"✅ New Stripe customer created: {customer.id} for {email}")
+            self.logger.info(f"✅ New Stripe customer created: {customer.id} for {email}")
             return customer.id
             
         except stripe.error.InvalidRequestError as e:
-            current_app.logger.error(f"❌ Invalid request creating Stripe customer for {email}: {e}")
+            self.logger.error(f"❌ Invalid request creating Stripe customer for {email}: {e}")
             return None
         except stripe.error.AuthenticationError as e:
-            current_app.logger.error(f"❌ Authentication error creating Stripe customer: {e}")
+            self.logger.error(f"❌ Authentication error creating Stripe customer: {e}")
             return None
         except stripe.error.APIConnectionError as e:
-            current_app.logger.error(f"❌ Network error creating Stripe customer for {email}: {e}")
+            self.logger.error(f"❌ Network error creating Stripe customer for {email}: {e}")
             return None
         except stripe.error.StripeError as e:
-            current_app.logger.error(f"❌ Stripe error creating customer for {email}: {e}")
+            self.logger.error(f"❌ Stripe error creating customer for {email}: {e}")
             return None
         except Exception as e:
-            current_app.logger.error(f"❌ Unexpected error creating Stripe customer for {email}: {e}")
+            self.logger.error(f"❌ Unexpected error creating Stripe customer for {email}: {e}")
             return None
     
     def create_checkout_session(self, email: str, plan: str, success_url: str, cancel_url: str) -> Optional[Dict[str, Any]]:
@@ -161,15 +165,15 @@ class StripeService:
                     # Verify customer still exists and is valid
                     existing_customer = stripe.Customer.retrieve(customer_id)
                     if existing_customer.get('deleted', False):
-                        current_app.logger.warning(f"⚠️ Stored customer {customer_id} is deleted for {email}. Will create new customer.")
+                        self.logger.warning(f"⚠️ Stored customer {customer_id} is deleted for {email}. Will create new customer.")
                         customer_id = None
                     elif existing_customer.get('email', '').lower() != email.lower():
-                        current_app.logger.warning(f"⚠️ Email mismatch for customer {customer_id}: expected {email}, got {existing_customer.get('email')}. Will create new customer.")
+                        self.logger.warning(f"⚠️ Email mismatch for customer {customer_id}: expected {email}, got {existing_customer.get('email')}. Will create new customer.")
                         customer_id = None
                     else:
-                        current_app.logger.info(f"✅ Validated existing customer {customer_id} for {email}")
+                        self.logger.info(f"✅ Validated existing customer {customer_id} for {email}")
                 except stripe.error.InvalidRequestError:
-                    current_app.logger.warning(f"⚠️ Stored customer ID {customer_id} not found in Stripe for {email}. Will create new customer.")
+                    self.logger.warning(f"⚠️ Stored customer ID {customer_id} not found in Stripe for {email}. Will create new customer.")
                     customer_id = None
             
             # Create or find customer if needed
@@ -180,7 +184,7 @@ class StripeService:
                 if existing_stripe_customer and not existing_stripe_customer['deleted']:
                     # Found existing customer - use it
                     customer_id = existing_stripe_customer['id']
-                    current_app.logger.info(f"🔗 Linking local user {email} to existing Stripe customer {customer_id}")
+                    self.logger.info(f"🔗 Linking local user {email} to existing Stripe customer {customer_id}")
                 else:
                     # Create new customer
                     customer_id = self.create_customer(email)
@@ -195,7 +199,7 @@ class StripeService:
             # Validate and determine price ID based on plan
             valid_plans = ['monthly', 'yearly']
             if plan not in valid_plans:
-                current_app.logger.error(f"❌ Invalid plan '{plan}' for {email}. Valid plans: {valid_plans}")
+                self.logger.error(f"❌ Invalid plan '{plan}' for {email}. Valid plans: {valid_plans}")
                 return {'error': f'Invalid plan. Choose from: {", ".join(valid_plans)}'}
             
             if plan == 'monthly':
@@ -204,14 +208,14 @@ class StripeService:
                 price_id = self.yearly_price_id
             
             if not price_id:
-                current_app.logger.error(f"❌ Price ID not configured for plan '{plan}'. Check STRIPE_MONTHLY_PRICE_ID and STRIPE_YEARLY_PRICE_ID environment variables")
+                self.logger.error(f"❌ Price ID not configured for plan '{plan}'. Check STRIPE_MONTHLY_PRICE_ID and STRIPE_YEARLY_PRICE_ID environment variables")
                 return {'error': 'Subscription plan not available. Please contact support.'}
             
             # Validate that the price exists in Stripe
             try:
                 stripe.Price.retrieve(price_id)
             except stripe.error.InvalidRequestError:
-                current_app.logger.error(f"❌ Price ID '{price_id}' does not exist in Stripe for plan '{plan}'")
+                self.logger.error(f"❌ Price ID '{price_id}' does not exist in Stripe for plan '{plan}'")
                 return {'error': 'Subscription plan configuration error. Please contact support.'}
             
             # Create checkout session
@@ -233,7 +237,7 @@ class StripeService:
                 billing_address_collection='auto'
             )
             
-            current_app.logger.info(f"✅ Checkout session created: {checkout_session.id} for {email} (plan: {plan})")
+            self.logger.info(f"✅ Checkout session created: {checkout_session.id} for {email} (plan: {plan})")
             
             return {
                 'session_id': checkout_session.id,
@@ -241,19 +245,19 @@ class StripeService:
             }
             
         except stripe.error.InvalidRequestError as e:
-            current_app.logger.error(f"❌ Invalid request creating checkout session for {email}: {e}")
+            self.logger.error(f"❌ Invalid request creating checkout session for {email}: {e}")
             return {'error': 'Invalid subscription request. Please try again.'}
         except stripe.error.AuthenticationError as e:
-            current_app.logger.error(f"❌ Authentication error creating checkout session: {e}")
+            self.logger.error(f"❌ Authentication error creating checkout session: {e}")
             return {'error': 'Payment system temporarily unavailable. Please try again later.'}
         except stripe.error.APIConnectionError as e:
-            current_app.logger.error(f"❌ Network error creating checkout session for {email}: {e}")
+            self.logger.error(f"❌ Network error creating checkout session for {email}: {e}")
             return {'error': 'Connection error. Please check your internet connection and try again.'}
         except stripe.error.StripeError as e:
-            current_app.logger.error(f"❌ Stripe error creating checkout session for {email}: {e}")
+            self.logger.error(f"❌ Stripe error creating checkout session for {email}: {e}")
             return {'error': 'Payment processing error. Please try again or contact support.'}
         except Exception as e:
-            current_app.logger.error(f"❌ Unexpected error creating checkout session for {email}: {e}")
+            self.logger.error(f"❌ Unexpected error creating checkout session for {email}: {e}")
             return {'error': 'An unexpected error occurred. Please try again.'}
     
     def create_billing_portal_session(self, email: str, return_url: str) -> Optional[str]:
@@ -261,19 +265,19 @@ class StripeService:
         try:
             subscription_data = self.user_service.get_subscription(email)
             if not subscription_data:
-                current_app.logger.warning(f"⚠️ No subscription data found for {email}")
+                self.logger.warning(f"⚠️ No subscription data found for {email}")
                 return None
             
             customer_id = subscription_data.get('stripe_customer_id')
             if not customer_id:
-                current_app.logger.warning(f"⚠️ No Stripe customer ID found for {email}")
+                self.logger.warning(f"⚠️ No Stripe customer ID found for {email}")
                 return None
             
             # Verify customer exists in Stripe
             try:
                 stripe.Customer.retrieve(customer_id)
             except stripe.error.InvalidRequestError:
-                current_app.logger.error(f"❌ Stripe customer {customer_id} not found for {email}")
+                self.logger.error(f"❌ Stripe customer {customer_id} not found for {email}")
                 return None
             
             # Create billing portal session
@@ -282,20 +286,20 @@ class StripeService:
                 return_url=return_url,
             )
             
-            current_app.logger.info(f"✅ Billing portal session created for {email}")
+            self.logger.info(f"✅ Billing portal session created for {email}")
             return portal_session.url
             
         except stripe.error.InvalidRequestError as e:
-            current_app.logger.error(f"❌ Invalid request creating billing portal for {email}: {e}")
+            self.logger.error(f"❌ Invalid request creating billing portal for {email}: {e}")
             return None
         except stripe.error.AuthenticationError as e:
-            current_app.logger.error(f"❌ Authentication error creating billing portal: {e}")
+            self.logger.error(f"❌ Authentication error creating billing portal: {e}")
             return None
         except stripe.error.StripeError as e:
-            current_app.logger.error(f"❌ Stripe error creating billing portal for {email}: {e}")
+            self.logger.error(f"❌ Stripe error creating billing portal for {email}: {e}")
             return None
         except Exception as e:
-            current_app.logger.error(f"❌ Unexpected error creating billing portal for {email}: {e}")
+            self.logger.error(f"❌ Unexpected error creating billing portal for {email}: {e}")
             return None
     
     def _is_webhook_processed(self, event_id: str) -> bool:
@@ -304,7 +308,7 @@ class StripeService:
             # Use Redis to track processed webhooks with 7-day expiry
             return self.user_service.redis.exists(f"webhook:{event_id}")
         except Exception as e:
-            current_app.logger.warning(f"⚠️ Could not check webhook idempotency for {event_id}: {e}")
+            self.logger.warning(f"⚠️ Could not check webhook idempotency for {event_id}: {e}")
             return False
     
     def _mark_webhook_processed(self, event_id: str) -> None:
@@ -313,7 +317,7 @@ class StripeService:
             # Store for 7 days to prevent duplicate processing
             self.user_service.redis.setex(f"webhook:{event_id}", 604800, "processed")
         except Exception as e:
-            current_app.logger.warning(f"⚠️ Could not mark webhook {event_id} as processed: {e}")
+            self.logger.warning(f"⚠️ Could not mark webhook {event_id} as processed: {e}")
     
     def handle_webhook(self, payload: bytes, sig_header: str) -> bool:
         """Handle Stripe webhook events with idempotency protection."""
@@ -326,11 +330,11 @@ class StripeService:
             event_id = event['id']
             event_type = event['type']
             
-            current_app.logger.info(f"🎣 Stripe webhook received: {event_type} (ID: {event_id})")
+            self.logger.info(f"🎣 Stripe webhook received: {event_type} (ID: {event_id})")
             
             # Check if we've already processed this event (idempotency)
             if self._is_webhook_processed(event_id):
-                current_app.logger.info(f"🔁 Webhook {event_id} already processed, skipping")
+                self.logger.info(f"🔁 Webhook {event_id} already processed, skipping")
                 return True
             
             # Handle different event types
@@ -354,7 +358,7 @@ class StripeService:
                 success = self._handle_payment_failed(event['data']['object'])
             
             else:
-                current_app.logger.info(f"⚠️ Unhandled webhook event: {event_type}")
+                self.logger.info(f"⚠️ Unhandled webhook event: {event_type}")
                 success = True  # Not an error, just unhandled
             
             # Mark webhook as processed if successful
@@ -364,13 +368,13 @@ class StripeService:
             return success
             
         except ValueError as e:
-            current_app.logger.error(f"❌ Invalid webhook payload: {e}")
+            self.logger.error(f"❌ Invalid webhook payload: {e}")
             return False
         except stripe.error.SignatureVerificationError as e:
-            current_app.logger.error(f"❌ Webhook signature verification failed: {e}")
+            self.logger.error(f"❌ Webhook signature verification failed: {e}")
             return False
         except Exception as e:
-            current_app.logger.error(f"❌ Webhook handling error: {e}")
+            self.logger.error(f"❌ Webhook handling error: {e}")
             return False
     
     def _handle_checkout_completed(self, session) -> bool:
@@ -383,17 +387,17 @@ class StripeService:
             session_id = session.get('id')
             
             if not email:
-                current_app.logger.error(f"❌ No user email in checkout session {session_id} metadata")
+                self.logger.error(f"❌ No user email in checkout session {session_id} metadata")
                 return False
             
             if not customer_id or not subscription_id:
-                current_app.logger.error(f"❌ Missing customer_id or subscription_id in checkout session {session_id} for {email}")
+                self.logger.error(f"❌ Missing customer_id or subscription_id in checkout session {session_id} for {email}")
                 return False
             
             # Verify user exists
             user_data = self.user_service.get_user(email)
             if not user_data:
-                current_app.logger.error(f"❌ User {email} not found during checkout completion")
+                self.logger.error(f"❌ User {email} not found during checkout completion")
                 return False
             
             # Update user subscription
@@ -408,14 +412,14 @@ class StripeService:
             
             success = self.user_service.update_subscription(email, subscription_update)
             if success:
-                current_app.logger.info(f"✅ Subscription activated for {email} (session: {session_id}, plan: {plan})")
+                self.logger.info(f"✅ Subscription activated for {email} (session: {session_id}, plan: {plan})")
             else:
-                current_app.logger.error(f"❌ Failed to update subscription for {email} (session: {session_id})")
+                self.logger.error(f"❌ Failed to update subscription for {email} (session: {session_id})")
             
             return success
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to handle checkout completion: {e}")
+            self.logger.error(f"❌ Failed to handle checkout completion: {e}")
             return False
     
     def _handle_subscription_created(self, subscription) -> bool:
@@ -439,7 +443,7 @@ class StripeService:
             return self.user_service.update_subscription(email, subscription_update)
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to handle subscription creation: {e}")
+            self.logger.error(f"❌ Failed to handle subscription creation: {e}")
             return False
     
     def _handle_subscription_updated(self, subscription) -> bool:
@@ -461,7 +465,7 @@ class StripeService:
             return self.user_service.update_subscription(email, subscription_update)
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to handle subscription update: {e}")
+            self.logger.error(f"❌ Failed to handle subscription update: {e}")
             return False
     
     def _handle_subscription_cancelled(self, subscription) -> bool:
@@ -483,7 +487,7 @@ class StripeService:
             return self.user_service.update_subscription(email, subscription_update)
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to handle subscription cancellation: {e}")
+            self.logger.error(f"❌ Failed to handle subscription cancellation: {e}")
             return False
     
     def _handle_payment_succeeded(self, invoice) -> bool:
@@ -505,7 +509,7 @@ class StripeService:
             return self.user_service.update_subscription(email, subscription_update)
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to handle payment success: {e}")
+            self.logger.error(f"❌ Failed to handle payment success: {e}")
             return False
     
     def _handle_payment_failed(self, invoice) -> bool:
@@ -527,7 +531,7 @@ class StripeService:
             return self.user_service.update_subscription(email, subscription_update)
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to handle payment failure: {e}")
+            self.logger.error(f"❌ Failed to handle payment failure: {e}")
             return False
     
     def _find_user_by_customer_id(self, customer_id: str) -> Optional[str]:
@@ -547,7 +551,7 @@ class StripeService:
             return None
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to find user by customer ID: {e}")
+            self.logger.error(f"❌ Failed to find user by customer ID: {e}")
             return None
     
     def validate_user_subscription_status(self, email: str) -> Dict[str, Any]:
@@ -574,7 +578,7 @@ class StripeService:
             
             # If no local customer ID, user has no Stripe subscription
             if not result['stripe_customer_id']:
-                current_app.logger.info(f"🔍 User {email} has no Stripe customer ID")
+                self.logger.info(f"🔍 User {email} has no Stripe customer ID")
                 return result
             
             try:
@@ -585,18 +589,18 @@ class StripeService:
                 if customer.get('deleted', False):
                     result['stripe_customer_deleted'] = True
                     result['discrepancy_found'] = True
-                    current_app.logger.warning(f"⚠️ Stripe customer {result['stripe_customer_id']} is deleted for {email}")
+                    self.logger.warning(f"⚠️ Stripe customer {result['stripe_customer_id']} is deleted for {email}")
                     return result
                 
                 # Verify customer email matches (additional validation)
                 stripe_email = customer.get('email', '').lower()
                 if stripe_email and stripe_email != email.lower():
-                    current_app.logger.warning(f"⚠️ Email mismatch for customer {result['stripe_customer_id']}: Stripe={stripe_email}, Local={email}")
+                    self.logger.warning(f"⚠️ Email mismatch for customer {result['stripe_customer_id']}: Stripe={stripe_email}, Local={email}")
                     result['error'] = f"Customer email mismatch: expected {email}, found {stripe_email}"
                     return result
                 
                 result['stripe_customer_exists'] = True
-                current_app.logger.info(f"✅ Stripe customer {result['stripe_customer_id']} verified for {email}")
+                self.logger.info(f"✅ Stripe customer {result['stripe_customer_id']} verified for {email}")
                 
                 # Get all subscriptions for this customer (not just active ones)
                 all_subscriptions = stripe.Subscription.list(
@@ -611,14 +615,14 @@ class StripeService:
                     limit=10
                 )
                 
-                current_app.logger.info(f"🔍 Customer {result['stripe_customer_id']} has {len(all_subscriptions.data)} total subscriptions, {len(active_subscriptions.data)} active for {email}")
+                self.logger.info(f"🔍 Customer {result['stripe_customer_id']} has {len(all_subscriptions.data)} total subscriptions, {len(active_subscriptions.data)} active for {email}")
                 
                 # Check for active subscriptions
                 active_subscription = None
                 for sub in active_subscriptions.data:
                     if sub.status == 'active':
                         active_subscription = sub
-                        current_app.logger.info(f"✅ Found active subscription {sub.id} for customer {result['stripe_customer_id']}")
+                        self.logger.info(f"✅ Found active subscription {sub.id} for customer {result['stripe_customer_id']}")
                         break
                 
                 if active_subscription:
@@ -630,43 +634,43 @@ class StripeService:
                     # Check for discrepancies
                     if result['local_tier'] != 'premium' or result['local_status'] != 'active':
                         result['discrepancy_found'] = True
-                        current_app.logger.warning(f"⚠️ Subscription discrepancy for {email}: local={result['local_tier']}/{result['local_status']}, stripe=premium/active")
+                        self.logger.warning(f"⚠️ Subscription discrepancy for {email}: local={result['local_tier']}/{result['local_status']}, stripe=premium/active")
                     
                     # Check if subscription IDs match
                     if result['stripe_subscription_id'] and result['stripe_subscription_id'] != active_subscription.id:
                         result['discrepancy_found'] = True
-                        current_app.logger.warning(f"⚠️ Subscription ID mismatch for {email}: local={result['stripe_subscription_id']}, stripe={active_subscription.id}")
+                        self.logger.warning(f"⚠️ Subscription ID mismatch for {email}: local={result['stripe_subscription_id']}, stripe={active_subscription.id}")
                 else:
                     # No active subscription in Stripe - check if there are any past subscriptions
                     past_subscriptions = [sub for sub in all_subscriptions.data if sub.status in ['canceled', 'incomplete_expired', 'past_due', 'unpaid']]
                     if past_subscriptions:
                         latest_past = max(past_subscriptions, key=lambda s: s.created)
-                        current_app.logger.info(f"📅 Latest past subscription {latest_past.id} status: {latest_past.status} for {email}")
+                        self.logger.info(f"📅 Latest past subscription {latest_past.id} status: {latest_past.status} for {email}")
                     
                     # Check for discrepancy with local data
                     if result['local_tier'] == 'premium' and result['local_status'] == 'active':
                         result['discrepancy_found'] = True
-                        current_app.logger.warning(f"⚠️ Subscription discrepancy for {email}: local=premium/active, stripe=no active subscription")
+                        self.logger.warning(f"⚠️ Subscription discrepancy for {email}: local=premium/active, stripe=no active subscription")
                 
             except stripe.error.InvalidRequestError as e:
                 # Customer doesn't exist or invalid ID
                 result['stripe_customer_exists'] = False
                 result['discrepancy_found'] = True
                 result['error'] = f"Stripe customer not found: {e}"
-                current_app.logger.error(f"❌ Customer ID {result['stripe_customer_id']} does not exist in Stripe for {email}: {e}")
+                self.logger.error(f"❌ Customer ID {result['stripe_customer_id']} does not exist in Stripe for {email}: {e}")
                 
                 # If local data shows they have a subscription but customer doesn't exist, it's a major discrepancy
                 if result['local_tier'] == 'premium':
-                    current_app.logger.error(f"🚨 Critical discrepancy: {email} shows premium locally but Stripe customer doesn't exist!")
+                    self.logger.error(f"🚨 Critical discrepancy: {email} shows premium locally but Stripe customer doesn't exist!")
                 
             except stripe.error.StripeError as e:
                 result['error'] = f"Stripe API error: {e}"
-                current_app.logger.error(f"❌ Stripe API error validating {email}: {e}")
+                self.logger.error(f"❌ Stripe API error validating {email}: {e}")
             
             return result
             
         except Exception as e:
-            current_app.logger.error(f"❌ Error validating subscription for {email}: {e}")
+            self.logger.error(f"❌ Error validating subscription for {email}: {e}")
             return {
                 'has_local_subscription': False,
                 'local_tier': 'free',
@@ -688,16 +692,16 @@ class StripeService:
             
             # Handle validation errors
             if validation_result['error'] and not validation_result['discrepancy_found']:
-                current_app.logger.error(f"❌ Cannot sync {email} due to validation error: {validation_result['error']}")
+                self.logger.error(f"❌ Cannot sync {email} due to validation error: {validation_result['error']}")
                 return False
             
             if not validation_result['discrepancy_found']:
-                current_app.logger.info(f"✅ No sync needed for {email} - data is consistent")
+                self.logger.info(f"✅ No sync needed for {email} - data is consistent")
                 return True
             
             # Handle case where Stripe customer doesn't exist
             if not validation_result.get('stripe_customer_exists', True) or validation_result.get('stripe_customer_deleted', False):
-                current_app.logger.warning(f"🚨 Stripe customer missing/deleted for {email}, resetting to free tier")
+                self.logger.warning(f"🚨 Stripe customer missing/deleted for {email}, resetting to free tier")
                 subscription_update = {
                     'tier': 'free',
                     'status': 'cancelled',
@@ -717,7 +721,7 @@ class StripeService:
                     'synced_at': datetime.now(timezone.utc).isoformat(),
                     'sync_note': 'Synced from active Stripe subscription'
                 }
-                current_app.logger.info(f"🔄 Syncing {email} to premium/active from Stripe")
+                self.logger.info(f"🔄 Syncing {email} to premium/active from Stripe")
                 
             # Handle case with no active subscription
             else:
@@ -727,18 +731,18 @@ class StripeService:
                     'synced_at': datetime.now(timezone.utc).isoformat(),
                     'sync_note': 'No active Stripe subscription found'
                 }
-                current_app.logger.info(f"🔄 Syncing {email} to free/cancelled from Stripe")
+                self.logger.info(f"🔄 Syncing {email} to free/cancelled from Stripe")
             
             success = self.user_service.update_subscription(email, subscription_update)
             if success:
-                current_app.logger.info(f"✅ Successfully synced subscription for {email}")
+                self.logger.info(f"✅ Successfully synced subscription for {email}")
             else:
-                current_app.logger.error(f"❌ Failed to update local subscription for {email}")
+                self.logger.error(f"❌ Failed to update local subscription for {email}")
             
             return success
             
         except Exception as e:
-            current_app.logger.error(f"❌ Error syncing subscription for {email}: {e}")
+            self.logger.error(f"❌ Error syncing subscription for {email}: {e}")
             return False
 
 

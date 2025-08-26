@@ -9,7 +9,7 @@ import bcrypt
 import redis
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
-from flask import current_app
+from core.logging_utils import get_safe_logger
 
 
 class InMemoryRedis:
@@ -95,11 +95,14 @@ class InMemoryRedis:
 class UserService:
     def __init__(self, redis_client=None):
         """Initialize Redis connection using provided client or create new one."""
+        # Context-aware logger
+        self.logger = get_safe_logger(__name__)
+        
         if redis_client:
             # Use provided Redis client (from Flask app)
             self.redis_client = redis_client
             self.using_real_redis = True
-            current_app.logger.info("✅ UserService using shared Redis client")
+            self.logger.info("✅ UserService using shared Redis client")
         else:
             # Fallback: create own Redis connection
             redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
@@ -110,10 +113,10 @@ class UserService:
                 self.redis_client = redis.from_url(redis_url, decode_responses=True)
                 self.redis_client.ping()  # Test connection
                 self.using_real_redis = True
-                current_app.logger.info(f"✅ UserService using Redis: {redis_url}")
+                self.logger.info(f"✅ UserService using Redis: {redis_url}")
             except Exception as e:
                 # Only fall back to in-memory if Redis is truly unavailable
-                current_app.logger.warning(f"⚠️ UserService Redis failed ({e}), using in-memory storage")
+                self.logger.warning(f"⚠️ UserService Redis failed ({e}), using in-memory storage")
                 self.redis_client = InMemoryRedis()
                 self.using_real_redis = False
     
@@ -193,11 +196,11 @@ class UserService:
             }
             self.redis_client.hset(self._get_subscription_key(email), mapping=self._ensure_string_values(subscription_data))
             
-            current_app.logger.info(f"✅ User registered: {email}")
+            self.logger.info(f"✅ User registered: {email}")
             return True
             
         except Exception as e:
-            current_app.logger.error(f"❌ User registration failed: {e}")
+            self.logger.error(f"❌ User registration failed: {e}")
             return False
     
     def authenticate_user(self, email: str, password: str) -> Optional[Dict[str, Any]]:
@@ -224,7 +227,7 @@ class UserService:
             return user_data
             
         except Exception as e:
-            current_app.logger.error(f"❌ User authentication failed: {e}")
+            self.logger.error(f"❌ User authentication failed: {e}")
             return None
     
     def get_user(self, email: str) -> Optional[Dict[str, Any]]:
@@ -242,7 +245,7 @@ class UserService:
             return user_data
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to get user: {e}")
+            self.logger.error(f"❌ Failed to get user: {e}")
             return None
     
     def get_subscription(self, email: str) -> Optional[Dict[str, Any]]:
@@ -252,7 +255,7 @@ class UserService:
             subscription_key = self._get_subscription_key(email)
             return self.redis_client.hgetall(subscription_key)
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to get subscription: {e}")
+            self.logger.error(f"❌ Failed to get subscription: {e}")
             return None
     
     def update_subscription(self, email: str, subscription_data: Dict[str, Any]) -> bool:
@@ -272,11 +275,11 @@ class UserService:
                 user_key = self._get_user_key(email)
                 self.redis_client.hset(user_key, 'subscription_tier', subscription_data['tier'])
             
-            current_app.logger.info(f"✅ Subscription updated for {email}")
+            self.logger.info(f"✅ Subscription updated for {email}")
             return True
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to update subscription: {e}")
+            self.logger.error(f"❌ Failed to update subscription: {e}")
             return False
     
     def get_daily_usage(self, email: str, date: str = None) -> int:
@@ -286,7 +289,7 @@ class UserService:
             usage = self.redis_client.get(usage_key)
             return int(usage) if usage else 0
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to get usage: {e}")
+            self.logger.error(f"❌ Failed to get usage: {e}")
             return 0
     
     def increment_usage(self, email: str) -> int:
@@ -309,7 +312,7 @@ class UserService:
             return count
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to increment usage: {e}")
+            self.logger.error(f"❌ Failed to increment usage: {e}")
             return 0
     
     def can_scan(self, email: str) -> bool:
@@ -328,7 +331,7 @@ class UserService:
             return daily_usage < 1
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to check scan permission: {e}")
+            self.logger.error(f"❌ Failed to check scan permission: {e}")
             return False
     
     def add_to_history(self, email: str, scan_result: Dict[str, Any]) -> bool:
@@ -353,7 +356,7 @@ class UserService:
             return True
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to add to history: {e}")
+            self.logger.error(f"❌ Failed to add to history: {e}")
             return False
     
     def get_history(self, email: str, limit: int = 20) -> List[Dict[str, Any]]:
@@ -372,7 +375,7 @@ class UserService:
             return [json.loads(item) for item in history_items]
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to get history: {e}")
+            self.logger.error(f"❌ Failed to get history: {e}")
             return []
     
     def create_session(self, session_id: str, email: str, expires_in_hours: int = 24) -> bool:
@@ -392,7 +395,7 @@ class UserService:
             return True
             
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to create session: {e}")
+            self.logger.error(f"❌ Failed to create session: {e}")
             return False
     
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -401,7 +404,7 @@ class UserService:
             session_key = self._get_session_key(session_id)
             return self.redis_client.hgetall(session_key)
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to get session: {e}")
+            self.logger.error(f"❌ Failed to get session: {e}")
             return None
     
     def delete_session(self, session_id: str) -> bool:
@@ -411,7 +414,7 @@ class UserService:
             self.redis_client.delete(session_key)
             return True
         except Exception as e:
-            current_app.logger.error(f"❌ Failed to delete session: {e}")
+            self.logger.error(f"❌ Failed to delete session: {e}")
             return False
 
 
@@ -424,8 +427,8 @@ def get_user_service() -> UserService:
     global user_service
     if user_service is None:
         # Try to get Redis client from Flask app context
-        from flask import current_app
         try:
+            from flask import current_app
             # Use the same Redis client as Flask-Session if available
             if hasattr(current_app, 'config') and current_app.config.get('SESSION_TYPE') == 'redis':
                 session_redis = current_app.config.get('SESSION_REDIS')
@@ -439,8 +442,10 @@ def get_user_service() -> UserService:
                     user_service = UserService()
             else:
                 user_service = UserService()
-        except Exception:
-            # Fallback if no app context
+        except (ImportError, RuntimeError):
+            # ImportError: Flask not available
+            # RuntimeError: Working outside of application context
+            # Fallback to standalone UserService
             user_service = UserService()
     
     return user_service
