@@ -31,6 +31,11 @@
             <div class="header-brand">
                 <h1><a href="{{ url_for('index') }}">Book Saver</a></h1>
                 <p>Snap a picture of books and add them to your favorite platforms!</p>
+                {% if config.get('FLASK_ENV') == 'development' %}
+                <div class="dev-tools">
+                    <a href="{{ url_for('test_email') }}" class="dev-link">🧪 Test Email</a>
+                </div>
+                {% endif %}
             </div>
             <div class="header-auth">
                 {% if g.is_authenticated %}

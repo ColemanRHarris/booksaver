@@ -3080,3 +3080,28 @@ footer .disclosure {
         padding: 0 15px;
     }
 }
+
+
+/* Development tools */
+.dev-tools {
+    margin-top: 0.5rem;
+}
+
+.dev-link {
+    display: inline-block;
+    background: #fbbf24;
+    color: #92400e;
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    border: 1px solid #f59e0b;
+}
+
+.dev-link:hover {
+    background: #f59e0b;
+    color: #78350f;
+    transform: translateY(-1px);
+}
