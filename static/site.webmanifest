@@ -1,7 +1,7 @@
 {
-    "name": "BookSaver - TikTok Book Finder",
-    "short_name": "BookSaver",
-    "description": "Find books from TikTok videos and Instagram Reels using AI",
+    "name": "BookSaver - AI Book Scanner",
+    "short_name": "BookSaver", 
+    "description": "Scan and identify books with your camera using AI. The Shazam for books!",
     "icons": [
         {
             "src": "/static/android-chrome-192x192.png",

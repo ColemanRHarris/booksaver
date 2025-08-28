@@ -3,7 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Book Saver{% endblock %}</title>
+    <title>{% block title %}BookSaver - Scan Books with Camera | AI Book Identification App{% endblock %}</title>
+    
+    <!-- Meta Description -->
+    <meta name="description" content="{% block description %}Instantly identify books with your camera. BookSaver uses AI to scan book covers and spines, providing purchase links and reading app integration. The Shazam for books!{% endblock %}">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="keywords" content="{% block keywords %}book scanner, book identification, camera book finder, AI book recognition, scan books, identify books, book finder app, shazam for books{% endblock %}">
+    <meta name="author" content="BookSaver by Viscid Labs">
+    <meta name="robots" content="{% block robots %}index, follow{% endblock %}">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}{{ self.description() }}{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}{{ request.url }}{% endblock %}">
+    <meta property="og:site_name" content="BookSaver">
+    <meta property="og:image" content="{% block og_image %}{{ url_for('static', filename='ornate-b-large.png', _external=True) }}{% endblock %}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="en_US">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block twitter_title %}{{ self.og_title() }}{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}{{ self.og_description() }}{% endblock %}">
+    <meta name="twitter:image" content="{% block twitter_image %}{{ self.og_image() }}{% endblock %}">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{% block canonical %}{{ request.url }}{% endblock %}">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -14,7 +42,51 @@
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.png') }}">
     <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
     
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://www.googletagmanager.com">
+    <link rel="preconnect" href="https://books.google.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://amzn.to">
+    <link rel="dns-prefetch" href="https://www.barnesandnoble.com">
+    <link rel="dns-prefetch" href="https://bookshop.org">
+    
+    <!-- CSS with preload for performance -->
+    <link rel="preload" href="{{ url_for('static', filename='css/style.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"></noscript>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" media="print" onload="this.media='all'">
+    
+    <!-- Structured Data -->
+    {% block structured_data %}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "BookSaver",
+        "description": "AI-powered book identification app that scans book covers and spines with your camera",
+        "url": "{{ url_for('index', _external=True) }}",
+        "applicationCategory": "UtilityApplication",
+        "operatingSystem": "Web Browser",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "category": "Free with Premium Options"
+        },
+        "creator": {
+            "@type": "Organization",
+            "name": "Viscid Labs",
+            "url": "{{ url_for('index', _external=True) }}"
+        },
+        "featureList": [
+            "Book cover scanning",
+            "AI book identification",
+            "Purchase link generation",
+            "Reading app integration",
+            "Book recommendations"
+        ]
+    }
+    </script>
+    {% endblock %}
      <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17497319659"></script>
     <script>

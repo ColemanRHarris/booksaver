@@ -1,5 +1,67 @@
 {% extends "base.html" %}
 
+{% block title %}Book Recommendations - Curated Reading Lists | BookSaver{% endblock %}
+{% block description %}Discover your next great read with BookSaver's curated book recommendations. Handpicked books across all genres with purchase links and reading app integration.{% endblock %}
+{% block keywords %}book recommendations, curated reading lists, book discovery, best books to read, popular books, book suggestions, reading recommendations{% endblock %}
+
+{% block og_title %}Book Recommendations - Curated Reading Lists | BookSaver{% endblock %}
+{% block og_description %}Discover your next great read with BookSaver's curated book recommendations. Handpicked books across all genres with purchase links and reading app integration.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Book Recommendations",
+    "description": "Curated collection of book recommendations across various genres",
+    "url": "{{ url_for('recommendations', _external=True) }}",
+    "mainEntity": {
+        "@type": "ItemList",
+        "name": "Recommended Books",
+        "description": "Hand-picked collection of trending and popular books",
+        "numberOfItems": {{ books|length }},
+        "itemListElement": [
+            {% for book in books[:5] %}
+            {
+                "@type": "ListItem",
+                "position": {{ loop.index }},
+                "item": {
+                    "@type": "Book",
+                    "name": "{{ book.title|escape }}",
+                    "author": {
+                        "@type": "Person",
+                        "name": "{{ book.authors[0]|escape if book.authors else 'Unknown' }}"
+                    },
+                    "isbn": "{{ book.isbn if book.isbn else '' }}",
+                    "description": "{{ book.description[:200]|escape if book.description else '' }}...",
+                    "image": "{{ book.thumbnail if book.thumbnail else '' }}",
+                    "url": "{{ book.preview_link if book.preview_link else '' }}"
+                }
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    },
+    "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "{{ url_for('index', _external=True) }}"
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Book Recommendations",
+                "item": "{{ url_for('recommendations', _external=True) }}"
+            }
+        ]
+    }
+}
+</script>
+{% endblock %}
+
 {% block content %}
 <!-- Recommendations Hero Section -->
 <div class="results-hero">

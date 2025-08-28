@@ -364,7 +364,24 @@ def register_auth_routes(app, limiter):
         decorated_function.__name__ = f.__name__
         return decorated_function
     
-    # Add require_auth to app context for use in other routes
+    def require_admin(f):
+        """Decorator to require admin authentication."""
+        def decorated_function(*args, **kwargs):
+            if not getattr(g, 'is_authenticated', False):
+                flash("Please log in to access this page.", "warning")
+                return redirect(url_for('login', next=request.url))
+            
+            email = session.get('user_email', '').lower()
+            if email != 'coleman@viscidlabs.com':
+                flash("Access denied. Admin privileges required.", "error")
+                return redirect(url_for('index'))
+            
+            return f(*args, **kwargs)
+        decorated_function.__name__ = f.__name__
+        return decorated_function
+    
+    # Add decorators to app context for use in other routes
     app.require_auth = require_auth
+    app.require_admin = require_admin
     
     return require_auth

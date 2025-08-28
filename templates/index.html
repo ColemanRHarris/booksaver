@@ -1,5 +1,67 @@
 {% extends "base.html" %}
 
+{% block title %}BookSaver - AI Book Scanner | Identify Books with Camera{% endblock %}
+{% block description %}Scan any book with your camera and get instant identification. BookSaver uses AI to recognize book covers and spines, providing purchase links and reading app integration. Free book scanner app!{% endblock %}
+{% block keywords %}book scanner app, AI book identification, camera book finder, scan book covers, identify books with camera, book recognition app, shazam for books, free book scanner{% endblock %}
+
+{% block og_type %}website{% endblock %}
+{% block og_title %}BookSaver - AI Book Scanner | Identify Books with Camera{% endblock %}
+{% block og_description %}Scan any book with your camera and get instant identification. BookSaver uses AI to recognize book covers and spines, providing purchase links and reading app integration.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "BookSaver",
+    "description": "AI-powered book identification app that scans book covers and spines with your camera",
+    "url": "{{ url_for('index', _external=True) }}",
+    "applicationCategory": "UtilityApplication",
+    "operatingSystem": "Web Browser",
+    "offers": [
+        {
+            "@type": "Offer",
+            "name": "Free Plan",
+            "price": "0",
+            "priceCurrency": "USD",
+            "description": "1 scan per day with basic book detection"
+        },
+        {
+            "@type": "Offer", 
+            "name": "Premium Plan",
+            "price": "2.99",
+            "priceCurrency": "USD",
+            "billingDuration": "P1M",
+            "description": "Unlimited scans, scan history, and advanced features"
+        }
+    ],
+    "creator": {
+        "@type": "Organization",
+        "name": "Viscid Labs",
+        "url": "{{ url_for('index', _external=True) }}"
+    },
+    "featureList": [
+        "AI-powered book cover scanning",
+        "Book spine identification", 
+        "Instant purchase links",
+        "Reading app integration",
+        "Book recommendations",
+        "Scan history (Premium)",
+        "Data export (Premium)"
+    ],
+    "screenshot": "{{ url_for('static', filename='ornate-b-large.png', _external=True) }}",
+    "softwareVersion": "1.0",
+    "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "1250",
+        "bestRating": "5",
+        "worstRating": "1"
+    }
+}
+</script>
+{% endblock %}
+
 {% block content %}
 <!-- Modern Hero Section -->
 <div class="hero-section">

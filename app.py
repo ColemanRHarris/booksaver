@@ -107,6 +107,10 @@ Session(app)
 from services.user_service import initialize_user_service_with_app
 initialize_user_service_with_app(app)
 
+# Initialize SEO Service with app context for Redis consistency
+from services.seo_service import initialize_seo_service_with_app
+initialize_seo_service_with_app(app)
+
 logger = logging.getLogger(__name__)
 
 
@@ -274,10 +278,18 @@ def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     
     # Only add HSTS in production with HTTPS
     if os.getenv('FLASK_ENV') == 'production':
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        # Cache static assets for longer in production
+        if request.endpoint and request.endpoint.startswith('static'):
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    else:
+        # Shorter cache for development
+        if request.endpoint and request.endpoint.startswith('static'):
+            response.headers['Cache-Control'] = 'public, max-age=3600'
     
     # Content Security Policy
     csp = (
@@ -302,6 +314,14 @@ require_auth = register_auth_routes(app, limiter)
 # Import and register subscription routes
 from routes.subscription import register_subscription_routes
 register_subscription_routes(app, limiter, require_auth)
+
+# Import and register SEO landing page routes
+from routes.seo_pages import register_seo_routes
+register_seo_routes(app, limiter)
+
+# Import and register SEO admin routes
+from routes.seo_admin import register_seo_admin_routes
+register_seo_admin_routes(app, limiter, app.require_admin)
 
 
 # Main routes
@@ -582,6 +602,111 @@ def privacy():
 @app.route('/site.webmanifest')
 def site_webmanifest():
     return app.send_static_file('site.webmanifest')
+
+
+@app.route('/robots.txt')
+def robots_txt():
+    """Serve robots.txt file with proper content-type"""
+    from flask import make_response
+    response = make_response(app.send_static_file('robots.txt'))
+    response.headers['Content-Type'] = 'text/plain'
+    return response
+
+
+@app.route('/sitemap.xml')
+def sitemap():
+    """Generate XML sitemap dynamically"""
+    from datetime import datetime
+    from flask import make_response
+    
+    # Static pages
+    pages = [
+        {
+            'url': url_for('index', _external=True),
+            'lastmod': '2025-01-01',
+            'changefreq': 'daily',
+            'priority': '1.0'
+        },
+        {
+            'url': url_for('recommendations', _external=True),
+            'lastmod': '2025-01-01', 
+            'changefreq': 'weekly',
+            'priority': '0.8'
+        },
+        {
+            'url': url_for('privacy', _external=True),
+            'lastmod': '2025-01-01',
+            'changefreq': 'monthly',
+            'priority': '0.3'
+        },
+        {
+            'url': url_for('terms', _external=True),
+            'lastmod': '2025-01-01',
+            'changefreq': 'monthly', 
+            'priority': '0.3'
+        },
+        {
+            'url': url_for('signup', _external=True),
+            'lastmod': '2025-01-01',
+            'changefreq': 'monthly',
+            'priority': '0.7'
+        },
+        {
+            'url': url_for('login', _external=True),
+            'lastmod': '2025-01-01',
+            'changefreq': 'monthly',
+            'priority': '0.5'
+        }
+    ]
+    
+    # Add sample SEO landing pages to main sitemap
+    current_year = datetime.now().year
+    
+    # Add some popular genre pages
+    popular_genres = ['science-fiction', 'fantasy', 'mystery', 'romance', 'thriller']
+    for genre_slug in popular_genres:
+        pages.append({
+            'url': url_for('genre_landing', genre_slug=genre_slug, _external=True),
+            'lastmod': '2025-01-01',
+            'changefreq': 'weekly',
+            'priority': '0.7'
+        })
+        # Add current year's best books page for each genre
+        pages.append({
+            'url': url_for('best_genre_books', genre_slug=genre_slug, year=current_year, _external=True),
+            'lastmod': '2025-01-01',
+            'changefreq': 'weekly', 
+            'priority': '0.8'
+        })
+    
+    # Add reference to SEO sitemap
+    try:
+        pages.append({
+            'url': url_for('seo_sitemap', _external=True),
+            'lastmod': '2025-01-01',
+            'changefreq': 'daily',
+            'priority': '0.9'
+        })
+    except:
+        pass  # SEO routes might not be registered yet
+    
+    # Generate XML
+    xml_content = ['<?xml version="1.0" encoding="UTF-8"?>']
+    xml_content.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
+    
+    for page in pages:
+        xml_content.append('  <url>')
+        xml_content.append(f'    <loc>{page["url"]}</loc>')
+        xml_content.append(f'    <lastmod>{page["lastmod"]}</lastmod>')
+        xml_content.append(f'    <changefreq>{page["changefreq"]}</changefreq>')
+        xml_content.append(f'    <priority>{page["priority"]}</priority>')
+        xml_content.append('  </url>')
+    
+    xml_content.append('</urlset>')
+    
+    response = make_response('\n'.join(xml_content))
+    response.headers['Content-Type'] = 'application/xml'
+    return response
 
 
 @app.route('/favicon.ico')
