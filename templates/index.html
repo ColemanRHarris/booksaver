@@ -91,11 +91,12 @@
         </div>
         <div class="hero-visual">
             <div class="floating-books">
-                <div class="book-icon book-1">📖</div>
+                <!--<div class="book-icon book-1">📖</div>
                 <div class="book-icon book-2">📚</div>
                 <div class="book-icon book-3">📓</div>
-                <div class="book-icon book-4">📔</div>
+                <div class="book-icon book-4">📔</div>-->
             </div>
+
         </div>
     </div>
     
@@ -320,9 +321,7 @@
                 <div class="upload-area" id="upload-area">
                     <div class="upload-content">
                         <div class="upload-icon">
-                            <div class="icon-animation">
-                                📸
-                            </div>
+                            📸
                         </div>
                         <h3 class="upload-title">Drop your book photo here</h3>
                         <p class="upload-subtitle">or click to browse from your device</p>
@@ -600,7 +599,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const heroTitle = document.querySelector('.hero-title');
         const heroSubtitle = document.querySelector('.hero-subtitle');
         const heroStats = document.querySelector('.hero-stats');
-        const floatingBooks = document.querySelectorAll('.book-icon');
         
         // Animate title
         if (heroTitle) {
@@ -635,16 +633,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 600);
         }
         
-        // Animate floating books with stagger
-        floatingBooks.forEach((book, index) => {
-            book.style.opacity = '0';
-            book.style.transform = 'translateY(50px) scale(0.5)';
-            setTimeout(() => {
-                book.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
-                book.style.opacity = '1';
-                book.style.transform = 'translateY(0) scale(1)';
-            }, 800 + index * 100);
-        });
+        // Books are now static - no animations
     }
     
     // Call hero animations if hero exists

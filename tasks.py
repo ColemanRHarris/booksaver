@@ -329,9 +329,9 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
     print(search_queries)
     for i, clean_text in enumerate(search_queries):
         print("ENTERED LOOP")
-        if len(found_books) >= 15:  # Increased limit to collect more unique books
-            print(f"📚 Reached book limit (15), stopping search")
-            break
+        #if len(found_books) >= 15:  # Increased limit to collect more unique books
+        #    print(f"📚 Reached book limit (15), stopping search")
+        #    break
             
         try:
             print(f"\n🔮 Fuzzy search {i+1}/{len(search_queries)}: '{clean_text}'")
@@ -345,8 +345,8 @@ def search_books_from_text(texts: List[str]) -> List[Dict]:
             
             books_added_this_search = 0
             for book in search_results:
-                if len(found_books) >= 8:
-                    break
+                #if len(found_books) >= 8:
+                #    break
                     
                 book_title = book.get('title', '').lower()
                 if book_title not in seen_titles:

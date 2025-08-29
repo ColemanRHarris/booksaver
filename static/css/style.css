@@ -195,20 +195,14 @@ main {
 .book-icon {
     position: absolute;
     font-size: 3rem;
-    animation: float 3s ease-in-out infinite;
     filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
 }
 
-.book-1 { top: 20%; left: 20%; animation-delay: 0s; }
-.book-2 { top: 60%; right: 20%; animation-delay: 0.5s; }
-.book-3 { top: 10%; right: 40%; animation-delay: 1s; }
-.book-4 { bottom: 20%; left: 40%; animation-delay: 1.5s; }
+.book-1 { top: 20%; left: 20%; }
+.book-2 { top: 60%; right: 20%; }
+.book-3 { top: 10%; right: 40%; }
+.book-4 { bottom: 20%; left: 40%; }
 
-@keyframes float {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    33% { transform: translateY(-20px) rotate(2deg); }
-    66% { transform: translateY(-10px) rotate(-1deg); }
-}
 
 /* Hero Arrow */
 .hero-arrow {
