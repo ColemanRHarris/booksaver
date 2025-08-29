@@ -12,6 +12,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 from core.logging_utils import get_safe_logger
+from core.redis_utils import configure_redis_for_service
 
 
 class InMemoryRedis:
@@ -113,21 +114,14 @@ class UserService:
             self.using_real_redis = True
             self.logger.info("✅ UserService using shared Redis client")
         else:
-            # Fallback: create own Redis connection
-            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-            try:
-                if redis_url.startswith('memory://'):
-                    redis_url = 'redis://localhost:6379'
-                
-                self.redis_client = redis.from_url(redis_url, decode_responses=True)
-                self.redis_client.ping()  # Test connection
-                self.using_real_redis = True
-                self.logger.info(f"✅ UserService using Redis: {redis_url}")
-            except Exception as e:
-                # Only fall back to in-memory if Redis is truly unavailable
-                self.logger.warning(f"⚠️ UserService Redis failed ({e}), using in-memory storage")
+            # Use centralized Redis configuration
+            self.redis_client, self.using_real_redis = configure_redis_for_service(
+                "UserService", decode_responses=True
+            )
+            
+            # If Redis not available, use in-memory storage
+            if not self.using_real_redis:
                 self.redis_client = InMemoryRedis()
-                self.using_real_redis = False
     
     def _hash_password(self, password: str) -> str:
         """Hash password using bcrypt."""
@@ -547,15 +541,17 @@ def get_user_service() -> UserService:
         # Try to get Redis client from Flask app context
         try:
             from flask import current_app
-            # Use the same Redis client as Flask-Session if available
+            # Try to use the same Redis client as Flask-Session if available
             if hasattr(current_app, 'config') and current_app.config.get('SESSION_TYPE') == 'redis':
                 session_redis = current_app.config.get('SESSION_REDIS')
                 if session_redis:
-                    # Create user Redis client from session Redis (with decode_responses=True)
-                    import redis
-                    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-                    user_redis = redis.from_url(redis_url, decode_responses=True)
-                    user_service = UserService(user_redis)
+                    # Create user Redis client from centralized config (with decode_responses=True)
+                    from core.redis_utils import get_redis_client
+                    user_redis, using_redis = get_redis_client(decode_responses=True)
+                    if using_redis and user_redis:
+                        user_service = UserService(user_redis)
+                    else:
+                        user_service = UserService()
                 else:
                     user_service = UserService()
             else:

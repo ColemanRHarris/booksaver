@@ -20,6 +20,7 @@ from celery_app import celery_app
 from services.recommendation_engine import get_recommendation_engine
 from system_monitor import get_system_monitor
 from core.utils import sanitize_input, serialize_task_result, safe_get_task_result
+from core.redis_utils import get_redis_client, get_redis_url_for_external_services, log_redis_configuration
 from routes.images import register_image_routes
 from routes.auth import register_auth_routes
 
@@ -67,27 +68,21 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Configure Flask-Session with Redis
-redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-
-# Set up session configuration before Session() initialization
 def configure_session():
-    """Configure session type with Redis fallback"""
+    """Configure session type with Redis fallback using centralized Redis utilities"""
     try:
-        test_redis_url = redis_url
-        if test_redis_url.startswith('memory://'):
-            # Use Redis for session even in memory mode - better consistency
-            test_redis_url = 'redis://localhost:6379'
+        # Use centralized Redis configuration
+        session_redis, using_redis = get_redis_client(decode_responses=False)  # Session needs bytes
         
-        # Test Redis connection
-        session_redis = redis.from_url(test_redis_url, decode_responses=False)  # Session needs bytes
-        session_redis.ping()  # Test connection
-        
-        app.config['SESSION_TYPE'] = 'redis'
-        app.config['SESSION_REDIS'] = session_redis
-        print(f"✅ Flask-Session configured for Redis: {test_redis_url}")
+        if using_redis and session_redis:
+            app.config['SESSION_TYPE'] = 'redis'
+            app.config['SESSION_REDIS'] = session_redis
+            print(f"✅ Flask-Session configured for Redis")
+        else:
+            raise Exception("Redis not available or LOCAL_TESTING enabled")
         
     except Exception as e:
-        print(f"⚠️ Redis connection failed ({e}), configuring filesystem sessions")
+        print(f"⚠️ Redis unavailable ({e}), configuring filesystem sessions")
         app.config['SESSION_TYPE'] = 'filesystem'
         app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(__file__), 'flask_session')
         app.config['SESSION_FILE_THRESHOLD'] = 100
@@ -242,6 +237,9 @@ def log_environment_status():
 # Log environment status
 log_environment_status()
 
+# Log Redis configuration
+log_redis_configuration()
+
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
 
@@ -251,16 +249,16 @@ if os.getenv('FLASK_ENV') != 'production':
     app.config['WTF_CSRF_SSL_STRICT'] = False
 
 # Initialize rate limiter
-redis_url = os.getenv('REDIS_URL')
-if redis_url and not redis_url.startswith('memory://'):
+redis_url_for_limiter = get_redis_url_for_external_services()
+if redis_url_for_limiter:
     limiter = Limiter(
         app=app,
         key_func=get_remote_address,
         default_limits=["100 per hour", "20 per minute"],
-        storage_uri=redis_url,
+        storage_uri=redis_url_for_limiter,
         strategy="fixed-window"
     )
-    print(f"🔗 Flask-Limiter using Redis: {redis_url[:50]}...")
+    print(f"🔗 Flask-Limiter using Redis: {redis_url_for_limiter[:50]}...")
 else:
     limiter = Limiter(
         app=app,
@@ -371,10 +369,10 @@ def processing_wait(task_id):
 def task_status(task_id):
     """Get the status of a background task"""
     try:
-        redis_url = os.getenv('REDIS_URL')
+        # Check if we're using actual Redis for Celery
+        redis_url = get_redis_url_for_external_services()
         
-        # Check if we're using actual Redis (not memory:// for local dev)
-        if redis_url and not redis_url.startswith('memory://'):
+        if redis_url:
             task = celery_app.AsyncResult(task_id)
             
             if task.state == 'PENDING':
@@ -456,10 +454,10 @@ def task_status(task_id):
 def cancel_task(task_id):
     """Cancel a running task"""
     try:
-        redis_url = os.getenv('REDIS_URL')
+        # Check if we're using actual Redis for Celery
+        redis_url = get_redis_url_for_external_services()
         
-        # Check if we're using actual Redis (not memory:// for local dev)
-        if redis_url and not redis_url.startswith('memory://'):
+        if redis_url:
             celery_app.control.revoke(task_id, terminate=True)
             message = f"Task {task_id} has been cancelled"
         else:
@@ -483,13 +481,13 @@ def cancel_task(task_id):
 def image_results(task_id):
     """Show results from completed image processing"""
     try:
-        redis_url = os.getenv('REDIS_URL')
+        # Check if we're using actual Redis for Celery
+        redis_url = get_redis_url_for_external_services()
         source_type = request.args.get('type', 'Image')
         
         # User data now available globally via g object
         
-        # Check if we're using actual Redis (not memory:// for local dev)
-        if redis_url and not redis_url.startswith('memory://'):
+        if redis_url:
             task = celery_app.AsyncResult(task_id)
             
             if task.state == 'SUCCESS' and safe_get_task_result(task.result, 'status') == 'success':

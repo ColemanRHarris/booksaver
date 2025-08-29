@@ -109,6 +109,9 @@
                     <div class="user-menu">
                         <span class="user-email">{{ g.user.email }}</span>
                         <div class="user-actions">
+                            {% if g.is_premium %}
+                                <a href="{{ url_for('library') }}" class="auth-btn library-btn">Your Library</a>
+                            {% endif %}
                             <a href="{{ url_for('account_dashboard') }}" class="auth-btn account-btn">Account</a>
                             <form method="POST" action="{{ url_for('logout') }}" style="display: inline;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -213,6 +216,18 @@
 
 .signup-btn:hover {
     background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+}
+
+.library-btn {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+    border: 1px solid #7c3aed;
+    margin-right: 0.5rem;
+}
+
+.library-btn:hover {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
     transform: translateY(-1px);
 }
 

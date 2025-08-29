@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from urllib.parse import quote, unquote
 from core.logging_utils import get_safe_logger
+from core.redis_utils import configure_redis_for_service
 
 
 class InMemoryRedis:
@@ -85,19 +86,15 @@ class SEOService:
         
         if redis_client:
             self.redis = redis_client
+            self.logger.info("✅ SEOService using provided Redis client")
         else:
-            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+            # Use centralized Redis configuration
+            self.redis, using_redis = configure_redis_for_service(
+                "SEOService", decode_responses=True
+            )
             
-            try:
-                if redis_url.startswith('memory://'):
-                    raise redis.ConnectionError("Using memory mode")
-                
-                self.redis = redis.from_url(redis_url, decode_responses=True)
-                self.redis.ping()
-                self.logger.info("✅ SEO Service connected to Redis")
-                
-            except Exception as e:
-                self.logger.warning(f"⚠️ Redis connection failed ({e}), using in-memory storage")
+            # If Redis not available, use in-memory storage
+            if not using_redis:
                 self.redis = InMemoryRedis()
         
         # Initialize default genres and popular books
@@ -357,19 +354,18 @@ def initialize_seo_service_with_app(app):
     """Initialize SEO service with Flask app context for Redis consistency."""
     global _seo_service
     
-    # Use same Redis connection pattern as user service
-    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-    
+    # Use centralized Redis configuration
     try:
-        if redis_url.startswith('memory://'):
-            raise redis.ConnectionError("Using memory mode")
+        from core.redis_utils import get_redis_client
+        redis_client, using_redis = get_redis_client(decode_responses=True)
         
-        redis_client = redis.from_url(redis_url, decode_responses=True)
-        redis_client.ping()
-        
-        _seo_service = SEOService(redis_client=redis_client)
-        app.logger.info("✅ SEO Service initialized with Redis")
+        if using_redis and redis_client:
+            _seo_service = SEOService(redis_client=redis_client)
+            app.logger.info("✅ SEO Service initialized with Redis")
+        else:
+            _seo_service = SEOService()
+            app.logger.info("🔧 SEO Service using in-memory storage")
         
     except Exception as e:
-        app.logger.warning(f"⚠️ SEO Service using in-memory storage: {e}")
+        app.logger.warning(f"⚠️ SEO Service fallback to in-memory storage: {e}")
         _seo_service = SEOService()

@@ -1,0 +1,1051 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="library-container">
+    <div class="library-header">
+        <div class="header-content">
+            <div class="title-section">
+                <h1 class="library-title">📚 Your Library</h1>
+                <p class="library-subtitle">Your personal collection of discovered books</p>
+            </div>
+            <div class="library-actions">
+                {% if books_by_scan|length > 0 %}
+                    <a href="{{ url_for('export_history') }}" class="action-btn secondary-btn">
+                        📥 Export Library
+                    </a>
+                    <a href="{{ url_for('index') }}" class="action-btn primary-btn">
+                        📸 Scan More Books
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if books_by_scan|length > 0 %}
+        <div class="library-stats">
+            <div class="stat-card">
+                <div class="stat-icon">📖</div>
+                <div class="stat-content">
+                    <div class="stat-number">{{ total_books }}</div>
+                    <div class="stat-label">Books Discovered</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📅</div>
+                <div class="stat-content">
+                    <div class="stat-number">{{ books_by_scan|length }}</div>
+                    <div class="stat-label">Scan Sessions</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⭐</div>
+                <div class="stat-content">
+                    <div class="stat-number">Premium</div>
+                    <div class="stat-label">Member</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if books_by_scan and books_by_scan|length > 0 %}
+        {% for scan in books_by_scan %}
+        {% set scan_index = loop.index0 %}
+        <div class="scan-session">
+            <div class="scan-header">
+                <div class="scan-meta">
+                    <h2 class="scan-title">
+                        📅 Scan from {{ scan.scanned_at[:10] if scan.scanned_at else 'Unknown date' }}
+                    </h2>
+                    <div class="scan-stats">
+                        {% if scan.books and scan.books|length > 0 %}
+                            <span class="books-count">{{ scan.books|length }} book{{ "s" if scan.books|length > 1 else "" }} found</span>
+                        {% else %}
+                            <span class="no-books">No books detected</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="scan-time">
+                    {{ scan.scanned_at[11:16] if scan.scanned_at and scan.scanned_at|length > 16 else '' }}
+                </div>
+            </div>
+
+            {% if scan.books and scan.books|length > 0 %}
+            <div class="modern-books-grid">
+                {% for book in scan.books %}
+                {% set book_id = "book_" + scan_index|string + "_" + loop.index0|string %}
+                <div class="modern-book-card" data-book-index="{{ loop.index0 }}">
+                    <div class="book-cover-container">
+                        {% if book.thumbnail %}
+                        <img src="{{ book.thumbnail }}" alt="{{ book.title }}" class="modern-book-cover">
+                        <div class="cover-overlay">
+                            <button class="quick-preview-btn" 
+                                    id="{{ book_id }}"
+                                    onclick="showBookModal('{{ book_id }}')" 
+                                    data-book-title="{{ book.title }}"
+                                    data-book-authors="{{ book.authors | join(', ') }}"
+                                    data-book-description="{{ book.description or 'No description available.' }}"
+                                    data-book-thumbnail="{{ book.thumbnail or '' }}"
+                                    data-book-published="{{ book.published_date or 'Unknown' }}"
+                                    data-book-isbn="{{ book.isbn or 'N/A' }}">
+                                <span>Quick View</span>
+                            </button>
+                        </div>
+                        {% else %}
+                        <div class="modern-no-cover">
+                            <div class="no-cover-icon">📖</div>
+                            <div class="no-cover-text">No Cover Available</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="modern-book-info">
+                        <div class="book-header">
+                            <h3 class="modern-book-title">{{ book.title }}</h3>
+                            <div class="book-rating">
+                                <div class="stars">⭐⭐⭐⭐⭐</div>
+                                <span class="rating-text">4.5</span>
+                            </div>
+                        </div>
+                        <p class="modern-book-authors">by {{ book.authors | join(', ') }}</p>
+                        
+                        {% if book.published_date %}
+                        <p class="book-date">Published: {{ book.published_date }}</p>
+                        {% endif %}
+                        
+                        {% if book.isbn %}
+                        <p class="book-isbn">ISBN: {{ book.isbn }}</p>
+                        {% endif %}
+                        
+                        {% if book.description %}
+                        <p class="book-description">{{ book.description[:150] }}{% if book.description|length > 150 %}...{% endif %}</p>
+                        {% endif %}
+                        
+                        <div class="modern-book-actions">
+                            <div class="action-section">
+                                <h4 class="action-title">🛍️ Get This Book</h4>
+                                {% if book.purchase_links %}
+                                <div class="modern-retailer-grid">
+                                    {% if book.purchase_links.amazon %}
+                                    <a href="{{ book.purchase_links.amazon }}" 
+                                       target="_blank" 
+                                       class="modern-retailer-btn amazon-btn">
+                                        <span>Amazon</span>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if book.purchase_links.audible %}
+                                    <a href="{{ book.purchase_links.audible }}" 
+                                       target="_blank" 
+                                       class="modern-retailer-btn audible-btn">
+                                        <span>Audible</span>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if book.purchase_links.barnes_noble %}
+                                    <a href="{{ book.purchase_links.barnes_noble }}" 
+                                       target="_blank" 
+                                       class="modern-retailer-btn bn-btn">
+                                        <span>B&N</span>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if book.purchase_links.bookshop %}
+                                    <a href="{{ book.purchase_links.bookshop }}" 
+                                       target="_blank" 
+                                       class="modern-retailer-btn bookshop-btn">
+                                        <span>Bookshop</span>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if book.purchase_links.google_books %}
+                                    <a href="{{ book.purchase_links.google_books }}" 
+                                       target="_blank" 
+                                       class="modern-retailer-btn google-btn">
+                                        <span>Google</span>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="action-section">
+                                <h4 class="action-title">📱 Reading Apps</h4>
+                                {% if book.reader_app_links %}
+                                <div class="modern-app-grid">
+                                    {% if book.reader_app_links.goodreads %}
+                                    <a href="{{ book.reader_app_links.goodreads }}" 
+                                       target="_blank" 
+                                       class="modern-app-btn goodreads-btn">
+                                        <span>Goodreads</span>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if book.reader_app_links.overdrive %}
+                                    <a href="{{ book.reader_app_links.overdrive }}" 
+                                       target="_blank" 
+                                       class="modern-app-btn overdrive-btn">
+                                        <span>OverDrive</span>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if book.reader_app_links.storygraph %}
+                                    <a href="{{ book.reader_app_links.storygraph }}" 
+                                       target="_blank" 
+                                       class="modern-app-btn storygraph-btn">
+                                        <span>StoryGraph</span>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <div class="no-apps-message">
+                                    <span class="no-apps-icon">📱</span>
+                                    <span>Reading app links coming soon!</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            {% if book.preview_link %}
+                            <div class="action-section">
+                                <a href="{{ book.preview_link }}" 
+                                   target="_blank" 
+                                   class="modern-preview-btn">
+                                    <span>Preview Book</span>
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-scan">
+                <div class="empty-scan-icon">❌</div>
+                <p class="empty-scan-text">No books were detected in this scan</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="empty-library">
+        <div class="empty-library-content">
+            <div class="empty-icon">📚</div>
+            <h2>Your Library is Empty</h2>
+            <p>Start scanning books to build your personal library. Every book you discover will be saved here for future reference.</p>
+            <div class="empty-actions">
+                <a href="{{ url_for('index') }}" class="action-btn primary-btn">
+                    📸 Scan Your First Book
+                </a>
+                <a href="{{ url_for('recommendations') }}" class="action-btn secondary-btn">
+                    🔍 Browse Recommendations
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Book Modal for Quick View -->
+<div id="book-modal" class="book-modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeBookModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-book-title">Book Details</h3>
+            <button class="modal-close" onclick="closeBookModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-book-cover">
+                <img id="modal-book-image" src="" alt="Book cover">
+            </div>
+            <div class="modal-book-details">
+                <p id="modal-book-authors"></p>
+                <p id="modal-book-description"></p>
+                <div id="modal-book-actions"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Library-specific JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // Add entrance animations to scan sessions
+    const scanSessions = document.querySelectorAll('.scan-session');
+    scanSessions.forEach((session, index) => {
+        session.style.opacity = '0';
+        session.style.transform = 'translateY(30px)';
+        setTimeout(() => {
+            session.style.transition = 'all 0.5s ease';
+            session.style.opacity = '1';
+            session.style.transform = 'translateY(0)';
+        }, index * 200);
+    });
+
+    // Add entrance animations to book cards
+    const bookCards = document.querySelectorAll('.modern-book-card');
+    bookCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100 + 500); // Start after scan sessions
+    });
+});
+
+function showBookModal(buttonId) {
+    const modal = document.getElementById('book-modal');
+    const button = document.getElementById(buttonId);
+    
+    if (button) {
+        const title = button.getAttribute('data-book-title');
+        const authors = button.getAttribute('data-book-authors');
+        const description = button.getAttribute('data-book-description');
+        const thumbnail = button.getAttribute('data-book-thumbnail');
+        const published = button.getAttribute('data-book-published');
+        const isbn = button.getAttribute('data-book-isbn');
+        
+        // Populate modal content
+        document.getElementById('modal-book-title').textContent = title;
+        document.getElementById('modal-book-authors').textContent = `by ${authors}`;
+        document.getElementById('modal-book-description').textContent = description;
+        
+        // Set book image
+        const modalImage = document.getElementById('modal-book-image');
+        if (thumbnail && thumbnail !== '') {
+            modalImage.src = thumbnail;
+            modalImage.alt = title;
+            modalImage.style.display = 'block';
+        } else {
+            modalImage.style.display = 'none';
+        }
+        
+        // Add additional book details
+        const modalDetails = document.getElementById('modal-book-actions');
+        modalDetails.innerHTML = `
+            <div class="modal-book-meta">
+                <p><strong>Published:</strong> ${published}</p>
+                <p><strong>ISBN:</strong> ${isbn}</p>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-btn" onclick="closeBookModal()">Close</button>
+            </div>
+        `;
+    }
+    
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Add entrance animation
+    modal.style.opacity = '0';
+    setTimeout(() => {
+        modal.style.transition = 'opacity 0.3s ease';
+        modal.style.opacity = '1';
+    }, 10);
+}
+
+function closeBookModal() {
+    const modal = document.getElementById('book-modal');
+    
+    // Fade out animation
+    modal.style.transition = 'opacity 0.3s ease';
+    modal.style.opacity = '0';
+    
+    setTimeout(() => {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }, 300);
+}
+</script>
+
+<style>
+.library-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.library-header {
+    margin-bottom: 2rem;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.title-section {
+    flex: 1;
+}
+
+.library-title {
+    color: #1f2937;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.library-subtitle {
+    color: #6b7280;
+    font-size: 1.2rem;
+    margin: 0;
+}
+
+.library-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.library-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+}
+
+.stat-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    font-size: 2rem;
+    opacity: 0.8;
+}
+
+.stat-number {
+    color: #1f2937;
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stat-label {
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.scan-session {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 2rem;
+    padding: 2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.scan-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.scan-meta {
+    flex: 1;
+}
+
+.scan-title {
+    color: #1f2937;
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.scan-stats .books-count {
+    color: #059669;
+    font-weight: 500;
+    background: #d1fae5;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+.scan-stats .no-books {
+    color: #dc2626;
+    font-weight: 500;
+    background: #fef2f2;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+.scan-time {
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-weight: 500;
+    background: #f3f4f6;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+}
+
+.empty-scan {
+    text-align: center;
+    padding: 2rem;
+    color: #6b7280;
+}
+
+.empty-scan-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.empty-scan-text {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.empty-library {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.empty-library-content {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+    opacity: 0.6;
+}
+
+.empty-library h2 {
+    color: #1f2937;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.empty-library p {
+    color: #6b7280;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+.empty-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Reuse book card styles from results.html */
+.modern-books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.modern-book-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.modern-book-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+}
+
+.book-cover-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+}
+
+.modern-book-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.modern-book-card:hover .modern-book-cover {
+    transform: scale(1.05);
+}
+
+.cover-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.modern-book-card:hover .cover-overlay {
+    opacity: 1;
+}
+
+.quick-preview-btn {
+    background: rgba(255, 255, 255, 0.95);
+    color: #1f2937;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quick-preview-btn:hover {
+    background: white;
+    transform: scale(1.05);
+}
+
+.modern-no-cover {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+}
+
+.no-cover-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+.no-cover-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.modern-book-info {
+    padding: 1.5rem;
+}
+
+.book-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.modern-book-title {
+    color: #1f2937;
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0;
+    flex: 1;
+    margin-right: 1rem;
+}
+
+.book-rating {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.stars {
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.rating-text {
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.modern-book-authors {
+    color: #6b7280;
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0 0 1rem 0;
+}
+
+.book-date, .book-isbn {
+    color: #9ca3af;
+    font-size: 0.85rem;
+    margin: 0.25rem 0;
+}
+
+.book-description {
+    color: #4b5563;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 1rem 0;
+}
+
+.modern-book-actions {
+    margin-top: 1.5rem;
+}
+
+.action-section {
+    margin-bottom: 1.5rem;
+}
+
+.action-title {
+    color: #1f2937;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.modern-retailer-grid, .modern-app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 0.5rem;
+}
+
+.modern-retailer-btn, .modern-app-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.2s ease;
+    min-height: 36px;
+}
+
+.amazon-btn {
+    background: #ff9900;
+    color: white;
+}
+
+.amazon-btn:hover {
+    background: #e88800;
+    transform: translateY(-1px);
+}
+
+.audible-btn {
+    background: #f56600;
+    color: white;
+}
+
+.audible-btn:hover {
+    background: #e55a00;
+    transform: translateY(-1px);
+}
+
+.bn-btn {
+    background: #00735c;
+    color: white;
+}
+
+.bn-btn:hover {
+    background: #005c49;
+    transform: translateY(-1px);
+}
+
+.bookshop-btn {
+    background: #2e3192;
+    color: white;
+}
+
+.bookshop-btn:hover {
+    background: #252670;
+    transform: translateY(-1px);
+}
+
+.google-btn {
+    background: #4285f4;
+    color: white;
+}
+
+.google-btn:hover {
+    background: #3367d6;
+    transform: translateY(-1px);
+}
+
+.goodreads-btn {
+    background: #553b08;
+    color: white;
+}
+
+.goodreads-btn:hover {
+    background: #3e2b06;
+    transform: translateY(-1px);
+}
+
+.overdrive-btn {
+    background: #2e5bba;
+    color: white;
+}
+
+.overdrive-btn:hover {
+    background: #1e3f7a;
+    transform: translateY(-1px);
+}
+
+.storygraph-btn {
+    background: #58a6ff;
+    color: white;
+}
+
+.storygraph-btn:hover {
+    background: #388bfd;
+    transform: translateY(-1px);
+}
+
+.no-apps-message {
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.85rem;
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.no-apps-icon {
+    margin-right: 0.5rem;
+}
+
+.modern-preview-btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.modern-preview-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+}
+
+/* Action button styles */
+.action-btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+.primary-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+}
+
+.secondary-btn {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.secondary-btn:hover {
+    background: #e5e7eb;
+    transform: translateY(-1px);
+}
+
+/* Book modal styles */
+.book-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    z-index: 1001;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 1.25rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0.25rem;
+}
+
+.modal-close:hover {
+    color: #1f2937;
+}
+
+.modal-body {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1.5rem;
+}
+
+.modal-book-cover {
+    flex-shrink: 0;
+    width: 120px;
+    height: 180px;
+}
+
+.modal-book-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.modal-book-details {
+    flex: 1;
+}
+
+.modal-book-meta {
+    margin-bottom: 1rem;
+}
+
+.modal-book-meta p {
+    margin: 0.5rem 0;
+    color: #6b7280;
+}
+
+.modal-actions {
+    margin-top: 1rem;
+}
+
+.modal-action-btn {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.modal-action-btn:hover {
+    background: #e5e7eb;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .library-title {
+        font-size: 2rem;
+    }
+    
+    .library-subtitle {
+        font-size: 1rem;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .library-actions {
+        justify-content: center;
+    }
+    
+    .library-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .scan-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .modern-books-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-body {
+        flex-direction: column;
+    }
+    
+    .modal-book-cover {
+        width: 100px;
+        height: 150px;
+        margin: 0 auto;
+    }
+}
+</style>
+
+{% endblock %}

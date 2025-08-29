@@ -9,30 +9,187 @@ import tempfile
 import uuid
 import mimetypes
 from typing import Optional, Dict, Any
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 import redis
 from core.logging_utils import get_safe_logger
+from core.redis_utils import configure_redis_for_service
+
+
+class InMemoryPipeline:
+    """Mock Redis pipeline for in-memory storage."""
+    
+    def __init__(self, storage):
+        self.storage = storage
+        self.operations = []
+    
+    def hset(self, key: str, mapping: dict = None, **kwargs):
+        """Queue hash set operation."""
+        if mapping:
+            self.operations.append(('hset', key, mapping))
+        elif kwargs:
+            self.operations.append(('hset', key, kwargs))
+        return self
+    
+    def expire(self, key: str, ttl: int):
+        """Queue expiration operation."""
+        self.operations.append(('expire', key, ttl))
+        return self
+    
+    def execute(self):
+        """Execute all queued operations."""
+        results = []
+        for op_type, key, *args in self.operations:
+            if op_type == 'hset':
+                mapping = args[0]
+                results.append(self.storage._hset_direct(key, mapping))
+            elif op_type == 'expire':
+                ttl = args[0]
+                results.append(self.storage._expire_direct(key, ttl))
+        self.operations.clear()
+        return results
+
+
+class InMemoryImageStorage:
+    """In-memory image storage for local testing with Redis-compatible interface."""
+    
+    def __init__(self):
+        # Support both regular keys and hash keys
+        self._storage = {}  # key -> value (for regular keys)
+        self._hashes = {}   # key -> {field: value} (for hash keys)
+        self._expiry = {}   # key -> expires_at datetime
+        self.logger = get_safe_logger(__name__)
+        self.logger.info("🔧 InMemoryImageStorage initialized for local testing")
+    
+    def _is_expired(self, key: str) -> bool:
+        """Check if a key is expired."""
+        if key in self._expiry:
+            return datetime.now(timezone.utc) > self._expiry[key]
+        return False
+    
+    def _cleanup_expired_key(self, key: str):
+        """Remove expired key from all storages."""
+        if self._is_expired(key):
+            self._storage.pop(key, None)
+            self._hashes.pop(key, None)
+            self._expiry.pop(key, None)
+            return True
+        return False
+    
+    # Redis-compatible methods
+    def pipeline(self):
+        """Create a pipeline for batched operations."""
+        return InMemoryPipeline(self)
+    
+    def hset(self, key: str, mapping: dict = None, **kwargs):
+        """Set hash fields."""
+        if mapping:
+            data = mapping
+        else:
+            data = kwargs
+        
+        if key not in self._hashes:
+            self._hashes[key] = {}
+        
+        self._hashes[key].update(data)
+        return len(data)
+    
+    def _hset_direct(self, key: str, mapping: dict):
+        """Direct hash set for pipeline operations."""
+        return self.hset(key, mapping)
+    
+    def hgetall(self, key: str) -> dict:
+        """Get all hash fields."""
+        if self._cleanup_expired_key(key):
+            return {}
+        return self._hashes.get(key, {}).copy()
+    
+    def expire(self, key: str, ttl: int) -> bool:
+        """Set key expiration."""
+        if key in self._storage or key in self._hashes:
+            self._expiry[key] = datetime.now(timezone.utc) + timedelta(seconds=ttl)
+            return True
+        return False
+    
+    def _expire_direct(self, key: str, ttl: int):
+        """Direct expire for pipeline operations."""
+        return self.expire(key, ttl)
+    
+    # Legacy methods for backward compatibility
+    def set(self, key: str, data: bytes):
+        """Store image data."""
+        self._storage[key] = data
+    
+    def setex(self, key: str, ttl: int, data: bytes):
+        """Store image data with expiration."""
+        self._storage[key] = data
+        self.expire(key, ttl)
+    
+    def get(self, key: str) -> Optional[bytes]:
+        """Retrieve image data."""
+        if self._cleanup_expired_key(key):
+            return None
+        return self._storage.get(key)
+    
+    def exists(self, key: str) -> bool:
+        """Check if key exists and is not expired."""
+        if self._cleanup_expired_key(key):
+            return False
+        return key in self._storage or key in self._hashes
+    
+    def delete(self, key: str) -> int:
+        """Delete key."""
+        deleted = 0
+        if key in self._storage:
+            del self._storage[key]
+            deleted = 1
+        if key in self._hashes:
+            del self._hashes[key]
+            deleted = 1
+        if key in self._expiry:
+            del self._expiry[key]
+        return deleted
+    
+    def keys(self, pattern: str) -> list:
+        """Get all keys matching pattern (simplified for local testing)."""
+        all_keys = set(self._storage.keys()) | set(self._hashes.keys())
+        # Clean up expired keys
+        expired = [k for k in all_keys if self._cleanup_expired_key(k)]
+        all_keys -= set(expired)
+        
+        if pattern.endswith('*'):
+            prefix = pattern[:-1]
+            return [k for k in all_keys if k.startswith(prefix)]
+        return [k for k in all_keys if k == pattern]
 
 
 class ImageStorageService:
     """Service for storing and retrieving image data via Redis."""
     
     def __init__(self, redis_client=None):
-        """Initialize with Redis client."""
+        """Initialize with Redis client or in-memory storage for local testing."""
+        # Context-aware logger
+        self.logger = get_safe_logger(__name__)
+        
         if redis_client:
+            # Use provided Redis client
             self.redis = redis_client
+            self.using_redis = True
+            self.logger.info("✅ ImageStorageService using provided Redis client")
         else:
-            # Create Redis connection
-            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-            self.redis = redis.from_url(redis_url, decode_responses=False)  # Binary mode for images
+            # Use centralized Redis configuration
+            self.redis, self.using_redis = configure_redis_for_service(
+                "ImageStorageService", decode_responses=False  # Binary mode for images
+            )
+            
+            # If Redis not available, use in-memory storage
+            if not self.using_redis:
+                self.redis = InMemoryImageStorage()
+                self.logger.info("🔧 ImageStorageService using in-memory storage")
         
         # Configuration
         self.key_prefix = "image_storage:"
         self.default_ttl = 3600  # 1 hour TTL for temporary images
         self.max_image_size = 10 * 1024 * 1024  # 10MB max
-        
-        # Context-aware logger
-        self.logger = get_safe_logger(__name__)
     
     def store_image(self, image_data: bytes, filename: str, ttl: int = None) -> str:
         """
@@ -240,18 +397,21 @@ def get_image_storage_service() -> ImageStorageService:
     global image_storage_service
     if image_storage_service is None:
         try:
-            # Try to use the same Redis client as the user service
+            # Try to use the same Redis client as the user service for consistency
             from services.user_service import get_user_service
             user_service = get_user_service()
             if hasattr(user_service, 'redis_client') and user_service.using_real_redis:
-                # Create new Redis connection for binary operations
-                redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-                redis_client = redis.from_url(redis_url, decode_responses=False)
-                image_storage_service = ImageStorageService(redis_client)
+                # Create new Redis connection for binary operations using centralized config
+                from core.redis_utils import get_redis_client
+                redis_client, using_redis = get_redis_client(decode_responses=False)
+                if using_redis and redis_client:
+                    image_storage_service = ImageStorageService(redis_client)
+                else:
+                    image_storage_service = ImageStorageService()  # Will use in-memory storage
             else:
-                image_storage_service = ImageStorageService()
-        except Exception:
-            # Fallback to creating new service
+                image_storage_service = ImageStorageService()  # Will use centralized config
+        except Exception as e:
+            # Fallback to creating new service (will use centralized config)
             image_storage_service = ImageStorageService()
     
     return image_storage_service

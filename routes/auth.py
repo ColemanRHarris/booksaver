@@ -279,6 +279,43 @@ def register_auth_routes(app, limiter):
             flash("Error loading account data.", "error")
             return redirect(url_for('index'))
     
+    @app.route('/library')
+    def library():
+        """User's personal library - displays all scan history as a beautiful collection."""
+        # Check if user is logged in
+        if 'user_email' not in session:
+            return redirect(url_for('login'))
+        
+        # Check if user data is available in global context
+        if not g.is_authenticated or not g.user or not g.subscription:
+            flash("Account data not found. Please log in again.", "error")
+            return redirect(url_for('logout'))
+        
+        # Only premium users can access library
+        if not g.is_premium:
+            flash("Your Library is a premium feature. Upgrade to access your scan history.", "warning")
+            return redirect(url_for('subscribe'))
+            
+        try:
+            # Get scan history for library page
+            user_service = get_user_service()
+            scan_history = user_service.get_history(g.user['email'], limit=50)
+            
+            # Calculate total books across all scans
+            total_books = 0
+            for scan in scan_history:
+                if scan.get('books'):
+                    total_books += len(scan['books'])
+            
+            return render_template('auth/library.html',
+                                 books_by_scan=scan_history,
+                                 total_books=total_books)
+            
+        except Exception as e:
+            current_app.logger.error(f"❌ Library page error: {e}")
+            flash("Error loading your library.", "error")
+            return redirect(url_for('index'))
+    
     @app.route('/export-history')
     @limiter.limit("5 per minute")
     def export_history():

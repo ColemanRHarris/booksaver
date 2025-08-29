@@ -9,6 +9,7 @@ from flask import request, render_template, redirect, url_for, current_app, sess
 from werkzeug.utils import secure_filename
 
 from core.utils import sanitize_input
+from core.redis_utils import get_redis_url_for_external_services
 from tasks import process_image
 from services.recommendation_engine import get_recommendation_engine
 from services.user_service import get_user_service
@@ -178,10 +179,10 @@ def register_image_routes(app, limiter):
                 current_app.logger.info(f"📊 Usage incremented for {email}: {usage_count}")
                 
                 # Process the image
-                redis_url = os.getenv('REDIS_URL')
+                # Check if we're using actual Redis for Celery
+                redis_url = get_redis_url_for_external_services()
                 
-                # Check if we're using actual Redis (not memory:// for local dev)
-                if redis_url and not redis_url.startswith('memory://'):
+                if redis_url:
                     # Production: Use Celery with Redis - pass image_id instead of path
                     task = process_image.delay(image_id)
                     task_id = task.id
