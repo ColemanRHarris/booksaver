@@ -335,6 +335,27 @@ class GoogleBooksFilter:
             'dictionary', 'encyclopedia', 'cookbook', 'children\'s books',
             'juvenile', 'educational', 'workbook', 'study guide'
         }
+        
+        # Title patterns to exclude (collections, series, summaries)
+        self.exclude_title_patterns = [
+            # Collections and compilations
+            r'\bcollection\b', r'\bcomplete works?\b', r'\bbox set\b', r'\banthology\b',
+            r'\bcompilation\b', r'\bessential\b.*\bcollection\b', r'\bbest of\b',
+            r'\bselected works?\b', r'\bvol\.\s*\d+\b', r'\bvolumes?\s+\d+', 
+            
+            # Series and sets
+            r'\bseries\b(?!.*\bbook\b)', r'\b\d+-book set\b', r'\bmulti-?book\b',
+            r'\btrilogy\b.*\bbox\b', r'\bquartet\b.*\bbox\b',
+            
+            # Study materials and summaries
+            r'\bsummary of\b', r'\bsummary:\b', r'\bbook summary\b',
+            r'\bcliff\s*notes?\b', r'\bspark\s*notes?\b', r'\bstudy guide\b',
+            r'\bcram101\b', r'\bbarron\'?s\b', r'\bfor dummies\b',
+            
+            # Adaptations and derivatives  
+            r'\bmanga\b.*\badaptation\b', r'\bgraphic novel\b.*\badaptation\b',
+            r'\bmovie tie-in\b', r'\bnovelization\b'
+        ]
     
     def filter_books(self, books: List[Dict[str, Any]], user_preferences: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """Filter books based on Google Books metadata and user preferences"""
@@ -362,6 +383,10 @@ class GoogleBooksFilter:
     
     def _calculate_book_score(self, book: Dict[str, Any], user_prefs: Dict[str, Any]) -> float:
         """Calculate comprehensive book score using Google Books data"""
+        # First, check for exclusion patterns
+        if self._should_exclude_book(book):
+            return 0  # Exclude this book entirely
+            
         score = 0
         
         # Rating score (0-25 points)
@@ -454,6 +479,33 @@ class GoogleBooksFilter:
             score += 10
         
         return max(0, score)  # Don't allow negative total scores
+    
+    def _should_exclude_book(self, book: Dict[str, Any]) -> bool:
+        """Check if book should be excluded based on title patterns and categories"""
+        title = book.get('title', '').lower()
+        categories = ' '.join(book.get('categories', [])).lower()
+        description = book.get('description', '').lower()
+        
+        # Check title against exclusion patterns
+        for pattern in self.exclude_title_patterns:
+            if re.search(pattern, title, re.IGNORECASE):
+                return True
+        
+        # Check categories for exclusion subjects
+        for exclude_subject in self.exclude_subjects:
+            if exclude_subject in categories:
+                return True
+        
+        # Additional checks for summaries/study guides in description
+        summary_indicators = [
+            'summary of', 'study guide', 'cliff notes', 'spark notes',
+            'book summary', 'chapter summary', 'analysis of'
+        ]
+        for indicator in summary_indicators:
+            if indicator in description:
+                return True
+        
+        return False
     
     def _get_filter_reasons(self, book: Dict[str, Any], user_prefs: Dict[str, Any]) -> List[str]:
         """Get human-readable reasons for filtering decisions"""
@@ -554,19 +606,19 @@ class FuzzyBookSearcher:
                         if books:
                             break
                 
+                # Add unique books to results with scoring
                 for book in books:
-                    search_results.append(book)
-                #print(books)
-                # Add unique books to results
-                #for book in books:
-                #    isbn = book.get('isbn_13') or book.get('isbn_10') or book.get('id')
-                #    if isbn and isbn not in seen_isbns:
-                #        seen_isbns.add(isbn)
-                #        # Add fuzzy match score
-                #        book['fuzzy_match_score'] = self._calculate_match_score(raw_text, book)
-                #        book['search_candidate'] = candidate
-                #        search_results.append(book)
-                #print(seen_isbns)
+                    isbn = book.get('isbn_13') or book.get('isbn_10') or book.get('id') or book.get('title', '')
+                    if isbn not in seen_isbns:
+                        seen_isbns.add(isbn)
+                        # Add fuzzy match score
+                        match_score = self._calculate_match_score(raw_text, book)
+                        book['fuzzy_match_score'] = match_score
+                        book['search_candidate'] = candidate
+                        
+                        # Only include books with good match scores (60+ out of 100)
+                        if match_score >= 60:
+                            search_results.append(book)
                 # Rate limiting
                 time.sleep(0.1)
                 
@@ -575,9 +627,19 @@ class FuzzyBookSearcher:
                 continue
         
         # Sort by fuzzy match score and return top results
-        print(search_results)
         search_results.sort(key=lambda x: x.get('fuzzy_match_score', 0), reverse=True)
-        return search_results #[:max_results]
+        
+        # Only return the best matches, limit to max_results
+        high_quality_results = []
+        for book in search_results[:max_results * 2]:  # Check more books but return fewer
+            # Additional quality check - ensure the match makes sense
+            score = book.get('fuzzy_match_score', 0)
+            if score >= 70:  # High quality matches only
+                high_quality_results.append(book)
+            elif score >= 60 and len(high_quality_results) < max_results:  # Good matches if we need more
+                high_quality_results.append(book)
+        
+        return high_quality_results[:max_results]
     
     def _preprocess_ocr_text(self, text: str) -> str:
         """Clean and preprocess OCR text"""
@@ -648,21 +710,43 @@ class FuzzyBookSearcher:
     
     def _calculate_match_score(self, original_text: str, book: Dict[str, Any]) -> float:
         """Calculate fuzzy match score between original text and book metadata"""
-        title = book.get('title', '')
+        title = book.get('title', '').lower()
         authors = book.get('authors', [])
+        original_lower = original_text.lower()
         
-        # Calculate similarity scores
-        title_score = fuzz.partial_ratio(original_text.lower(), title.lower())
+        # Calculate similarity scores using multiple methods for better accuracy
+        title_partial = fuzz.partial_ratio(original_lower, title)
+        title_token_sort = fuzz.token_sort_ratio(original_lower, title)
+        title_token_set = fuzz.token_set_ratio(original_lower, title)
+        
+        # Use the best title score
+        title_score = max(title_partial, title_token_sort, title_token_set)
         
         author_score = 0
         if authors:
-            author_text = ' '.join(authors)
-            author_score = fuzz.partial_ratio(original_text.lower(), author_text.lower())
+            author_text = ' '.join(authors).lower()
+            author_partial = fuzz.partial_ratio(original_lower, author_text)
+            author_token_sort = fuzz.token_sort_ratio(original_lower, author_text)
+            author_score = max(author_partial, author_token_sort)
+        
+        # More strict scoring - require higher similarity
+        # Title must be at least 60% similar to be considered
+        if title_score < 60:
+            return 0
         
         # Combine scores (title is more important)
-        combined_score = (title_score * 0.7) + (author_score * 0.3)
+        combined_score = (title_score * 0.8) + (author_score * 0.2)
         
-        return combined_score
+        # Bonus for exact word matches
+        title_words = set(title.split())
+        original_words = set(original_lower.split())
+        exact_word_matches = len(title_words.intersection(original_words))
+        
+        if exact_word_matches > 0:
+            word_bonus = min(10 * exact_word_matches, 20)  # Max 20 point bonus
+            combined_score += word_bonus
+        
+        return min(combined_score, 100)
 
 
 class TrendingBookDetector:

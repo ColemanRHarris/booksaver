@@ -4,18 +4,12 @@ Image processing routes for book detection.
 
 import os
 import uuid
-import threading
-from flask import request, render_template, redirect, url_for, current_app, session, flash, g
+from flask import request, render_template, current_app
 from werkzeug.utils import secure_filename
 
 from core.utils import sanitize_input
-from tasks import process_image
-from services.recommendation_engine import get_recommendation_engine
-from services.user_service import get_user_service
 from services.image_storage import get_image_storage_service
-
-# Global task results storage for local development
-task_results = {}
+from services.image_processor import get_image_processor
 
 # Allowed image extensions and max file size
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -28,117 +22,14 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def process_image_background(task_id: str, image_path: str):
-    """Background task for local development (non-Redis)"""
-    try:
-        # Update status
-        task_results[task_id] = {
-            'state': 'PROGRESS',
-            'step': 'Starting image analysis...',
-            'progress': 5
-        }
-        
-        # For local development, we still use file paths
-        # The image_path is already created from Redis data in the route handler
-        # We need to create a mock task object for the process_image function
-        class MockTask:
-            def update_state(self, state, meta):
-                task_results[task_id] = {
-                    'state': state,
-                    **meta
-                }
-        
-        # Process the image using a temporary image ID for local development
-        temp_image_id = f"local_{task_id}"
-        
-        # Store the image temporarily in Redis for consistency
-        image_storage = get_image_storage_service()
-        with open(image_path, 'rb') as f:
-            image_data = f.read()
-        
-        stored_image_id = image_storage.store_image(
-            image_data, 
-            os.path.basename(image_path), 
-            ttl=3600  # 1 hour for local dev
-        )
-        
-        # Create mock task and call the actual process_image core logic
-        mock_task = MockTask()
-        from tasks import _process_image_core
-        result = _process_image_core(stored_image_id, task_self=mock_task)
-        
-        # Update with final result
-        task_results[task_id] = {
-            'state': 'SUCCESS',
-            'result': result
-        }
-        
-        # Clean up the temp file
-        try:
-            os.unlink(image_path)
-        except Exception:
-            pass  # Ignore cleanup errors in local dev
-        
-    except Exception as e:
-        error_message = str(e)
-        
-        # Clean up technical error messages for user-friendly display
-        if "No books detected" in error_message:
-            error_message = "No books were detected in this image. Try with a clearer photo showing book covers or spines."
-        elif "Image too large" in error_message:
-            error_message = "Image file is too large. Please use an image smaller than 10MB."
-        elif "Invalid image format" in error_message:
-            error_message = "Invalid image format. Please use JPG or PNG files."
-        elif "GEMINI_API_KEY" in error_message:
-            error_message = "Service configuration error. Please try again later."
-        
-        task_results[task_id] = {
-            'state': 'FAILURE',
-            'error': error_message
-        }
-
 
 def register_image_routes(app, limiter):
     """Register image processing routes"""
-    
-    user_service = get_user_service()
     
     @app.route('/process-image', methods=['POST'])
     @limiter.limit("30 per hour")  # Keep IP-based limit as backup
     def process_image_upload():
         current_app.logger.info(f"📸 Image processing request received from {request.remote_addr}")
-        
-        # Check if user is authenticated
-        if not g.is_authenticated:
-            flash("Please sign in to scan books.", "warning")
-            return redirect(url_for('login', next=request.url))
-        
-        email = session.get('user_email')
-        
-        # Ensure subscription status is current before scanning
-        try:
-            from services.stripe_service import get_stripe_service
-            stripe_service = get_stripe_service()
-            validation_result = stripe_service.validate_user_subscription_status(email)
-            
-            if validation_result.get('discrepancy_found'):
-                current_app.logger.info(f"🔄 Auto-syncing subscription for {email} before scan")
-                stripe_service.sync_subscription_from_stripe(email)
-                # Refresh global context after sync using existing user_service
-                g.subscription = user_service.get_subscription(email)
-                g.is_premium = g.subscription.get('tier') == 'premium' and g.subscription.get('status') == 'active'
-        except Exception as e:
-            current_app.logger.warning(f"⚠️ Could not validate subscription before scan: {e}")
-        
-        # Check if user can scan (usage limits)
-        if not user_service.can_scan(email):
-            subscription = user_service.get_subscription(email)
-            if subscription.get('tier') == 'free':
-                flash("You've reached your daily limit of 1 scan. Upgrade to Premium for unlimited scans!", "warning")
-                return redirect(url_for('subscribe'))
-            else:
-                flash("Unable to process scan at this time. Please try again later.", "error")
-                return redirect(url_for('index'))
         
         # Check if the post request has the file part
         if 'image' not in request.files:
@@ -169,47 +60,24 @@ def register_image_routes(app, limiter):
                 image_storage = get_image_storage_service()
                 image_data = file.read()
                 
-                # Store image data in Redis (TTL: 2 hours for processing + buffer)
-                image_id = image_storage.store_image(image_data, filename, ttl=7200)
-                current_app.logger.info(f"✅ Image stored in Redis: {image_id} ({len(image_data)} bytes)")
+                # Store image data temporarily (TTL: 1 hour should be plenty)
+                image_id = image_storage.store_image(image_data, filename, ttl=3600)
+                current_app.logger.info(f"✅ Image stored temporarily: {image_id} ({len(image_data)} bytes)")
                 
-                # Increment usage count
-                usage_count = user_service.increment_usage(email)
-                current_app.logger.info(f"📊 Usage incremented for {email}: {usage_count}")
+                # Process the image directly
+                current_app.logger.info(f"🚀 Starting direct image processing: {image_id}")
+                processor = get_image_processor()
+                result = processor.process_image(image_id)
                 
-                # Process the image
-                redis_url = os.getenv('REDIS_URL')
-                
-                # Check if we're using actual Redis (not memory:// for local dev)
-                if redis_url and not redis_url.startswith('memory://'):
-                    # Production: Use Celery with Redis - pass image_id instead of path
-                    task = process_image.delay(image_id)
-                    task_id = task.id
+                # Check if processing was successful
+                if result['status'] == 'success':
+                    books = result.get('books', [])
+                    current_app.logger.info(f"✅ Processing completed: {len(books)} books found")
+                    return render_template('results.html', books=books, query="Image analysis")
                 else:
-                    # Local development: Use threading
-                    task_id = str(uuid.uuid4())
-                    
-                    task_results[task_id] = {
-                        'state': 'PENDING',
-                        'step': 'Initializing image analysis...',
-                        'progress': 0
-                    }
-                    
-                    # For local dev, create temp file from Redis data
-                    temp_image_path = image_storage.create_temp_file(image_id)
-                    if not temp_image_path:
-                        raise Exception("Failed to create temporary file for local processing")
-                    
-                    # Start background processing
-                    thread = threading.Thread(
-                        target=process_image_background,
-                        args=(task_id, temp_image_path),
-                        daemon=True
-                    )
-                    thread.start()
-                
-                current_app.logger.info(f"✅ Image processing task started: {task_id}")
-                return redirect(url_for('processing_wait', task_id=task_id, url='image', type='Image', results_endpoint='image_results'))
+                    error_msg = result.get('error', 'Processing failed')
+                    current_app.logger.error(f"❌ Processing failed: {error_msg}")
+                    return render_template('index.html', error=error_msg)
                 
             except Exception as e:
                 current_app.logger.error(f"❌ Failed to process image: {e}")
@@ -217,5 +85,3 @@ def register_image_routes(app, limiter):
         else:
             return render_template('index.html', error="Invalid file format. Please upload a JPG or PNG image.")
     
-    # Make task_results available to other modules
-    app.task_results = task_results

@@ -1,0 +1,1416 @@
+{% extends "base.html" %}
+
+{% block title %}BookSaver - AI Book Scanner | Identify Books with Camera{% endblock %}
+{% block description %}Scan any book with your camera and get instant identification. BookSaver uses AI to recognize book covers and spines, providing purchase links and reading app integration. Free book scanner app!{% endblock %}
+{% block keywords %}book scanner app, AI book identification, camera book finder, scan book covers, identify books with camera, book recognition app, shazam for books, free book scanner{% endblock %}
+
+{% block og_type %}website{% endblock %}
+{% block og_title %}BookSaver - AI Book Scanner | Identify Books with Camera{% endblock %}
+{% block og_description %}Scan any book with your camera and get instant identification. BookSaver uses AI to recognize book covers and spines, providing purchase links and reading app integration.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "BookSaver",
+    "description": "AI-powered book identification app that scans book covers and spines with your camera",
+    "url": "{{ url_for('index', _external=True) }}",
+    "applicationCategory": "UtilityApplication",
+    "operatingSystem": "Web Browser",
+    "offers": [
+        {
+            "@type": "Offer",
+            "name": "Free Plan",
+            "price": "0",
+            "priceCurrency": "USD",
+            "description": "1 scan per day with basic book detection"
+        },
+        {
+            "@type": "Offer", 
+            "name": "Premium Plan",
+            "price": "2.99",
+            "priceCurrency": "USD",
+            "billingDuration": "P1M",
+            "description": "Unlimited scans, scan history, and advanced features"
+        }
+    ],
+    "creator": {
+        "@type": "Organization",
+        "name": "Viscid Labs",
+        "url": "{{ url_for('index', _external=True) }}"
+    },
+    "featureList": [
+        "AI-powered book cover scanning",
+        "Book spine identification", 
+        "Instant purchase links",
+        "Reading app integration",
+        "Book recommendations",
+        "Scan history (Premium)",
+        "Data export (Premium)"
+    ],
+    "screenshot": "{{ url_for('static', filename='ornate-b-large.png', _external=True) }}",
+    "softwareVersion": "1.0",
+    "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "1250",
+        "bestRating": "5",
+        "worstRating": "1"
+    }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- Modern Hero Section -->
+<div class="hero-section">
+    <div class="hero-content">
+        <div class="hero-text">
+            <h1 class="hero-title">
+                Turn Any Book Photo Into Your
+                <span class="hero-accent">Reading List</span>
+            </h1>
+            <p class="hero-subtitle">
+                Snap a photo of any book, bookshelf, or reading list and instantly get purchase links, reading app integration, and personalized recommendations.
+            </p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-number">10,000+</span>
+                    <span class="stat-label">Books Identified</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">98%</span>
+                    <span class="stat-label">Accuracy Rate</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">5 sec</span>
+                    <span class="stat-label">Average Scan</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="floating-books">
+                <div class="book-icon book-1">📖</div>
+                <div class="book-icon book-2">📚</div>
+                <div class="book-icon book-3">📓</div>
+                <div class="book-icon book-4">📔</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- CTA Arrow -->
+    <div class="hero-arrow">
+        <div class="arrow-bounce">↓</div>
+        <span>Start scanning below</span>
+    </div>
+</div>
+
+<!-- Premium Benefits Banner -->
+{% if not g.is_authenticated or (g.subscription and g.subscription.tier != 'premium') %}
+<div class="premium-banner">
+    <div class="banner-content">
+        <div class="banner-header">
+            <div class="banner-icon">🌟</div>
+            <div class="banner-text">
+                <h3>Unlock Premium Features</h3>
+                <p>Get unlimited daily scans, save your scan history, and never miss a book!</p>
+            </div>
+        </div>
+        <div class="banner-features">
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <span class="feature-icon">∞</span>
+                    <span>Unlimited Scans</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">💾</span>
+                    <span>Save History</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <span>Export Data</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🚀</span>
+                    <span>Priority Support</span>
+                </div>
+            </div>
+        </div>
+        <div class="banner-pricing">
+            <div class="price-highlight">
+                <span class="price-label">Starting at</span>
+                <span class="price-amount">$2.99/month</span>
+                <span class="price-savings">or $30/year (save $6)</span>
+            </div>
+            <div class="banner-actions">
+                {% if g.is_authenticated %}
+                    <a href="{{ url_for('subscribe') }}" class="banner-btn primary">
+                        Upgrade to Premium
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('signup') }}" class="banner-btn primary">
+                        Start Free Trial
+                    </a>
+                    <a href="{{ url_for('login') }}" class="banner-btn secondary">
+                        Sign In
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <button class="banner-close" onclick="closeBanner()" title="Close banner">×</button>
+    </div>
+</div>
+{% endif %}
+
+<div class="search-container">
+    <div class="page-header">
+        <h2>Scan Your Books</h2>
+        <div class="nav-links">
+            <a href="{{ url_for('recommendations') }}" class="recommendations-link">📚 Discover Books</a>
+        </div>
+    </div>
+    
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    <!-- User Status Display -->
+    {% if g.is_authenticated %}
+        <div class="user-status">
+            {% if g.subscription and g.subscription.tier == 'premium' %}
+                <div class="status-card premium">
+                    <div class="status-icon">⭐</div>
+                    <div class="status-content">
+                        <div class="status-title">Premium Active</div>
+                        <div class="status-subtitle">{{ g.daily_usage or 0 }} scans today • Unlimited remaining</div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="status-card free">
+                    <div class="status-icon">📚</div>
+                    <div class="status-content">
+                        <div class="status-title">Free Plan</div>
+                        <div class="status-subtitle">
+                            {{ g.daily_usage or 0 }}/1 scans used today
+                            {% if g.daily_usage >= 1 %}
+                                • <span class="limit-reached">Daily limit reached!</span>
+                            {% else %}
+                                • {{ 1 - (g.daily_usage or 0) }} scan remaining
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Enhanced upgrade prompt for free users -->
+                    <div class="free-user-upgrade">
+                        {% if g.daily_usage >= 1 %}
+                            <div class="upgrade-urgency">
+                                <div class="urgency-icon">⏰</div>
+                                <div class="urgency-text">
+                                    <strong>Out of scans for today!</strong>
+                                    <p>Upgrade to Premium for unlimited daily scans and never miss a book again.</p>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="upgrade-preview">
+                                <div class="preview-text">
+                                    <strong>Want unlimited scans?</strong>
+                                    <p>Premium users get unlimited scans, scan history, and export features.</p>
+                                </div>
+                                <div class="preview-benefits">
+                                    <span class="benefit-tag">∞ Unlimited</span>
+                                    <span class="benefit-tag">💾 History</span>
+                                    <span class="benefit-tag">📊 Export</span>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="upgrade-action">
+                            <a href="{{ url_for('subscribe') }}" class="enhanced-upgrade-btn">
+                                <span class="btn-icon">🌟</span>
+                                <span class="btn-text">
+                                    <strong>Upgrade to Premium</strong>
+                                    <small>$2.99/month • Cancel anytime</small>
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <!-- Enhanced anonymous user conversion section -->
+        <div class="conversion-section">
+            <div class="conversion-content">
+                <div class="conversion-header">
+                    <h3>🎯 Ready to build your ultimate reading list?</h3>
+                    <p>Join thousands of book lovers who use BookSaver to discover and organize their next great reads.</p>
+                </div>
+                
+                <div class="plan-comparison">
+                    <div class="plan-card free-preview">
+                        <div class="plan-header">
+                            <h4>📚 Free Plan</h4>
+                            <div class="plan-price">$0/month</div>
+                        </div>
+                        <div class="plan-features">
+                            <div class="feature">✅ 1 scan per day</div>
+                            <div class="feature">✅ Basic book detection</div>
+                            <div class="feature">✅ Purchase links</div>
+                            <div class="feature disabled">❌ Scan history</div>
+                            <div class="feature disabled">❌ Data export</div>
+                        </div>
+                        <div class="plan-action">
+                            <a href="{{ url_for('signup') }}" class="plan-btn secondary">
+                                Start Free
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="plan-card premium-preview featured">
+                        <div class="plan-badge">⭐ Most Popular</div>
+                        <div class="plan-header">
+                            <h4>🌟 Premium Plan</h4>
+                            <div class="plan-price">
+                                <span class="price-main">$2.99/month</span>
+                                <span class="price-annual">or $30/year (save $6)</span>
+                            </div>
+                        </div>
+                        <div class="plan-features">
+                            <div class="feature">✅ Unlimited daily scans</div>
+                            <div class="feature">✅ Advanced book detection</div>
+                            <div class="feature">✅ Complete scan history</div>
+                            <div class="feature">✅ CSV export & backup</div>
+                            <div class="feature">✅ Priority support</div>
+                            <div class="feature">✅ Early access to features</div>
+                        </div>
+                        <div class="plan-action">
+                            <a href="{{ url_for('signup') }}" class="plan-btn primary">
+                                Start Premium Trial
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="conversion-footer">
+                    <p class="login-prompt">
+                        Already have an account? 
+                        <a href="{{ url_for('login') }}" class="login-link">Sign in here</a>
+                    </p>
+                    <div class="trust-indicators">
+                        <span class="indicator">🔒 Secure & Private</span>
+                        <span class="indicator">📱 Works on all devices</span>
+                        <span class="indicator">⚡ Cancel anytime</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <div class="search-options">
+        <div class="search-box image-search">
+            <div class="search-box-header">
+                <h3>📸 Scan Books with Camera</h3>
+                <p>Take a photo or upload an image to find books!</p>
+            </div>
+            <form method="POST" action="{{ url_for('process_image_upload') }}" enctype="multipart/form-data" class="search-form" id="image-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                
+                <!-- Modern Drag & Drop Interface -->
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-content">
+                        <div class="upload-icon">
+                            <div class="icon-animation">
+                                📸
+                            </div>
+                        </div>
+                        <h3 class="upload-title">Drop your book photo here</h3>
+                        <p class="upload-subtitle">or click to browse from your device</p>
+                        <div class="upload-actions">
+                            <button type="button" id="camera-btn" class="upload-btn camera-btn">
+                                <span>Take Photo</span>
+                            </button>
+                            <button type="button" id="file-btn" class="upload-btn file-btn">
+                                <span>Browse Files</span>
+                            </button>
+                        </div>
+                        <div class="upload-formats">
+                            <span>Supports: JPG, PNG • Max 10MB</span>
+                        </div>
+                    </div>
+                    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
+                    <input type="file" id="file-input" accept="image/*" style="display: none;">
+                </div>
+                
+                <!-- Enhanced Preview Section -->
+                <div id="image-preview-section" class="preview-section" style="display: none;">
+                    <div class="preview-container">
+                        <div class="preview-header">
+                            <h4>📖 Ready to scan!</h4>
+                            <button type="button" id="clear-image" class="clear-btn">
+                                <span>×</span>
+                            </button>
+                        </div>
+                        <div class="preview-image-container">
+                            <img id="image-preview" src="" alt="Selected image" class="preview-image">
+                            <div class="preview-overlay">
+                                <div class="preview-info">
+                                    <span id="file-info"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="preview-tips">
+                            <div class="tip-item">
+                                <span class="tip-icon">✅</span>
+                                <span>Books clearly visible</span>
+                            </div>
+                            <div class="tip-item">
+                                <span class="tip-icon">✅</span>
+                                <span>Good lighting detected</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="search-btn scan-submit-btn primary-cta" id="scan-submit" disabled>
+                    <span class="btn-text">
+                        <span>Scan My Books</span>
+                    </span>
+                    <span class="btn-loading" style="display: none;">
+                        <span class="loading-spinner"></span>
+                        <span>Analyzing Magic...</span>
+                    </span>
+                </button>
+            </form>
+            
+            <div class="box-instructions">
+                <h4>How it works:</h4>
+                <ol>
+                    <li>Take a photo or upload an image of books</li>
+                    <li>We'll detect books in your image</li>
+                    <li>Get purchase links for found books</li>
+                </ol>
+            </div>
+        </div>
+        
+    </div>
+    
+</div>
+
+<script>
+// Modern drag-and-drop book scanning functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const cameraInput = document.getElementById('camera-input');
+    const fileInput = document.getElementById('file-input');
+    const cameraBtn = document.getElementById('camera-btn');
+    const fileBtn = document.getElementById('file-btn');
+    const uploadArea = document.getElementById('upload-area');
+    const imagePreview = document.getElementById('image-preview');
+    const imagePreviewSection = document.getElementById('image-preview-section');
+    const clearImageBtn = document.getElementById('clear-image');
+    const submitBtn = document.getElementById('scan-submit');
+    const form = document.getElementById('image-form');
+    const fileInfo = document.getElementById('file-info');
+    
+    // Device detection for smart UI behavior
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isDesktop = !isMobile;
+    
+    // Device-specific button visibility
+    if (isDesktop) {
+        // Hide camera button on desktop, show file only
+        cameraBtn.style.display = 'none';
+    }
+    
+    // Drag and Drop Functionality
+    uploadArea.addEventListener('dragover', handleDragOver);
+    uploadArea.addEventListener('dragenter', handleDragEnter);
+    uploadArea.addEventListener('dragleave', handleDragLeave);
+    uploadArea.addEventListener('drop', handleFileDrop);
+    uploadArea.addEventListener('click', function() {
+        if (!isMobile) {
+            fileInput.click();
+        }
+    });
+    
+    function handleDragOver(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    }
+    
+    function handleDragEnter(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    }
+    
+    function handleDragLeave(e) {
+        e.preventDefault();
+        if (!uploadArea.contains(e.relatedTarget)) {
+            uploadArea.classList.remove('dragover');
+        }
+    }
+    
+    function handleFileDrop(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type.startsWith('image/')) {
+                handleFileSelection({ target: { files: [file] } });
+                // Set the file input to the dropped file
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                fileInput.name = 'image';
+                cameraInput.removeAttribute('name');
+            } else {
+                alert('Please drop an image file (JPG or PNG)');
+            }
+        }
+    }
+    
+    // Button click handlers
+    cameraBtn.addEventListener('click', function() {
+        clearOtherInput(fileInput);
+        cameraInput.click();
+    });
+    
+    fileBtn.addEventListener('click', function() {
+        clearOtherInput(cameraInput);
+        fileInput.click();
+    });
+    
+    // File selection handlers for both inputs
+    cameraInput.addEventListener('change', handleFileSelection);
+    fileInput.addEventListener('change', handleFileSelection);
+    
+    function handleFileSelection(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                e.target.value = ''; // Clear invalid selection
+                return;
+            }
+            
+            // Check file size (10MB limit)
+            const maxSize = 10 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert('Image file is too large. Please use an image smaller than 10MB.');
+                e.target.value = ''; // Clear invalid selection
+                return;
+            }
+            
+            // Clear the other input to avoid conflicts and manage form names
+            if (e.target === cameraInput) {
+                fileInput.value = '';
+                // Set this input as the active one for form submission
+                cameraInput.name = 'image';
+                fileInput.removeAttribute('name');
+            } else {
+                cameraInput.value = '';
+                // Set this input as the active one for form submission  
+                fileInput.name = 'image';
+                cameraInput.removeAttribute('name');
+            }
+            
+            showImagePreview(URL.createObjectURL(file), file);
+            submitBtn.disabled = false;
+            
+            // Hide upload area and show preview
+            uploadArea.style.display = 'none';
+        }
+    }
+    
+    function clearOtherInput(otherInput) {
+        if (otherInput.files.length > 0) {
+            otherInput.value = '';
+        }
+    }
+    
+    function showImagePreview(src, file) {
+        imagePreview.src = src;
+        imagePreviewSection.style.display = 'block';
+        
+        // Show file info
+        if (file && fileInfo) {
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            fileInfo.textContent = `${file.name} • ${fileSize}MB`;
+        }
+        
+        // Add a subtle entrance animation
+        imagePreviewSection.style.opacity = '0';
+        imagePreviewSection.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            imagePreviewSection.style.transition = 'all 0.3s ease';
+            imagePreviewSection.style.opacity = '1';
+            imagePreviewSection.style.transform = 'translateY(0)';
+        }, 10);
+    }
+    
+    // Clear image functionality
+    clearImageBtn.addEventListener('click', function() {
+        cameraInput.value = '';
+        fileInput.value = '';
+        // Reset name attributes - no active input
+        cameraInput.removeAttribute('name');
+        fileInput.removeAttribute('name');
+        imagePreviewSection.style.display = 'none';
+        uploadArea.style.display = 'block';
+        submitBtn.disabled = true;
+        URL.revokeObjectURL(imagePreview.src);
+        
+        // Clear file info
+        if (fileInfo) {
+            fileInfo.textContent = '';
+        }
+    });
+    
+    // Form submission with loading state
+    form.addEventListener('submit', function(e) {
+        const hasCameraFile = cameraInput.files.length > 0;
+        const hasRegularFile = fileInput.files.length > 0;
+        
+        if (!hasCameraFile && !hasRegularFile) {
+            e.preventDefault();
+            alert('Please select an image first');
+            return;
+        }
+        
+        // Double-check that the active input has the correct name attribute
+        if (hasCameraFile && !cameraInput.name) {
+            cameraInput.name = 'image';
+            fileInput.removeAttribute('name');
+        } else if (hasRegularFile && !fileInput.name) {
+            fileInput.name = 'image';
+            cameraInput.removeAttribute('name');
+        }
+        
+        // Show loading state
+        submitBtn.querySelector('.btn-text').style.display = 'none';
+        submitBtn.querySelector('.btn-loading').style.display = 'inline';
+        submitBtn.disabled = true;
+    });
+    
+    // Initialize hero animations
+    function initHeroAnimations() {
+        const heroTitle = document.querySelector('.hero-title');
+        const heroSubtitle = document.querySelector('.hero-subtitle');
+        const heroStats = document.querySelector('.hero-stats');
+        const floatingBooks = document.querySelectorAll('.book-icon');
+        
+        // Animate title
+        if (heroTitle) {
+            heroTitle.style.opacity = '0';
+            heroTitle.style.transform = 'translateY(30px)';
+            setTimeout(() => {
+                heroTitle.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+                heroTitle.style.opacity = '1';
+                heroTitle.style.transform = 'translateY(0)';
+            }, 200);
+        }
+        
+        // Animate subtitle
+        if (heroSubtitle) {
+            heroSubtitle.style.opacity = '0';
+            heroSubtitle.style.transform = 'translateY(30px)';
+            setTimeout(() => {
+                heroSubtitle.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+                heroSubtitle.style.opacity = '1';
+                heroSubtitle.style.transform = 'translateY(0)';
+            }, 400);
+        }
+        
+        // Animate stats
+        if (heroStats) {
+            heroStats.style.opacity = '0';
+            heroStats.style.transform = 'translateY(30px)';
+            setTimeout(() => {
+                heroStats.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+                heroStats.style.opacity = '1';
+                heroStats.style.transform = 'translateY(0)';
+            }, 600);
+        }
+        
+        // Animate floating books with stagger
+        floatingBooks.forEach((book, index) => {
+            book.style.opacity = '0';
+            book.style.transform = 'translateY(50px) scale(0.5)';
+            setTimeout(() => {
+                book.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+                book.style.opacity = '1';
+                book.style.transform = 'translateY(0) scale(1)';
+            }, 800 + index * 100);
+        });
+    }
+    
+    // Call hero animations if hero exists
+    if (document.querySelector('.hero-section')) {
+        initHeroAnimations();
+    }
+});
+
+// Banner close functionality
+function closeBanner() {
+    const banner = document.querySelector('.premium-banner');
+    if (banner) {
+        banner.style.transition = 'all 0.3s ease';
+        banner.style.opacity = '0';
+        banner.style.transform = 'translateY(-20px)';
+        setTimeout(() => {
+            banner.style.display = 'none';
+        }, 300);
+        
+        // Store banner closure preference
+        localStorage.setItem('premiumBannerClosed', 'true');
+    }
+}
+
+// Check banner preference on load
+document.addEventListener('DOMContentLoaded', function() {
+    const banner = document.querySelector('.premium-banner');
+    if (banner && localStorage.getItem('premiumBannerClosed') === 'true') {
+        banner.style.display = 'none';
+    }
+});
+</script>
+
+<style>
+/* Premium Banner Styles */
+.premium-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.premium-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+Cjwvc3ZnPg==') repeat;
+    opacity: 0.5;
+    animation: float 20s infinite linear;
+}
+
+@keyframes float {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-40px); }
+}
+
+.banner-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    position: relative;
+    z-index: 2;
+}
+
+.banner-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    justify-content: center;
+}
+
+.banner-icon {
+    font-size: 2rem;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.banner-text h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem 0;
+}
+
+.banner-text p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 1rem;
+}
+
+.banner-features {
+    margin-bottom: 1.5rem;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    justify-content: center;
+}
+
+.feature-icon {
+    font-size: 1.2rem;
+}
+
+.banner-pricing {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.price-highlight {
+    margin-bottom: 1rem;
+}
+
+.price-label {
+    display: block;
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 0.25rem;
+}
+
+.price-amount {
+    font-size: 1.8rem;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.price-savings {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.banner-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.banner-btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+    border: 2px solid transparent;
+}
+
+.banner-btn.primary {
+    background: white;
+    color: #667eea;
+    border-color: white;
+}
+
+.banner-btn.primary:hover {
+    background: #f8fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.banner-btn.secondary {
+    background: transparent;
+    color: white;
+    border-color: rgba(255,255,255,0.3);
+}
+
+.banner-btn.secondary:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: white;
+    transform: translateY(-2px);
+}
+
+.banner-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.banner-close:hover {
+    background: rgba(255,255,255,0.3);
+    transform: scale(1.1);
+}
+
+/* Enhanced Free User Upgrade Styles */
+.free-user-upgrade {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.upgrade-urgency {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+}
+
+.urgency-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.urgency-text strong {
+    color: #dc2626;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.urgency-text p {
+    color: #7f1d1d;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.upgrade-preview {
+    margin-bottom: 1rem;
+}
+
+.preview-text {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.preview-text strong {
+    color: #1f2937;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.preview-text p {
+    color: #6b7280;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.preview-benefits {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.benefit-tag {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: 1px solid #d1d5db;
+}
+
+.upgrade-action {
+    text-align: center;
+}
+
+.enhanced-upgrade-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    padding: 0.875rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.enhanced-upgrade-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.enhanced-upgrade-btn .btn-icon {
+    font-size: 1.2rem;
+}
+
+.enhanced-upgrade-btn .btn-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.enhanced-upgrade-btn .btn-text strong {
+    font-size: 0.95rem;
+    margin-bottom: 0.125rem;
+}
+
+.enhanced-upgrade-btn .btn-text small {
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+.limit-reached {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+/* Conversion Section for Anonymous Users */
+.conversion-section {
+    max-width: 900px;
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+}
+
+.conversion-content {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    padding: 2rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+.conversion-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.conversion-header h3 {
+    color: #1f2937;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+.conversion-header p {
+    color: #6b7280;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.plan-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.plan-card {
+    background: #f9fafb;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.plan-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.plan-card.featured {
+    background: linear-gradient(135deg, #fefce8, #fef3c7);
+    border-color: #fbbf24;
+    transform: scale(1.05);
+}
+
+.plan-card.featured:hover {
+    transform: scale(1.05) translateY(-4px);
+}
+
+.plan-badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fbbf24;
+    color: #92400e;
+    padding: 0.25rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.plan-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.plan-header h4 {
+    color: #1f2937;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.plan-price {
+    color: #374151;
+    font-weight: 700;
+}
+
+.price-main {
+    font-size: 1.5rem;
+    display: block;
+}
+
+.price-annual {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    font-weight: 500;
+}
+
+.plan-features {
+    margin-bottom: 1.5rem;
+}
+
+.plan-features .feature {
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+.plan-features .feature.disabled {
+    opacity: 0.5;
+}
+
+.plan-action {
+    text-align: center;
+}
+
+.plan-btn {
+    display: inline-block;
+    width: 100%;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+}
+
+.plan-btn.primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border: 2px solid transparent;
+}
+
+.plan-btn.primary:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.plan-btn.secondary {
+    background: white;
+    color: #374151;
+    border: 2px solid #d1d5db;
+}
+
+.plan-btn.secondary:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    transform: translateY(-2px);
+}
+
+.conversion-footer {
+    text-align: center;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 1.5rem;
+}
+
+.login-prompt {
+    color: #6b7280;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+.login-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.login-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.trust-indicators {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.indicator {
+    color: #059669;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .banner-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .feature-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .banner-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .banner-btn {
+        width: 100%;
+        max-width: 250px;
+    }
+    
+    .plan-comparison {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .plan-card.featured {
+        transform: none;
+    }
+    
+    .plan-card.featured:hover {
+        transform: translateY(-4px);
+    }
+    
+    .trust-indicators {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .upgrade-urgency {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .enhanced-upgrade-btn {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .enhanced-upgrade-btn .btn-text {
+        align-items: center;
+    }
+}
+
+/* User Status Styles */
+.user-status {
+    max-width: 800px;
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+}
+
+.status-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.status-card.premium {
+    border-color: #fbbf24;
+    background: linear-gradient(135deg, #fefce8, #fef3c7);
+}
+
+.status-card.free {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+}
+
+.status-icon {
+    font-size: 1.5rem;
+}
+
+.status-content {
+    flex: 1;
+}
+
+.status-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+}
+
+.status-subtitle {
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.upgrade-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.upgrade-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.upgrade-prompt {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+}
+
+.upgrade-prompt p {
+    color: #6b7280;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.upgrade-btn {
+    display: inline-block;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.upgrade-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+}
+
+/* Auth Prompt Styles */
+.auth-prompt {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+}
+
+.prompt-content {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 2rem;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.prompt-content h3 {
+    color: #1f2937;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.prompt-content p {
+    color: #6b7280;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.prompt-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.prompt-btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.prompt-btn.primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+.prompt-btn.primary:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.prompt-btn.secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.prompt-btn.secondary:hover {
+    background: #e5e7eb;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+    .status-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .prompt-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .prompt-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+</style>
+{% endblock %}

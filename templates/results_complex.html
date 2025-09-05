@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Results Hero Section -->
+<div class="results-hero">
+    <div class="results-hero-content">
+        <div class="success-animation">
+            <div class="check-circle">
+                <div class="check-mark">✓</div>
+            </div>
+        </div>
+        <h1 class="results-title">
+            {% if books|length > 0 %}
+                Amazing! We found <span class="highlight">{{ books|length }}</span> book{{ "s" if books|length > 1 else "" }}
+            {% else %}
+                No books detected this time
+            {% endif %}
+        </h1>
+        <p class="results-subtitle">
+            {% if books|length > 0 %}
+                Ready to add them to your reading list? Choose your preferred platform below.
+            {% else %}
+                Try with a clearer photo or different angle for better results.
+            {% endif %}
+        </p>
+        <div class="results-actions">
+            <a href="{{ url_for('index') }}" class="action-btn secondary-btn">
+                <span>Scan Another</span>
+            </a>
+            {% if books|length > 0 %}
+            <button class="action-btn primary-btn" onclick="scrollToBooks()">
+                <span>View Results</span>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+<div class="results-container" id="books-section">
+    
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    
+    {% if books %}
+    <!-- Results Stats -->
+    <div class="results-stats">
+        <div class="stat-card">
+            <div class="stat-icon">🔍</div>
+            <div class="stat-content">
+                <div class="stat-number">{{ books|length }}</div>
+                <div class="stat-label">Books Found</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⚡</div>
+            <div class="stat-content">
+                <div class="stat-number">98%</div>
+                <div class="stat-label">Accuracy</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🛒</div>
+            <div class="stat-content">
+                <div class="stat-number">5+</div>
+                <div class="stat-label">Buy Options</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Premium Upgrade Prompt -->
+    {% if books|length >= 3 %}
+    <div class="premium-prompt" id="premium-prompt">
+        <div class="prompt-content">
+            <div class="prompt-icon">🎆</div>
+            <div class="prompt-text">
+                <h3>Love finding books? Go Premium!</h3>
+                <p>Unlimited scans, batch processing, reading recommendations, and priority support for just $2.99/month.</p>
+            </div>
+            <button class="upgrade-btn" onclick="showSubscriptionModal()">
+                <span>Upgrade Now</span>
+            </button>
+        </div>
+        <button class="prompt-close" onclick="closePrompt()">&times;</button>
+    </div>
+    {% endif %}
+    
+    <!-- Modern Books Grid -->
+    <div class="modern-books-grid">
+        {% for book in books %}
+        <div class="modern-book-card" data-book-index="{{ loop.index0 }}">
+            <div class="book-cover-container">
+                {% if book.thumbnail %}
+                <img src="{{ book.thumbnail }}" alt="{{ book.title }}" class="modern-book-cover">
+                <div class="cover-overlay">
+                    <button class="quick-preview-btn" onclick="showBookModal({{ loop.index0 }})" 
+                            data-book-title="{{ book.title }}"
+                            data-book-authors="{{ book.authors | join(', ') }}"
+                            data-book-description="{{ book.description or 'No description available.' }}"
+                            data-book-thumbnail="{{ book.thumbnail or '' }}"
+                            data-book-published="{{ book.published_date or 'Unknown' }}"
+                            data-book-isbn="{{ book.isbn or 'N/A' }}">
+                        <span>Quick View</span>
+                    </button>
+                </div>
+                {% else %}
+                <div class="modern-no-cover">
+                    <div class="no-cover-icon">📖</div>
+                    <div class="no-cover-text">No Cover Available</div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="modern-book-info">
+                <div class="book-header">
+                    <h3 class="modern-book-title">{{ book.title }}</h3>
+                    <div class="book-rating">
+                        <div class="stars">⭐⭐⭐⭐⭐</div>
+                        <span class="rating-text">4.5</span>
+                    </div>
+                </div>
+                <p class="modern-book-authors">by {{ book.authors | join(', ') }}</p>
+                
+                {% if book.published_date %}
+                <p class="book-date">Published: {{ book.published_date }}</p>
+                {% endif %}
+                
+                {% if book.isbn %}
+                <p class="book-isbn">ISBN: {{ book.isbn }}</p>
+                {% endif %}
+                
+                {% if book.description %}
+                <p class="book-description">{{ book.description[:150] }}{% if book.description|length > 150 %}...{% endif %}</p>
+                {% endif %}
+                
+                <div class="modern-book-actions">
+                    <div class="action-section">
+                        <h4 class="action-title">🛍️ Get This Book</h4>
+                        {% if book.purchase_links %}
+                        <div class="modern-retailer-grid">
+                            {% if book.purchase_links.amazon %}
+                            <a href="{{ book.purchase_links.amazon }}" 
+                               target="_blank" 
+                               class="modern-retailer-btn amazon-btn">
+                                <span>Amazon</span>
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.audible %}
+                            <a href="{{ book.purchase_links.audible }}" 
+                               target="_blank" 
+                               class="modern-retailer-btn audible-btn">
+                                <span>Audible</span>
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.barnes_noble %}
+                            <a href="{{ book.purchase_links.barnes_noble }}" 
+                               target="_blank" 
+                               class="modern-retailer-btn bn-btn">
+                                <span>B&N</span>
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.bookshop %}
+                            <a href="{{ book.purchase_links.bookshop }}" 
+                               target="_blank" 
+                               class="modern-retailer-btn bookshop-btn">
+                                <span>Bookshop</span>
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.purchase_links.google_books %}
+                            <a href="{{ book.purchase_links.google_books }}" 
+                               target="_blank" 
+                               class="modern-retailer-btn google-btn">
+                                <span>Google</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="action-section">
+                        <h4 class="action-title">📱 Reading Apps</h4>
+                        {% if book.reader_app_links %}
+                        <div class="modern-app-grid">
+                            {% if book.reader_app_links.goodreads %}
+                            <a href="{{ book.reader_app_links.goodreads }}" 
+                               target="_blank" 
+                               class="modern-app-btn goodreads-btn">
+                                <span>Goodreads</span>
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.reader_app_links.overdrive %}
+                            <a href="{{ book.reader_app_links.overdrive }}" 
+                               target="_blank" 
+                               class="modern-app-btn overdrive-btn">
+                                <span>OverDrive</span>
+                            </a>
+                            {% endif %}
+                            
+                            {% if book.reader_app_links.storygraph %}
+                            <a href="{{ book.reader_app_links.storygraph }}" 
+                               target="_blank" 
+                               class="modern-app-btn storygraph-btn">
+                                <span>StoryGraph</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="no-apps-message">
+                            <span class="no-apps-icon">📱</span>
+                            <span>Reading app links coming soon!</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if book.preview_link %}
+                    <div class="action-section">
+                        <a href="{{ book.preview_link }}" 
+                           target="_blank" 
+                           class="modern-preview-btn">
+                            <span>Preview Book</span>
+                        </a>
+                    </div>
+                    {% endif %}
+                    
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% else %}
+    <div class="no-results">
+        <h3>No books found</h3>
+        <p>Try searching with a different title or ISBN.</p>
+        <a href="{{ url_for('index') }}" class="search-again-btn">Search Again</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Subscription Modal -->
+<div id="subscription-modal" class="subscription-modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeSubscriptionModal()"></div>
+    <div class="subscription-content">
+        <div class="subscription-header">
+            <h2>Upgrade to BookSaver Premium</h2>
+            <button class="modal-close" onclick="closeSubscriptionModal()">&times;</button>
+        </div>
+        <div class="subscription-body">
+            <div class="pricing-card featured">
+                <div class="plan-badge">Most Popular</div>
+                <div class="plan-name">Premium Monthly</div>
+                <div class="plan-price">
+                    <span class="currency">$</span>
+                    <span class="amount">2</span>
+                    <span class="period">.99/month</span>
+                </div>
+                <ul class="plan-features">
+                    <li><span class="feature-icon">✓</span> Unlimited book scans</li>
+                    <li><span class="feature-icon">✓</span> Batch photo processing</li>
+                    <li><span class="feature-icon">✓</span> AI reading recommendations</li>
+                    <li><span class="feature-icon">✓</span> Export to any reading app</li>
+                    <li><span class="feature-icon">✓</span> Priority customer support</li>
+                    <li><span class="feature-icon">✓</span> No ads</li>
+                </ul>
+                <button class="subscribe-btn primary">
+                    <span>Start Subscription Now</span>
+                    <small>$2.99/month or $30/year</small>
+                </button>
+            </div>
+            
+            <div class="pricing-card">
+                <div class="plan-name">Free Plan</div>
+                <div class="plan-price">
+                    <span class="currency">$</span>
+                    <span class="amount">0</span>
+                    <span class="period">/forever</span>
+                </div>
+                <ul class="plan-features">
+                    <li><span class="feature-icon">✓</span> 3 scans per day</li>
+                    <li><span class="feature-icon">✓</span> Basic book detection</li>
+                    <li><span class="feature-icon limited">✕</span> <span class="limited-text">Batch processing</span></li>
+                    <li><span class="feature-icon limited">✕</span> <span class="limited-text">AI recommendations</span></li>
+                    <li><span class="feature-icon limited">✕</span> <span class="limited-text">Priority support</span></li>
+                </ul>
+                <button class="subscribe-btn secondary" onclick="closeSubscriptionModal()">
+                    Continue with Free
+                </button>
+            </div>
+        </div>
+        <div class="subscription-footer">
+            <p class="guarantee">🛡️ 30-day money-back guarantee</p>
+            <div class="testimonials">
+                <div class="testimonial">
+                    <div class="stars">⭐⭐⭐⭐⭐</div>
+                    <p>"BookSaver Premium has revolutionized my reading list management!"</p>
+                    <cite>- Sarah K., Book Blogger</cite>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Book Modal for Quick View -->
+<div id="book-modal" class="book-modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeBookModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-book-title">Book Details</h3>
+            <button class="modal-close" onclick="closeBookModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-book-cover">
+                <img id="modal-book-image" src="" alt="Book cover">
+            </div>
+            <div class="modal-book-details">
+                <p id="modal-book-authors"></p>
+                <p id="modal-book-description"></p>
+                <div id="modal-book-actions"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function scrollToBooks() {
+    document.getElementById('books-section').scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+    });
+}
+
+function showBookModal(index) {
+    const modal = document.getElementById('book-modal');
+    const buttons = document.querySelectorAll('.quick-preview-btn');
+    
+    if (buttons[index]) {
+        const button = buttons[index];
+        const title = button.getAttribute('data-book-title');
+        const authors = button.getAttribute('data-book-authors');
+        const description = button.getAttribute('data-book-description');
+        const thumbnail = button.getAttribute('data-book-thumbnail');
+        const published = button.getAttribute('data-book-published');
+        const isbn = button.getAttribute('data-book-isbn');
+        
+        // Populate modal content
+        document.getElementById('modal-book-title').textContent = title;
+        document.getElementById('modal-book-authors').textContent = `by ${authors}`;
+        document.getElementById('modal-book-description').textContent = description;
+        
+        // Set book image
+        const modalImage = document.getElementById('modal-book-image');
+        if (thumbnail && thumbnail !== '') {
+            modalImage.src = thumbnail;
+            modalImage.alt = title;
+            modalImage.style.display = 'block';
+        } else {
+            modalImage.style.display = 'none';
+        }
+        
+        // Add additional book details
+        const modalDetails = document.getElementById('modal-book-actions');
+        modalDetails.innerHTML = `
+            <div class="modal-book-meta">
+                <p><strong>Published:</strong> ${published}</p>
+                <p><strong>ISBN:</strong> ${isbn}</p>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-btn" onclick="closeBookModal()">Close</button>
+            </div>
+        `;
+    }
+    
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Add entrance animation
+    modal.style.opacity = '0';
+    setTimeout(() => {
+        modal.style.transition = 'opacity 0.3s ease';
+        modal.style.opacity = '1';
+    }, 10);
+}
+
+function closeBookModal() {
+    const modal = document.getElementById('book-modal');
+    
+    // Fade out animation
+    modal.style.transition = 'opacity 0.3s ease';
+    modal.style.opacity = '0';
+    
+    setTimeout(() => {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }, 300);
+}
+
+function showSubscriptionModal() {
+    const modal = document.getElementById('subscription-modal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Track conversion event
+    if (typeof gtag !== 'undefined') {
+        gtag('event', 'begin_checkout', {
+            currency: 'USD',
+            value: 2.99
+        });
+    }
+}
+
+function closeSubscriptionModal() {
+    const modal = document.getElementById('subscription-modal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+function closePrompt() {
+    const prompt = document.querySelector('.premium-prompt');
+    if (prompt) {
+        prompt.style.display = 'none';
+        localStorage.setItem('premium-prompt-dismissed', 'true');
+    }
+}
+
+// Add entrance animations to book cards
+document.addEventListener('DOMContentLoaded', function() {
+    const bookCards = document.querySelectorAll('.modern-book-card');
+    bookCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+});
+</script>
+
+<style>
+</style>
+
+{% endblock %}

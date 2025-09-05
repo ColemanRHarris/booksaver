@@ -1,8 +1,7 @@
 # BookSaver – the Shazam for Books (`claude.md`)
 
 ## 1. Overall Goal
-Your job is to improve the **existing, functional web app** that takes images as input and runs requests to the Gemini model and Google Books API. Your primary goal is to implement the Stripe API integration.
-
+Your job is to improve the **existing, functional web app** that takes images as input and runs requests to the Gemini model and Google Books API. The goal will be to streamline the user experience and remove the "fluff" from the existing web app.
 ---
 
 ## 2. Core Flow (Updated)
@@ -18,29 +17,10 @@ Your job is to improve the **existing, functional web app** that takes images as
 
 ---
 
-## 3. Tech Stack (Additions)
-| Component        | Library / Service                         |
-|------------------|------------------------------------------|
-| CV + ML          | `google-genai`  | 
-| Async processing | **Celery**                   |
-| Object storage   | local `/tmp`                             |
-| Framework        | **Flask**       |
-
----
-
-## 4. Privacy & Compliance (TikTok + Amazon)
-- **GDPR / CCPA**: cookie banner for Amazon tracking cookies.  
-- **Amazon Associates**:
-  - Display **prominent disclosure** on every page:  
-    “As an Amazon Associate I earn from qualifying purchases.”
-  - Link to Amazon Privacy Policy.  
-
----
-
-## 5. Improvements
-- Implement Stripe API for user accounts.
-- Take email addresses as input and save them tied to user accounts.
-- Limit users to 1 scan per day unless they have a premium account.
-- Offer as a feature that users can save previous searches only if they have a premium account.
-- Ensure that input images are deleted.
-- Price at $2.99/month or $30/year.
+## 3. Improvements
+- Create a much simpler user interface - images can be added on the left and results appear on the right. No processing page, just a clean, simple landing page (white with navy text). Think simple like these landing pages: news.ycombinator.com, google.com, remove.bg
+- Remove user accounts, caching in Redis, and the Stripe integration. 
+- The only source of monetization for the app will be affiliate links.
+- Remove all references to upgrading to Booksaver premium.
+- I would like to heavily simplify the results CSS - it looks too flashy now. Just some basic links to other sites with results.
+- Change the fuzzy search, there are too many nonsense results. After gettings results from the Gemini model, rank based on text similarity to the <Title, Author> pair and remove any that are not close to the google Books results.

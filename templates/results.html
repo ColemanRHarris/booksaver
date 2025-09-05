@@ -1,450 +1,252 @@
-{% extends "base.html" %}
+{% extends "base_simple.html" %}
+
+{% block title %}Book Results - BookSaver{% endblock %}
 
 {% block content %}
-<!-- Results Hero Section -->
-<div class="results-hero">
-    <div class="results-hero-content">
-        <div class="success-animation">
-            <div class="check-circle">
-                <div class="check-mark">✓</div>
-            </div>
-        </div>
-        <h1 class="results-title">
-            {% if books|length > 0 %}
-                Amazing! We found <span class="highlight">{{ books|length }}</span> book{{ "s" if books|length > 1 else "" }}
-            {% else %}
-                No books detected this time
-            {% endif %}
-        </h1>
-        <p class="results-subtitle">
-            {% if books|length > 0 %}
-                Ready to add them to your reading list? Choose your preferred platform below.
-            {% else %}
-                Try with a clearer photo or different angle for better results.
-            {% endif %}
-        </p>
-        <div class="results-actions">
-            <a href="{{ url_for('index') }}" class="action-btn secondary-btn">
-                <span>Scan Another</span>
-            </a>
-            {% if books|length > 0 %}
-            <button class="action-btn primary-btn" onclick="scrollToBooks()">
-                <span>View Results</span>
-            </button>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
-
-<div class="results-container" id="books-section">
-    
+<div class="container">
     {% if error %}
     <div class="error">{{ error }}</div>
     {% endif %}
     
-    
-    {% if books %}
-    <!-- Results Stats -->
-    <div class="results-stats">
-        <div class="stat-card">
-            <div class="stat-icon">🔍</div>
-            <div class="stat-content">
-                <div class="stat-number">{{ books|length }}</div>
-                <div class="stat-label">Books Found</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">⚡</div>
-            <div class="stat-content">
-                <div class="stat-number">98%</div>
-                <div class="stat-label">Accuracy</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">🛒</div>
-            <div class="stat-content">
-                <div class="stat-number">5+</div>
-                <div class="stat-label">Buy Options</div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Premium Upgrade Prompt -->
-    {% if books|length >= 3 %}
-    <div class="premium-prompt" id="premium-prompt">
-        <div class="prompt-content">
-            <div class="prompt-icon">🎆</div>
-            <div class="prompt-text">
-                <h3>Love finding books? Go Premium!</h3>
-                <p>Unlimited scans, batch processing, reading recommendations, and priority support for just $2.99/month.</p>
-            </div>
-            <button class="upgrade-btn" onclick="showSubscriptionModal()">
-                <span>Upgrade Now</span>
-            </button>
-        </div>
-        <button class="prompt-close" onclick="closePrompt()">&times;</button>
-    </div>
-    {% endif %}
-    
-    <!-- Modern Books Grid -->
-    <div class="modern-books-grid">
-        {% for book in books %}
-        <div class="modern-book-card" data-book-index="{{ loop.index0 }}">
-            <div class="book-cover-container">
-                {% if book.thumbnail %}
-                <img src="{{ book.thumbnail }}" alt="{{ book.title }}" class="modern-book-cover">
-                <div class="cover-overlay">
-                    <button class="quick-preview-btn" onclick="showBookModal({{ loop.index0 }})" 
-                            data-book-title="{{ book.title }}"
-                            data-book-authors="{{ book.authors | join(', ') }}"
-                            data-book-description="{{ book.description or 'No description available.' }}"
-                            data-book-thumbnail="{{ book.thumbnail or '' }}"
-                            data-book-published="{{ book.published_date or 'Unknown' }}"
-                            data-book-isbn="{{ book.isbn or 'N/A' }}">
-                        <span>Quick View</span>
-                    </button>
-                </div>
-                {% else %}
-                <div class="modern-no-cover">
-                    <div class="no-cover-icon">📖</div>
-                    <div class="no-cover-text">No Cover Available</div>
-                </div>
-                {% endif %}
-            </div>
+    <div class="main-content">
+        <div class="upload-section">
+            <h2>Upload Another Image</h2>
+            <p><a href="{{ url_for('index') }}" style="color: #1a365d;">← Scan more books</a></p>
             
-            <div class="modern-book-info">
-                <div class="book-header">
-                    <h3 class="modern-book-title">{{ book.title }}</h3>
-                    <div class="book-rating">
-                        <div class="stars">⭐⭐⭐⭐⭐</div>
-                        <span class="rating-text">4.5</span>
+            <form method="POST" action="{{ url_for('process_image_upload') }}" enctype="multipart/form-data" id="image-form">
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-content">
+                        <div class="upload-icon">📸</div>
+                        <p>Drop your book photo here or click to browse</p>
+                        <input type="file" id="file-input" accept="image/*" name="image" style="display: none;">
+                        <button type="button" id="file-btn" class="upload-btn">Choose File</button>
                     </div>
                 </div>
-                <p class="modern-book-authors">by {{ book.authors | join(', ') }}</p>
                 
-                {% if book.published_date %}
-                <p class="book-date">Published: {{ book.published_date }}</p>
-                {% endif %}
-                
-                {% if book.isbn %}
-                <p class="book-isbn">ISBN: {{ book.isbn }}</p>
-                {% endif %}
-                
-                {% if book.description %}
-                <p class="book-description">{{ book.description[:150] }}{% if book.description|length > 150 %}...{% endif %}</p>
-                {% endif %}
-                
-                <div class="modern-book-actions">
-                    <div class="action-section">
-                        <h4 class="action-title">🛍️ Get This Book</h4>
-                        {% if book.purchase_links %}
-                        <div class="modern-retailer-grid">
-                            {% if book.purchase_links.amazon %}
-                            <a href="{{ book.purchase_links.amazon }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn amazon-btn">
-                                <span>Amazon</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.purchase_links.audible %}
-                            <a href="{{ book.purchase_links.audible }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn audible-btn">
-                                <span>Audible</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.purchase_links.barnes_noble %}
-                            <a href="{{ book.purchase_links.barnes_noble }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn bn-btn">
-                                <span>B&N</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.purchase_links.bookshop %}
-                            <a href="{{ book.purchase_links.bookshop }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn bookshop-btn">
-                                <span>Bookshop</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.purchase_links.google_books %}
-                            <a href="{{ book.purchase_links.google_books }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn google-btn">
-                                <span>Google</span>
-                            </a>
-                            {% endif %}
-                        </div>
-                        {% endif %}
+                <div id="image-preview-section" class="preview-section" style="display: none;">
+                    <div class="preview-container">
+                        <img id="image-preview" src="" alt="Selected image" class="preview-image">
+                        <button type="button" id="clear-image" class="clear-btn">×</button>
                     </div>
-                    
-                    <div class="action-section">
-                        <h4 class="action-title">📱 Reading Apps</h4>
-                        {% if book.reader_app_links %}
-                        <div class="modern-app-grid">
-                            {% if book.reader_app_links.goodreads %}
-                            <a href="{{ book.reader_app_links.goodreads }}" 
-                               target="_blank" 
-                               class="modern-app-btn goodreads-btn">
-                                <span>Goodreads</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.reader_app_links.overdrive %}
-                            <a href="{{ book.reader_app_links.overdrive }}" 
-                               target="_blank" 
-                               class="modern-app-btn overdrive-btn">
-                                <span>OverDrive</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.reader_app_links.storygraph %}
-                            <a href="{{ book.reader_app_links.storygraph }}" 
-                               target="_blank" 
-                               class="modern-app-btn storygraph-btn">
-                                <span>StoryGraph</span>
-                            </a>
-                            {% endif %}
-                        </div>
-                        {% else %}
-                        <div class="no-apps-message">
-                            <span class="no-apps-icon">📱</span>
-                            <span>Reading app links coming soon!</span>
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    {% if book.preview_link %}
-                    <div class="action-section">
-                        <a href="{{ book.preview_link }}" 
-                           target="_blank" 
-                           class="modern-preview-btn">
-                            <span>Preview Book</span>
-                        </a>
-                    </div>
-                    {% endif %}
-                    
                 </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    
-    {% else %}
-    <div class="no-results">
-        <h3>No books found</h3>
-        <p>Try searching with a different title or ISBN.</p>
-        <a href="{{ url_for('index') }}" class="search-again-btn">Search Again</a>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Subscription Modal -->
-<div id="subscription-modal" class="subscription-modal" style="display: none;">
-    <div class="modal-overlay" onclick="closeSubscriptionModal()"></div>
-    <div class="subscription-content">
-        <div class="subscription-header">
-            <h2>Upgrade to BookSaver Premium</h2>
-            <button class="modal-close" onclick="closeSubscriptionModal()">&times;</button>
-        </div>
-        <div class="subscription-body">
-            <div class="pricing-card featured">
-                <div class="plan-badge">Most Popular</div>
-                <div class="plan-name">Premium Monthly</div>
-                <div class="plan-price">
-                    <span class="currency">$</span>
-                    <span class="amount">2</span>
-                    <span class="period">.99/month</span>
-                </div>
-                <ul class="plan-features">
-                    <li><span class="feature-icon">✓</span> Unlimited book scans</li>
-                    <li><span class="feature-icon">✓</span> Batch photo processing</li>
-                    <li><span class="feature-icon">✓</span> AI reading recommendations</li>
-                    <li><span class="feature-icon">✓</span> Export to any reading app</li>
-                    <li><span class="feature-icon">✓</span> Priority customer support</li>
-                    <li><span class="feature-icon">✓</span> No ads</li>
-                </ul>
-                <button class="subscribe-btn primary">
-                    <span>Start Subscription Now</span>
-                    <small>$2.99/month or $30/year</small>
+                
+                <button type="submit" class="scan-btn" id="scan-submit" disabled>
+                    <span class="btn-text">Identify Books</span>
+                    <span class="btn-loading" style="display: none;">
+                        <span class="loading-spinner"></span>
+                        <span>Processing...</span>
+                    </span>
                 </button>
-            </div>
-            
-            <div class="pricing-card">
-                <div class="plan-name">Free Plan</div>
-                <div class="plan-price">
-                    <span class="currency">$</span>
-                    <span class="amount">0</span>
-                    <span class="period">/forever</span>
+            </form>
+        </div>
+        
+        <div class="results-section" id="results-section">
+            {% if books %}
+                <h2>Found {{ books|length }} Book{{ "s" if books|length > 1 else "" }}</h2>
+                <div class="books-grid">
+                    {% for book in books %}
+                    <div class="book-card">
+                        {% if book.thumbnail %}
+                        <img src="{{ book.thumbnail }}" alt="{{ book.title }}" style="width: 80px; height: auto; float: left; margin-right: 15px; border-radius: 4px;">
+                        {% endif %}
+                        
+                        <div class="book-info">
+                            <div class="book-title">{{ book.title }}</div>
+                            {% if book.authors %}
+                            <div class="book-authors">by {{ book.authors | join(', ') }}</div>
+                            {% endif %}
+                            
+                            {% if book.published_date %}
+                            <div style="font-size: 12px; color: #718096; margin: 5px 0;">{{ book.published_date }}</div>
+                            {% endif %}
+                            
+                            {% if book.description %}
+                            <div style="font-size: 13px; color: #4a5568; margin: 10px 0; line-height: 1.4;">
+                                {% set max_length = 300 %}
+                                {% if book.description|length <= max_length %}
+                                    {{ book.description }}
+                                {% else %}
+                                    {% set truncated = book.description[:max_length] %}
+                                    {% set last_space = truncated.rfind(' ') %}
+                                    {% if last_space > max_length - 50 %}
+                                        {{ truncated[:last_space] }}...
+                                    {% else %}
+                                        {{ truncated }}...
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="book-actions" style="clear: both; margin-top: 15px;">
+                            {% if book.purchase_links %}
+                            <div style="margin-bottom: 10px; font-weight: 600; font-size: 13px;">Buy:</div>
+                            <div class="purchase-links">
+                                {% if book.purchase_links.amazon %}
+                                <a href="{{ book.purchase_links.amazon }}" class="retailer-btn amazon-btn" target="_blank" rel="noopener">Amazon</a>
+                                {% endif %}
+                                {% if book.purchase_links.audible %}
+                                <a href="{{ book.purchase_links.audible }}" class="retailer-btn audible-btn" target="_blank" rel="noopener">Audible</a>
+                                {% endif %}
+                                {% if book.purchase_links.barnes_noble %}
+                                <a href="{{ book.purchase_links.barnes_noble }}" class="retailer-btn bn-btn" target="_blank" rel="noopener">B&N</a>
+                                {% endif %}
+                                {% if book.purchase_links.bookshop %}
+                                <a href="{{ book.purchase_links.bookshop }}" class="retailer-btn bookshop-btn" target="_blank" rel="noopener">Bookshop</a>
+                                {% endif %}
+                                {% if book.purchase_links.google_books %}
+                                <a href="{{ book.purchase_links.google_books }}" class="retailer-btn google-btn" target="_blank" rel="noopener">Google</a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if book.reader_app_links %}
+                            <div style="margin: 15px 0 10px 0; font-weight: 600; font-size: 13px;">Read & Review:</div>
+                            <div class="reader-links">
+                                {% if book.reader_app_links.goodreads %}
+                                <a href="{{ book.reader_app_links.goodreads }}" class="retailer-btn goodreads-btn" target="_blank" rel="noopener">Goodreads</a>
+                                {% endif %}
+                                {% if book.reader_app_links.storygraph %}
+                                <a href="{{ book.reader_app_links.storygraph }}" class="retailer-btn storygraph-btn" target="_blank" rel="noopener">StoryGraph</a>
+                                {% endif %}
+                                {% if book.reader_app_links.overdrive %}
+                                <a href="{{ book.reader_app_links.overdrive }}" class="retailer-btn overdrive-btn" target="_blank" rel="noopener">OverDrive</a>
+                                {% endif %}
+                                {% if book.reader_app_links.librarything %}
+                                <a href="{{ book.reader_app_links.librarything }}" class="retailer-btn librarything-btn" target="_blank" rel="noopener">LibraryThing</a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
-                <ul class="plan-features">
-                    <li><span class="feature-icon">✓</span> 3 scans per day</li>
-                    <li><span class="feature-icon">✓</span> Basic book detection</li>
-                    <li><span class="feature-icon limited">✕</span> <span class="limited-text">Batch processing</span></li>
-                    <li><span class="feature-icon limited">✕</span> <span class="limited-text">AI recommendations</span></li>
-                    <li><span class="feature-icon limited">✕</span> <span class="limited-text">Priority support</span></li>
+            {% else %}
+                <h2>No Books Found</h2>
+                <p>We couldn't identify any books in the uploaded image. Try with:</p>
+                <ul style="margin: 15px 0; padding-left: 20px;">
+                    <li>Better lighting</li>
+                    <li>Clearer view of book covers or spines</li>
+                    <li>Different angle or closer shot</li>
                 </ul>
-                <button class="subscribe-btn secondary" onclick="closeSubscriptionModal()">
-                    Continue with Free
-                </button>
-            </div>
-        </div>
-        <div class="subscription-footer">
-            <p class="guarantee">🛡️ 30-day money-back guarantee</p>
-            <div class="testimonials">
-                <div class="testimonial">
-                    <div class="stars">⭐⭐⭐⭐⭐</div>
-                    <p>"BookSaver Premium has revolutionized my reading list management!"</p>
-                    <cite>- Sarah K., Book Blogger</cite>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Book Modal for Quick View -->
-<div id="book-modal" class="book-modal" style="display: none;">
-    <div class="modal-overlay" onclick="closeBookModal()"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="modal-book-title">Book Details</h3>
-            <button class="modal-close" onclick="closeBookModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="modal-book-cover">
-                <img id="modal-book-image" src="" alt="Book cover">
-            </div>
-            <div class="modal-book-details">
-                <p id="modal-book-authors"></p>
-                <p id="modal-book-description"></p>
-                <div id="modal-book-actions"></div>
-            </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
 <script>
-function scrollToBooks() {
-    document.getElementById('books-section').scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-    });
-}
-
-function showBookModal(index) {
-    const modal = document.getElementById('book-modal');
-    const buttons = document.querySelectorAll('.quick-preview-btn');
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('file-input');
+    const fileBtn = document.getElementById('file-btn');
+    const uploadArea = document.getElementById('upload-area');
+    const imagePreview = document.getElementById('image-preview');
+    const imagePreviewSection = document.getElementById('image-preview-section');
+    const clearImageBtn = document.getElementById('clear-image');
+    const submitBtn = document.getElementById('scan-submit');
+    const form = document.getElementById('image-form');
     
-    if (buttons[index]) {
-        const button = buttons[index];
-        const title = button.getAttribute('data-book-title');
-        const authors = button.getAttribute('data-book-authors');
-        const description = button.getAttribute('data-book-description');
-        const thumbnail = button.getAttribute('data-book-thumbnail');
-        const published = button.getAttribute('data-book-published');
-        const isbn = button.getAttribute('data-book-isbn');
+    // Drag and Drop functionality
+    uploadArea.addEventListener('dragover', handleDragOver);
+    uploadArea.addEventListener('dragenter', handleDragEnter);
+    uploadArea.addEventListener('dragleave', handleDragLeave);
+    uploadArea.addEventListener('drop', handleFileDrop);
+    uploadArea.addEventListener('click', function() {
+        fileInput.click();
+    });
+    
+    function handleDragOver(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    }
+    
+    function handleDragEnter(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    }
+    
+    function handleDragLeave(e) {
+        e.preventDefault();
+        if (!uploadArea.contains(e.relatedTarget)) {
+            uploadArea.classList.remove('dragover');
+        }
+    }
+    
+    function handleFileDrop(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
         
-        // Populate modal content
-        document.getElementById('modal-book-title').textContent = title;
-        document.getElementById('modal-book-authors').textContent = `by ${authors}`;
-        document.getElementById('modal-book-description').textContent = description;
-        
-        // Set book image
-        const modalImage = document.getElementById('modal-book-image');
-        if (thumbnail && thumbnail !== '') {
-            modalImage.src = thumbnail;
-            modalImage.alt = title;
-            modalImage.style.display = 'block';
-        } else {
-            modalImage.style.display = 'none';
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type.startsWith('image/')) {
+                fileInput.files = files;
+                handleFileSelection(file);
+            } else {
+                alert('Please drop an image file (JPG or PNG)');
+            }
+        }
+    }
+    
+    // Button click handler
+    fileBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        fileInput.click();
+    });
+    
+    // File selection handler
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            handleFileSelection(file);
+        }
+    });
+    
+    function handleFileSelection(file) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
         }
         
-        // Add additional book details
-        const modalDetails = document.getElementById('modal-book-actions');
-        modalDetails.innerHTML = `
-            <div class="modal-book-meta">
-                <p><strong>Published:</strong> ${published}</p>
-                <p><strong>ISBN:</strong> ${isbn}</p>
-            </div>
-            <div class="modal-actions">
-                <button class="modal-action-btn" onclick="closeBookModal()">Close</button>
-            </div>
-        `;
+        // Check file size (10MB limit)
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+            alert('Image file is too large. Please use an image smaller than 10MB.');
+            return;
+        }
+        
+        showImagePreview(URL.createObjectURL(file));
+        submitBtn.disabled = false;
+        uploadArea.style.display = 'none';
     }
     
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    
-    // Add entrance animation
-    modal.style.opacity = '0';
-    setTimeout(() => {
-        modal.style.transition = 'opacity 0.3s ease';
-        modal.style.opacity = '1';
-    }, 10);
-}
-
-function closeBookModal() {
-    const modal = document.getElementById('book-modal');
-    
-    // Fade out animation
-    modal.style.transition = 'opacity 0.3s ease';
-    modal.style.opacity = '0';
-    
-    setTimeout(() => {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-    }, 300);
-}
-
-function showSubscriptionModal() {
-    const modal = document.getElementById('subscription-modal');
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    
-    // Track conversion event
-    if (typeof gtag !== 'undefined') {
-        gtag('event', 'begin_checkout', {
-            currency: 'USD',
-            value: 2.99
-        });
+    function showImagePreview(src) {
+        imagePreview.src = src;
+        imagePreviewSection.style.display = 'block';
     }
-}
-
-function closeSubscriptionModal() {
-    const modal = document.getElementById('subscription-modal');
-    modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-}
-
-function closePrompt() {
-    const prompt = document.querySelector('.premium-prompt');
-    if (prompt) {
-        prompt.style.display = 'none';
-        localStorage.setItem('premium-prompt-dismissed', 'true');
-    }
-}
-
-// Add entrance animations to book cards
-document.addEventListener('DOMContentLoaded', function() {
-    const bookCards = document.querySelectorAll('.modern-book-card');
-    bookCards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(30px)';
-        setTimeout(() => {
-            card.style.transition = 'all 0.5s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 100);
+    
+    // Clear image functionality
+    clearImageBtn.addEventListener('click', function() {
+        fileInput.value = '';
+        imagePreviewSection.style.display = 'none';
+        uploadArea.style.display = 'block';
+        submitBtn.disabled = true;
+        URL.revokeObjectURL(imagePreview.src);
+    });
+    
+    // Form submission with loading state
+    form.addEventListener('submit', function(e) {
+        if (!fileInput.files.length) {
+            e.preventDefault();
+            alert('Please select an image first');
+            return;
+        }
+        
+        // Show loading state
+        submitBtn.querySelector('.btn-text').style.display = 'none';
+        submitBtn.querySelector('.btn-loading').style.display = 'inline-flex';
+        submitBtn.disabled = true;
     });
 });
 </script>
-
-<style>
-</style>
-
 {% endblock %}

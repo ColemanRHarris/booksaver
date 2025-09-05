@@ -1,6 +1,6 @@
 """
-Redis-based image storage service for sharing images between web and worker processes.
-Solves the file system isolation issue in containerized deployments like Render.
+File-based image storage service for temporary image storage.
+Simplified storage for the streamlined BookSaver application.
 """
 
 import os
@@ -8,35 +8,41 @@ import base64
 import tempfile
 import uuid
 import mimetypes
+import json
+import time
+import shutil
 from typing import Optional, Dict, Any
-from datetime import timedelta
-import redis
+from datetime import datetime, timedelta
+from pathlib import Path
 from core.logging_utils import get_safe_logger
 
 
 class ImageStorageService:
-    """Service for storing and retrieving image data via Redis."""
+    """Service for storing and retrieving image data via file system."""
     
-    def __init__(self, redis_client=None):
-        """Initialize with Redis client."""
-        if redis_client:
-            self.redis = redis_client
+    def __init__(self, storage_dir=None):
+        """Initialize with storage directory."""
+        # Use system temp directory or provided directory
+        if storage_dir:
+            self.storage_dir = Path(storage_dir)
         else:
-            # Create Redis connection
-            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-            self.redis = redis.from_url(redis_url, decode_responses=False)  # Binary mode for images
+            self.storage_dir = Path(tempfile.gettempdir()) / "booksaver_images"
+        
+        # Create storage directory if it doesn't exist
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
         
         # Configuration
-        self.key_prefix = "image_storage:"
         self.default_ttl = 3600  # 1 hour TTL for temporary images
         self.max_image_size = 10 * 1024 * 1024  # 10MB max
         
         # Context-aware logger
         self.logger = get_safe_logger(__name__)
+        
+        self.logger.info(f"📁 Image storage initialized at: {self.storage_dir}")
     
     def store_image(self, image_data: bytes, filename: str, ttl: int = None) -> str:
         """
-        Store image data in Redis and return a unique key.
+        Store image data in file system and return a unique key.
         
         Args:
             image_data: Raw image bytes
@@ -56,50 +62,51 @@ class ImageStorageService:
             
             # Generate unique key
             image_id = str(uuid.uuid4())
-            storage_key = f"{self.key_prefix}{image_id}"
             
-            # Detect MIME type
+            # Detect MIME type and file extension
             mime_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+            
+            # Determine file extension
+            if filename and '.' in filename:
+                ext = '.' + filename.split('.')[-1].lower()
+            else:
+                # Default extension based on MIME type
+                ext = '.jpg' if 'image' in mime_type else '.bin'
+            
+            # Create file paths
+            image_file = self.storage_dir / f"{image_id}{ext}"
+            metadata_file = self.storage_dir / f"{image_id}.json"
             
             # Prepare metadata
             metadata = {
                 'filename': filename,
                 'mime_type': mime_type,
                 'size': len(image_data),
-                'created_by': 'image_storage_service'
+                'created_by': 'image_storage_service',
+                'created_at': datetime.now().isoformat(),
+                'expires_at': (datetime.now() + timedelta(seconds=ttl or self.default_ttl)).isoformat(),
+                'image_id': image_id
             }
             
-            # Encode image data as base64 for Redis storage
-            encoded_data = base64.b64encode(image_data).decode('utf-8')
+            # Write image data to file
+            with open(image_file, 'wb') as f:
+                f.write(image_data)
             
-            # Create storage payload
-            payload = {
-                'data': encoded_data,
-                'metadata': metadata
-            }
+            # Write metadata to JSON file
+            with open(metadata_file, 'w') as f:
+                json.dump(metadata, f, indent=2)
             
-            # Store in Redis with TTL
             ttl_seconds = ttl or self.default_ttl
-            pipeline = self.redis.pipeline()
-            pipeline.hset(storage_key, mapping={
-                'data': encoded_data,
-                'filename': filename,
-                'mime_type': mime_type,
-                'size': str(len(image_data))
-            })
-            pipeline.expire(storage_key, ttl_seconds)
-            pipeline.execute()
-            
-            self.logger.info(f"✅ Image stored in Redis: {image_id} ({len(image_data)} bytes, TTL: {ttl_seconds}s)")
+            self.logger.info(f"✅ Image stored in filesystem: {image_id} ({len(image_data)} bytes, TTL: {ttl_seconds}s)")
             return image_id
             
         except Exception as e:
-            self.logger.error(f"❌ Failed to store image in Redis: {e}")
+            self.logger.error(f"❌ Failed to store image in filesystem: {e}")
             raise
     
     def retrieve_image(self, image_id: str) -> Optional[Dict[str, Any]]:
         """
-        Retrieve image data from Redis.
+        Retrieve image data from filesystem.
         
         Args:
             image_id: Unique image identifier returned by store_image
@@ -108,33 +115,39 @@ class ImageStorageService:
             Dictionary with 'data' (bytes) and 'metadata' (dict), or None if not found
         """
         try:
-            storage_key = f"{self.key_prefix}{image_id}"
+            # Find the image file (try common extensions)
+            image_file = None
+            for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.bin']:
+                candidate = self.storage_dir / f"{image_id}{ext}"
+                if candidate.exists():
+                    image_file = candidate
+                    break
             
-            # Get data from Redis
-            image_hash = self.redis.hgetall(storage_key)
-            if not image_hash:
-                self.logger.warning(f"⚠️ Image not found in Redis: {image_id}")
+            if not image_file:
+                self.logger.warning(f"⚠️ Image file not found: {image_id}")
                 return None
             
-            # Decode base64 data
-            try:
-                encoded_data = image_hash.get(b'data') or image_hash.get('data')
-                if isinstance(encoded_data, bytes):
-                    encoded_data = encoded_data.decode('utf-8')
-                
-                image_data = base64.b64decode(encoded_data)
-            except Exception as decode_error:
-                self.logger.error(f"❌ Failed to decode image data for {image_id}: {decode_error}")
+            # Load metadata
+            metadata_file = self.storage_dir / f"{image_id}.json"
+            if not metadata_file.exists():
+                self.logger.warning(f"⚠️ Metadata file not found: {image_id}")
                 return None
             
-            # Extract metadata
-            metadata = {
-                'filename': (image_hash.get(b'filename') or image_hash.get('filename', b'')).decode('utf-8') if isinstance(image_hash.get(b'filename') or image_hash.get('filename'), bytes) else image_hash.get('filename', ''),
-                'mime_type': (image_hash.get(b'mime_type') or image_hash.get('mime_type', b'')).decode('utf-8') if isinstance(image_hash.get(b'mime_type') or image_hash.get('mime_type'), bytes) else image_hash.get('mime_type', ''),
-                'size': int((image_hash.get(b'size') or image_hash.get('size', b'0')).decode('utf-8') if isinstance(image_hash.get(b'size') or image_hash.get('size'), bytes) else image_hash.get('size', '0'))
-            }
+            # Check if expired
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
             
-            self.logger.info(f"✅ Image retrieved from Redis: {image_id} ({metadata['size']} bytes)")
+            expires_at = datetime.fromisoformat(metadata.get('expires_at', ''))
+            if datetime.now() > expires_at:
+                self.logger.info(f"🗑️ Image expired, cleaning up: {image_id}")
+                self._cleanup_expired_image(image_id, image_file, metadata_file)
+                return None
+            
+            # Read image data
+            with open(image_file, 'rb') as f:
+                image_data = f.read()
+            
+            self.logger.info(f"✅ Image retrieved from filesystem: {image_id} ({len(image_data)} bytes)")
             
             return {
                 'data': image_data,
@@ -142,12 +155,12 @@ class ImageStorageService:
             }
             
         except Exception as e:
-            self.logger.error(f"❌ Failed to retrieve image from Redis: {e}")
+            self.logger.error(f"❌ Failed to retrieve image from filesystem: {e}")
             return None
     
     def create_temp_file(self, image_id: str) -> Optional[str]:
         """
-        Retrieve image from Redis and create a temporary file.
+        Find existing image file or create a copy in system temp directory.
         
         Args:
             image_id: Unique image identifier
@@ -159,20 +172,35 @@ class ImageStorageService:
             Caller is responsible for cleaning up the temporary file
         """
         try:
-            # Retrieve image data
-            image_info = self.retrieve_image(image_id)
-            if not image_info:
+            # Find the image file
+            image_file = None
+            for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.bin']:
+                candidate = self.storage_dir / f"{image_id}{ext}"
+                if candidate.exists():
+                    image_file = candidate
+                    break
+            
+            if not image_file:
+                self.logger.warning(f"⚠️ Image file not found for temp creation: {image_id}")
                 return None
             
-            # Create temporary file
-            filename = image_info['metadata']['filename']
-            suffix = os.path.splitext(filename)[1] or '.jpg'
+            # Check if expired
+            metadata_file = self.storage_dir / f"{image_id}.json"
+            if metadata_file.exists():
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+                
+                expires_at = datetime.fromisoformat(metadata.get('expires_at', ''))
+                if datetime.now() > expires_at:
+                    self.logger.info(f"🗑️ Image expired, cannot create temp file: {image_id}")
+                    self._cleanup_expired_image(image_id, image_file, metadata_file)
+                    return None
             
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-                temp_file.write(image_info['data'])
-                temp_path = temp_file.name
+            # For our simplified use case, just return the path to the stored file
+            # This avoids unnecessary copying since we're in local development
+            temp_path = str(image_file)
             
-            self.logger.info(f"✅ Created temp file for {image_id}: {temp_path}")
+            self.logger.info(f"✅ Temp file path for {image_id}: {temp_path}")
             return temp_path
             
         except Exception as e:
@@ -181,7 +209,7 @@ class ImageStorageService:
     
     def delete_image(self, image_id: str) -> bool:
         """
-        Delete image from Redis.
+        Delete image from filesystem.
         
         Args:
             image_id: Unique image identifier
@@ -190,45 +218,85 @@ class ImageStorageService:
             True if deleted successfully, False otherwise
         """
         try:
-            storage_key = f"{self.key_prefix}{image_id}"
-            deleted = self.redis.delete(storage_key)
+            deleted = False
+            
+            # Find and delete image file
+            for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.bin']:
+                image_file = self.storage_dir / f"{image_id}{ext}"
+                if image_file.exists():
+                    image_file.unlink()
+                    deleted = True
+                    break
+            
+            # Delete metadata file
+            metadata_file = self.storage_dir / f"{image_id}.json"
+            if metadata_file.exists():
+                metadata_file.unlink()
+                deleted = True
             
             if deleted:
-                self.logger.info(f"✅ Image deleted from Redis: {image_id}")
+                self.logger.info(f"✅ Image deleted from filesystem: {image_id}")
             else:
                 self.logger.warning(f"⚠️ Image not found for deletion: {image_id}")
             
-            return bool(deleted)
+            return deleted
             
         except Exception as e:
-            self.logger.error(f"❌ Failed to delete image from Redis: {e}")
+            self.logger.error(f"❌ Failed to delete image from filesystem: {e}")
             return False
     
     def cleanup_expired(self) -> int:
         """
-        Clean up expired images (Redis handles this automatically with TTL).
-        This method is for manual cleanup if needed.
+        Clean up expired images from filesystem.
         
         Returns:
             Number of images cleaned up
         """
         try:
-            # Get all image keys
-            pattern = f"{self.key_prefix}*"
-            keys = self.redis.keys(pattern)
-            
             cleaned = 0
-            for key in keys:
-                # Check if key still exists (Redis TTL might have removed it)
-                if not self.redis.exists(key):
-                    cleaned += 1
+            current_time = datetime.now()
             
-            self.logger.info(f"🧹 Redis TTL auto-cleanup: {cleaned} expired images removed")
+            # Find all metadata files
+            for metadata_file in self.storage_dir.glob("*.json"):
+                try:
+                    with open(metadata_file, 'r') as f:
+                        metadata = json.load(f)
+                    
+                    expires_at = datetime.fromisoformat(metadata.get('expires_at', ''))
+                    if current_time > expires_at:
+                        image_id = metadata.get('image_id')
+                        if image_id:
+                            # Find and delete the corresponding image file
+                            for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.bin']:
+                                image_file = self.storage_dir / f"{image_id}{ext}"
+                                if image_file.exists():
+                                    image_file.unlink()
+                                    break
+                            
+                            # Delete metadata file
+                            metadata_file.unlink()
+                            cleaned += 1
+                            
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Error cleaning up {metadata_file}: {e}")
+            
+            if cleaned > 0:
+                self.logger.info(f"🧹 Filesystem cleanup: {cleaned} expired images removed")
+            
             return cleaned
             
         except Exception as e:
             self.logger.error(f"❌ Failed to cleanup expired images: {e}")
             return 0
+    
+    def _cleanup_expired_image(self, image_id: str, image_file: Path, metadata_file: Path):
+        """Helper method to clean up a specific expired image."""
+        try:
+            image_file.unlink()
+            metadata_file.unlink()
+            self.logger.info(f"🗑️ Cleaned up expired image: {image_id}")
+        except Exception as e:
+            self.logger.error(f"❌ Failed to cleanup expired image {image_id}: {e}")
 
 
 # Global service instance
@@ -239,19 +307,7 @@ def get_image_storage_service() -> ImageStorageService:
     """Get the image storage service instance."""
     global image_storage_service
     if image_storage_service is None:
-        try:
-            # Try to use the same Redis client as the user service
-            from services.user_service import get_user_service
-            user_service = get_user_service()
-            if hasattr(user_service, 'redis_client') and user_service.using_real_redis:
-                # Create new Redis connection for binary operations
-                redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-                redis_client = redis.from_url(redis_url, decode_responses=False)
-                image_storage_service = ImageStorageService(redis_client)
-            else:
-                image_storage_service = ImageStorageService()
-        except Exception:
-            # Fallback to creating new service
-            image_storage_service = ImageStorageService()
+        # Create file-based storage service
+        image_storage_service = ImageStorageService()
     
     return image_storage_service

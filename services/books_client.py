@@ -256,6 +256,9 @@ def build_reader_app_links(book: Dict) -> Dict[str, str]:
         
         # StoryGraph - search only
         links['storygraph'] = f"https://app.thestorygraph.com/browse?search_term={encoded_term}"
+        
+        # LibraryThing - search only
+        links['librarything'] = f"https://www.librarything.com/search.php?searchtype=work&search={encoded_term}"
     
     return links
 

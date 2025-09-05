@@ -3,12 +3,10 @@ Main Flask application for BookSaver.
 Streamlined version with modular structure.
 """
 
-from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash, g
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 from datetime import datetime
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_wtf.csrf import CSRFProtect
-from flask_session import Session
 from dotenv import load_dotenv
 import os
 import logging
@@ -16,12 +14,10 @@ import redis
 from logging.config import dictConfig
 
 from services.books_client import build_reader_app_links
-from celery_app import celery_app
 from services.recommendation_engine import get_recommendation_engine
 from system_monitor import get_system_monitor
-from core.utils import sanitize_input, serialize_task_result, safe_get_task_result
+from core.utils import sanitize_input
 from routes.images import register_image_routes
-from routes.auth import register_auth_routes
 
 load_dotenv()
 
@@ -66,154 +62,9 @@ dictConfig({
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Configure Flask-Session with Redis
-redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-
-# Set up session configuration before Session() initialization
-def configure_session():
-    """Configure session type with Redis fallback"""
-    try:
-        test_redis_url = redis_url
-        if test_redis_url.startswith('memory://'):
-            # Use Redis for session even in memory mode - better consistency
-            test_redis_url = 'redis://localhost:6379'
-        
-        # Test Redis connection
-        session_redis = redis.from_url(test_redis_url, decode_responses=False)  # Session needs bytes
-        session_redis.ping()  # Test connection
-        
-        app.config['SESSION_TYPE'] = 'redis'
-        app.config['SESSION_REDIS'] = session_redis
-        print(f"✅ Flask-Session configured for Redis: {test_redis_url}")
-        
-    except Exception as e:
-        print(f"⚠️ Redis connection failed ({e}), configuring filesystem sessions")
-        app.config['SESSION_TYPE'] = 'filesystem'
-        app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(__file__), 'flask_session')
-        app.config['SESSION_FILE_THRESHOLD'] = 100
-
-# Configure session before initialization
-configure_session()
-    
-app.config['SESSION_PERMANENT'] = True
-app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_KEY_PREFIX'] = 'booksaver:'
-app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
-
-# Initialize session
-Session(app)
-
-# Initialize UserService with app context for Redis consistency
-from services.user_service import initialize_user_service_with_app
-initialize_user_service_with_app(app)
-
-# Initialize SEO Service with app context for Redis consistency
-from services.seo_service import initialize_seo_service_with_app
-initialize_seo_service_with_app(app)
-
 logger = logging.getLogger(__name__)
 
 
-@app.before_request
-def load_user_context():
-    """Load user context before each request."""
-    from services.user_service import get_user_service
-    
-    # Clear previous context
-    g.user = None
-    g.subscription = None
-    g.is_authenticated = False
-    g.is_premium = False
-    g.daily_usage = 0
-    g.can_scan = False
-    
-    # Check if user is logged in
-    if 'user_email' in session:
-        try:
-            user_service = get_user_service()
-            email = session['user_email']
-            
-            # Validate email format
-            if not email or '@' not in email:
-                logger.warning(f"⚠️ Invalid email in session: {email}")
-                session.clear()
-                return
-            
-            # Load user data with individual error handling
-            user_data = None
-            subscription_data = None
-            daily_usage = 0
-            can_scan = False
-            
-            try:
-                user_data = user_service.get_user(email)
-            except Exception as e:
-                logger.error(f"❌ Failed to load user data for {email}: {e}")
-            
-            try:
-                subscription_data = user_service.get_subscription(email)
-            except Exception as e:
-                logger.error(f"❌ Failed to load subscription data for {email}: {e}")
-                # Set default subscription for graceful fallback
-                subscription_data = {
-                    'tier': 'free',
-                    'status': 'active'
-                }
-            
-            if user_data:
-                g.user = user_data
-                g.subscription = subscription_data or {'tier': 'free', 'status': 'active'}
-                g.is_authenticated = True
-                g.is_premium = subscription_data.get('tier') == 'premium' and subscription_data.get('status') == 'active'
-                
-                # Load usage data with fallback
-                try:
-                    g.daily_usage = user_service.get_daily_usage(email)
-                    g.can_scan = user_service.can_scan(email)
-                except Exception as e:
-                    logger.error(f"❌ Failed to load usage data for {email}: {e}")
-                    g.daily_usage = 0
-                    g.can_scan = True  # Allow scan attempt, will be validated later
-                
-                # Validate subscription with Stripe periodically (every hour)
-                try:
-                    last_validation = session.get('last_stripe_validation', 0)
-                    current_time = datetime.now().timestamp()
-                    if current_time - last_validation > 3600:  # 1 hour
-                        from services.stripe_service import get_stripe_service
-                        stripe_service = get_stripe_service()
-                        validation_result = stripe_service.validate_user_subscription_status(email)
-                        
-                        if validation_result.get('discrepancy_found'):
-                            logger.info(f"🔄 Auto-syncing subscription for {email}")
-                            stripe_service.sync_subscription_from_stripe(email)
-                            # Reload subscription data after sync
-                            subscription_data = user_service.get_subscription(email)
-                            g.subscription = subscription_data
-                            g.is_premium = subscription_data.get('tier') == 'premium' and subscription_data.get('status') == 'active'
-                        
-                        session['last_stripe_validation'] = current_time
-                except Exception as e:
-                    logger.error(f"❌ Stripe validation failed for {email}: {e}")
-                    # Continue with cached subscription data
-            else:
-                # User data not found - only clear session if multiple consecutive failures
-                failure_count = session.get('context_load_failures', 0) + 1
-                session['context_load_failures'] = failure_count
-                
-                if failure_count >= 3:
-                    logger.warning(f"⚠️ Clearing session after {failure_count} consecutive user context load failures for {email}")
-                    session.clear()
-                else:
-                    logger.warning(f"⚠️ User context load failure #{failure_count} for {email}, keeping session")
-                
-        except Exception as e:
-            logger.error(f"❌ Critical error loading user context: {e}")
-            # Set minimal safe defaults to prevent app crashes
-            g.is_authenticated = 'user_email' in session
-            g.subscription = {'tier': 'free', 'status': 'active'}
-            g.daily_usage = 0
-            g.can_scan = False
 
 
 def log_environment_status():
@@ -242,33 +93,14 @@ def log_environment_status():
 # Log environment status
 log_environment_status()
 
-# Initialize CSRF protection
-csrf = CSRFProtect(app)
-
-# Configure CSRF for development
-if os.getenv('FLASK_ENV') != 'production':
-    app.config['WTF_CSRF_TIME_LIMIT'] = None
-    app.config['WTF_CSRF_SSL_STRICT'] = False
-
-# Initialize rate limiter
-redis_url = os.getenv('REDIS_URL')
-if redis_url and not redis_url.startswith('memory://'):
-    limiter = Limiter(
-        app=app,
-        key_func=get_remote_address,
-        default_limits=["100 per hour", "20 per minute"],
-        storage_uri=redis_url,
-        strategy="fixed-window"
-    )
-    print(f"🔗 Flask-Limiter using Redis: {redis_url[:50]}...")
-else:
-    limiter = Limiter(
-        app=app,
-        key_func=get_remote_address,
-        default_limits=["100 per hour", "20 per minute"],
-        strategy="fixed-window"
-    )
-    print("🔧 Flask-Limiter using in-memory storage for local development")
+# Initialize rate limiter (simplified)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["100 per hour", "20 per minute"],
+    strategy="fixed-window"
+)
+print("🔧 Flask-Limiter configured")
 
 
 # Security headers middleware
@@ -309,25 +141,11 @@ def add_security_headers(response):
 
 # Register route modules
 register_image_routes(app, limiter)
-require_auth = register_auth_routes(app, limiter)
-
-# Import and register subscription routes
-from routes.subscription import register_subscription_routes
-register_subscription_routes(app, limiter, require_auth)
-
-# Import and register SEO landing page routes
-from routes.seo_pages import register_seo_routes
-register_seo_routes(app, limiter)
-
-# Import and register SEO admin routes
-from routes.seo_admin import register_seo_admin_routes
-register_seo_admin_routes(app, limiter, app.require_admin)
 
 
 # Main routes
 @app.route('/')
 def index():
-    # User data is now available globally via g object
     return render_template('index.html')
 
 
@@ -358,217 +176,10 @@ def health_check():
 
 
 
-@app.route('/processing/<task_id>')
-def processing_wait(task_id):
-    """Show processing page with progress updates"""
-    video_url = request.args.get('url', '')
-    video_type = request.args.get('type', 'Video')
-    return render_template('processing.html', task_id=task_id, video_url=video_url, video_type=video_type)
 
 
-@app.route('/task-status/<task_id>')
-@limiter.limit("30 per minute")
-def task_status(task_id):
-    """Get the status of a background task"""
-    try:
-        redis_url = os.getenv('REDIS_URL')
-        
-        # Check if we're using actual Redis (not memory:// for local dev)
-        if redis_url and not redis_url.startswith('memory://'):
-            task = celery_app.AsyncResult(task_id)
-            
-            if task.state == 'PENDING':
-                response = {
-                    'state': task.state,
-                    'result': {'step': 'Waiting to start...', 'progress': 0}
-                }
-            elif task.state == 'PROGRESS':
-                response = {
-                    'state': task.state,
-                    'result': serialize_task_result(task.result)
-                }
-            elif task.state == 'SUCCESS':
-                print(f"🎯 Task {task_id} completed successfully")
-                print(f"📋 Task result: {task.result}")
-                
-                response = {
-                    'state': task.state,
-                    'result': serialize_task_result(task.result),
-                    'redirect': True
-                }
-            else:  # FAILURE
-                print(f"❌ Task {task_id} failed: {task.result}")
-                response = {
-                    'state': task.state,
-                    'result': serialize_task_result(task.result)
-                }
-        else:
-            if task_id not in app.task_results:
-                return jsonify({
-                    'state': 'PENDING',
-                    'result': {'step': 'Task not found...', 'progress': 0}
-                })
-            
-            task_data = app.task_results[task_id]
-            
-            if task_data['state'] == 'PENDING':
-                response = {
-                    'state': 'PENDING',
-                    'result': {
-                        'step': task_data.get('step', 'Waiting to start...'),
-                        'progress': task_data.get('progress', 0)
-                    }
-                }
-            elif task_data['state'] == 'PROGRESS':
-                response = {
-                    'state': 'PROGRESS',
-                    'result': {
-                        'step': task_data.get('step', 'Processing...'),
-                        'progress': task_data.get('progress', 50)
-                    }
-                }
-            elif task_data['state'] == 'SUCCESS':
-                response = {
-                    'state': 'SUCCESS',
-                    'result': task_data.get('result', {}),
-                    'redirect': True
-                }
-            else:  # FAILURE
-                response = {
-                    'state': 'FAILURE',
-                    'result': {
-                        'error': task_data.get('error', 'Unknown error occurred')
-                    }
-                }
-        
-        return jsonify(response)
-        
-    except Exception as e:
-        logger.error(f"❌ Task status error: {e}")
-        return jsonify({
-            'state': 'FAILURE',
-            'result': {'error': 'Unable to check task status'}
-        }), 500
 
 
-@app.route('/cancel-task/<task_id>', methods=['POST'])
-@limiter.limit("10 per minute")
-def cancel_task(task_id):
-    """Cancel a running task"""
-    try:
-        redis_url = os.getenv('REDIS_URL')
-        
-        # Check if we're using actual Redis (not memory:// for local dev)
-        if redis_url and not redis_url.startswith('memory://'):
-            celery_app.control.revoke(task_id, terminate=True)
-            message = f"Task {task_id} has been cancelled"
-        else:
-            if task_id in app.task_results:
-                app.task_results[task_id] = {
-                    'state': 'REVOKED',
-                    'error': 'Task was cancelled by user'
-                }
-                message = f"Task {task_id} has been cancelled"
-            else:
-                message = f"Task {task_id} not found"
-        
-        return jsonify({'message': message}), 200
-        
-    except Exception as e:
-        logger.error(f"❌ Cancel task error: {e}")
-        return jsonify({'error': 'Failed to cancel task'}), 500
-
-
-@app.route('/image-results/<task_id>')
-def image_results(task_id):
-    """Show results from completed image processing"""
-    try:
-        redis_url = os.getenv('REDIS_URL')
-        source_type = request.args.get('type', 'Image')
-        
-        # User data now available globally via g object
-        
-        # Check if we're using actual Redis (not memory:// for local dev)
-        if redis_url and not redis_url.startswith('memory://'):
-            task = celery_app.AsyncResult(task_id)
-            
-            if task.state == 'SUCCESS' and safe_get_task_result(task.result, 'status') == 'success':
-                books = safe_get_task_result(task.result, 'books', [])
-                
-                # Save to history for authenticated premium users
-                if g.is_authenticated and books:
-                    from services.user_service import get_user_service
-                    user_service = get_user_service()
-                    email = session.get('user_email')
-                    scan_result = {
-                        'books': books,
-                        'source_type': source_type,
-                        'task_id': task_id
-                    }
-                    user_service.add_to_history(email, scan_result)
-                
-                
-                if not books:
-                    return render_template('results.html', 
-                                         books=[], 
-                                         query=f"{source_type} analysis",
-                                         error="No books were detected in this image. Try with a clearer photo showing book covers or spines.")
-                
-                return render_template('results.html', 
-                                     books=books, 
-                                     query=f"Image analysis")
-            else:
-                error_msg = safe_get_task_result(task.result, 'error', 'Task failed or is still processing')
-                return render_template('results.html', 
-                                     books=[], 
-                                     query=f"{source_type} analysis",
-                                     error=error_msg)
-        else:
-            if task_id in app.task_results:
-                task_data = app.task_results[task_id]
-                
-                if task_data['state'] == 'SUCCESS' and 'result' in task_data:
-                    books = task_data['result'].get('books', [])
-                    
-                    # Save to history for authenticated premium users
-                    if g.is_authenticated and books:
-                        from services.user_service import get_user_service
-                        user_service = get_user_service()
-                        email = session.get('user_email')
-                        scan_result = {
-                            'books': books,
-                            'source_type': source_type,
-                            'task_id': task_id
-                        }
-                        user_service.add_to_history(email, scan_result)
-                    
-                    if not books:
-                        return render_template('results.html', 
-                                             books=[], 
-                                             query=f"{source_type} analysis",
-                                             error="No books were detected in this image.")
-                    
-                    return render_template('results.html', 
-                                         books=books, 
-                                         query=f"{source_type} analysis")
-                else:
-                    error_msg = task_data.get('error', 'Task failed or is still processing')
-                    return render_template('results.html', 
-                                         books=[], 
-                                         query=f"{source_type} analysis",
-                                         error=error_msg)
-            else:
-                return render_template('results.html', 
-                                     books=[], 
-                                     query=f"{source_type} analysis",
-                                     error="Task not found or expired")
-                
-    except Exception as e:
-        logger.error(f"❌ Results error: {e}")
-        return render_template('results.html', 
-                             books=[], 
-                             query=f"{source_type} analysis",
-                             error="Failed to load results")
 
 
 # Static content routes
@@ -645,50 +256,9 @@ def sitemap():
             'changefreq': 'monthly', 
             'priority': '0.3'
         },
-        {
-            'url': url_for('signup', _external=True),
-            'lastmod': '2025-01-01',
-            'changefreq': 'monthly',
-            'priority': '0.7'
-        },
-        {
-            'url': url_for('login', _external=True),
-            'lastmod': '2025-01-01',
-            'changefreq': 'monthly',
-            'priority': '0.5'
-        }
     ]
     
-    # Add sample SEO landing pages to main sitemap
-    current_year = datetime.now().year
-    
-    # Add some popular genre pages
-    popular_genres = ['science-fiction', 'fantasy', 'mystery', 'romance', 'thriller']
-    for genre_slug in popular_genres:
-        pages.append({
-            'url': url_for('genre_landing', genre_slug=genre_slug, _external=True),
-            'lastmod': '2025-01-01',
-            'changefreq': 'weekly',
-            'priority': '0.7'
-        })
-        # Add current year's best books page for each genre
-        pages.append({
-            'url': url_for('best_genre_books', genre_slug=genre_slug, year=current_year, _external=True),
-            'lastmod': '2025-01-01',
-            'changefreq': 'weekly', 
-            'priority': '0.8'
-        })
-    
-    # Add reference to SEO sitemap
-    try:
-        pages.append({
-            'url': url_for('seo_sitemap', _external=True),
-            'lastmod': '2025-01-01',
-            'changefreq': 'daily',
-            'priority': '0.9'
-        })
-    except:
-        pass  # SEO routes might not be registered yet
+    # Simple sitemap - no complex SEO pages needed for simplified version
     
     # Generate XML
     xml_content = ['<?xml version="1.0" encoding="UTF-8"?>']
