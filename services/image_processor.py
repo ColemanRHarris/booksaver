@@ -180,8 +180,25 @@ class ImageProcessor:
             return result
             
         except Exception as e:
-            error_message = self._get_user_friendly_error(str(e))
-            logger.error(f"❌ Image processing failed: {e}")
+            # Log the raw technical error for debugging
+            logger.error(f"❌ TECHNICAL ERROR: {type(e).__name__}: {str(e)}")
+            logger.error(f"❌ Full exception details: {e.__class__.__module__}.{e.__class__.__name__}")
+            
+            # Additional debugging information
+            import traceback
+            logger.error(f"❌ Stack trace: {traceback.format_exc()}")
+            
+            # Check if we should show technical errors (for debugging)
+            show_technical = os.getenv('FLASK_ENV') != 'production' or os.getenv('DEBUG_ERRORS') == 'true'
+            
+            if show_technical:
+                error_message = f"TECHNICAL ERROR: {type(e).__name__}: {str(e)}"
+                logger.error(f"❌ Showing technical error to user: {error_message}")
+            else:
+                error_message = self._get_user_friendly_error(str(e))
+                logger.error(f"❌ Showing user-friendly error: {error_message}")
+            
+            logger.error(f"❌ Image processing failed with error: {error_message}")
             
             # Cleanup on error
             try:
@@ -269,20 +286,45 @@ class ImageProcessor:
     
     def _get_user_friendly_error(self, error_message: str) -> str:
         """Convert technical error messages to user-friendly ones."""
+        # File and image errors
         if "Image not found" in error_message or "expired" in error_message:
             return "Image data expired or not found. Please try uploading again."
         elif "Image file not found" in error_message:
             return "Image file not found. Please try uploading again."
         elif "Image file exceeds" in error_message:
             return "Image file is too large. Please use an image smaller than 10MB."
-        elif "No books" in error_message or "empty list" in error_message:
-            return "No books were detected in this image. Try with a clearer photo showing book covers or spines."
         elif "Invalid image format" in error_message:
             return "Invalid image format. Please use JPG or PNG files."
+        
+        # API and service errors
         elif "GEMINI_API_KEY" in error_message:
             return "Service configuration error. Please try again later."
-        elif "Gemini processing failed" in error_message:
+        elif "Gemini processing failed" in error_message or "Gemini upload failed" in error_message:
             return "AI processing failed. Please try with a different image."
+        elif "timeout" in error_message.lower() or "timed out" in error_message.lower():
+            return "Processing timed out. Please try again with a smaller or clearer image."
+        
+        # Memory and resource errors (common on Render)
+        elif "MemoryError" in error_message or "memory" in error_message.lower():
+            return "System resource limit reached. Please try with a smaller image."
+        elif "ConnectionError" in error_message or "connection" in error_message.lower():
+            return "Network connection error. Please try again in a moment."
+        elif "HTTPError" in error_message and "429" in error_message:
+            return "Service temporarily busy. Please wait a moment and try again."
+        elif "HTTPError" in error_message and ("401" in error_message or "403" in error_message):
+            return "Service authentication error. Please try again later."
+        elif "HTTPError" in error_message and "500" in error_message:
+            return "External service error. Please try again in a few minutes."
+        
+        # Content and processing errors
+        elif "No books" in error_message or "empty list" in error_message:
+            return "No books were detected in this image. Try with a clearer photo showing book covers or spines."
+        elif "parsing" in error_message.lower() or "parsing failed" in error_message:
+            return "Could not understand the AI response. Please try again."
+        elif "Book search failed" in error_message:
+            return "Book search failed. Please try again in a moment."
+        
+        # Generic fallback
         else:
             return "Processing failed. Please try again with a clearer image."
 
