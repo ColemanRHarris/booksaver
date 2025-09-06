@@ -224,12 +224,13 @@ def get_curated_genre_books(genre: str, year: int, limit: int = 12) -> List[Dict
     """Get curated books for a specific genre and year."""
     books_client = GoogleBooksClient()
     
-    # Create search queries for the genre and year
+    # Create targeted search queries that focus on fiction/novels and exclude reference materials
     search_queries = [
-        f'subject:"{genre}" inpublisher:"" published:{year}',
-        f'{genre} {year} bestseller',
-        f'best {genre} books {year}',
-        f'{genre} award winner {year}'
+        f'subject:"{genre}" fiction novel published:{year}',
+        f'{genre} novel {year} -guide -cookbook -yearbook -reference',
+        f'best {genre} fiction {year} -guide -manual -handbook',
+        f'{genre} bestseller novel {year} -writers -artists -cookbook',
+        f'subject:"{genre}" -inauthor:guide -inauthor:manual published:{year}'
     ]
     
     all_books = []
@@ -315,10 +316,11 @@ def get_similar_books_list(original_title: str, original_author: str, limit: int
     
     # Try different strategies to find similar books
     search_strategies = [
-        f'subject:"{original_title}"',  # Books with similar subject
-        f'intitle:"like {original_title}"',  # Books explicitly compared to original
         f'inauthor:"{original_author}"',  # Other books by same author
-        f'{original_author} recommendations',  # General recommendations
+        f'similar to "{original_title}"',  # Books compared to original
+        f'{original_author} recommendations',  # Author recommendations
+        f'readers of "{original_title}" also read',  # Reader recommendations
+        f'like "{original_title}"'  # Similar books
     ]
     
     all_books = []
