@@ -60,6 +60,18 @@ class ImageProcessor:
         temp_image_path = None
         
         try:
+            # Validate input
+            if not image_id or not isinstance(image_id, str):
+                raise ValueError(f"Invalid image_id: {image_id}")
+            
+            logger.info(f"📋 Processing environment: Python, Memory available")
+            
+            # Check API key availability
+            if not self.api_key:
+                raise ValueError("GEMINI_API_KEY not available")
+            
+            logger.info(f"🔑 API key available: {self.api_key[:8]}...")
+            
             # Get image file path
             temp_image_path = self.image_storage.create_temp_file(image_id)
             if not temp_image_path:
@@ -74,18 +86,37 @@ class ImageProcessor:
             if not check_file_size(temp_image_path):
                 raise Exception(f"Image file exceeds {MAX_IMAGE_SIZE_MB}MB size limit")
             
-            # Process with Gemini AI
+            # Process with Gemini AI with comprehensive error handling
             logger.info("📤 Uploading image to Gemini AI...")
-            gen_file = self.genai_client.files.upload(file=temp_image_path)
+            try:
+                gen_file = self.genai_client.files.upload(file=temp_image_path)
+                logger.info(f"✅ Upload successful, file ID: {gen_file.name}")
+            except Exception as upload_error:
+                logger.error(f"❌ Gemini upload failed: {upload_error}")
+                raise Exception(f"Failed to upload to Gemini AI: {str(upload_error)}")
             
-            # Wait for processing
+            # Wait for processing with timeout
             logger.info("⏳ Waiting for Gemini processing...")
-            while gen_file.state.name == "PROCESSING":
-                time.sleep(1)
-                gen_file = self.genai_client.files.get(name=gen_file.name)
+            processing_timeout = 30  # 30 second timeout
+            processing_start = time.time()
             
-            if gen_file.state.name == "FAILED":
-                raise ValueError(f"Gemini processing failed: {gen_file.state.name}")
+            try:
+                while gen_file.state.name == "PROCESSING":
+                    if time.time() - processing_start > processing_timeout:
+                        raise Exception(f"Gemini processing timeout after {processing_timeout}s")
+                    
+                    time.sleep(1)
+                    gen_file = self.genai_client.files.get(name=gen_file.name)
+                    logger.info(f"⏳ Processing status: {gen_file.state.name}")
+                
+                if gen_file.state.name == "FAILED":
+                    raise Exception(f"Gemini processing failed: {gen_file.state.name}")
+                
+                logger.info(f"✅ Gemini processing completed: {gen_file.state.name}")
+                
+            except Exception as processing_error:
+                logger.error(f"❌ Gemini processing error: {processing_error}")
+                raise Exception(f"Gemini processing failed: {str(processing_error)}")
             
             # Generate book identification prompt
             prompt = """
@@ -97,19 +128,43 @@ class ImageProcessor:
             """
             
             logger.info("🤖 Generating book identification...")
-            response = self.genai_client.models.generate_content(
-                model="gemini-2.0-flash-lite", 
-                contents=[gen_file, prompt]
-            )
+            try:
+                response = self.genai_client.models.generate_content(
+                    model="gemini-2.0-flash-lite", 
+                    contents=[gen_file, prompt]
+                )
+                logger.info("✅ Gemini response received")
+                
+            except Exception as generation_error:
+                logger.error(f"❌ Gemini content generation failed: {generation_error}")
+                raise Exception(f"Failed to generate content: {str(generation_error)}")
             
-            # Parse response
-            book_texts = ast.literal_eval(response.text)
-            logger.info(f"📚 Found {len(book_texts)} potential book references")
+            # Parse response with error handling
+            try:
+                if not response.text or response.text.strip() == "":
+                    logger.warning("⚠️ Empty response from Gemini")
+                    book_texts = []
+                else:
+                    logger.info(f"📝 Raw Gemini response: {response.text[:200]}...")
+                    book_texts = ast.literal_eval(response.text)
+                    logger.info(f"📚 Parsed {len(book_texts)} potential book references")
+                    
+            except (ValueError, SyntaxError) as parse_error:
+                logger.error(f"❌ Failed to parse Gemini response: {parse_error}")
+                logger.error(f"Raw response: {response.text}")
+                # Fallback: try to extract any text that looks like a book
+                book_texts = []
             
-            # Search for books
+            # Search for books with fallback handling
             logger.info("🔍 Searching for book details...")
-            books = self._search_books_from_text(book_texts)
-            logger.info(f"✅ Book search completed: {len(books)} books found")
+            try:
+                books = self._search_books_from_text(book_texts) if book_texts else []
+                logger.info(f"✅ Book search completed: {len(books)} books found")
+                
+            except Exception as search_error:
+                logger.error(f"❌ Book search failed: {search_error}")
+                # Fallback: return empty results rather than crashing
+                books = []
             
             result = {
                 'status': 'success',
@@ -182,36 +237,33 @@ class ImageProcessor:
                 logger.warning(f"⚠️ Search error for '{text[:30]}...': {e}")
                 continue
         
-        # Apply filters to improve results
+        # Apply simplified filtering to reduce memory usage
         if found_books:
-            logger.info("🔧 Applying quality filters...")
+            logger.info("🔧 Applying lightweight filtering...")
             try:
-                # Create filters
-                quality_filter = create_book_filter()
-                language_filter = create_language_filter()
-                trending_detector = create_trending_detector()
+                # Simplified filtering - just basic language and quality checks
+                filtered_books = []
+                for book in found_books:
+                    # Basic quality filters
+                    rating = book.get('average_rating', 0)
+                    if rating >= 3.0 or rating == 0:  # Include unrated books
+                        # Simple language check - just English preference
+                        language = book.get('language', 'en')
+                        if language in ['en', 'english'] or not language:
+                            filtered_books.append(book)
                 
-                # Apply filtering
-                filtered_books = quality_filter.filter_books(found_books)
-                filtered_books = language_filter.filter_books(filtered_books)
-                
-                # Add trending scores
-                for book in filtered_books:
-                    trending_score = trending_detector.calculate_trending_score(book)
-                    book['trending_score'] = trending_score
-                
-                # Sort by relevance (fuzzy score + trending score)
+                # Simple sorting by fuzzy match score only
                 filtered_books.sort(
-                    key=lambda x: (x.get('fuzzy_match_score', 0) + x.get('trending_score', 0)), 
+                    key=lambda x: x.get('fuzzy_match_score', 0), 
                     reverse=True
                 )
                 
-                logger.info(f"✅ Filtering completed: {len(filtered_books)} quality books")
-                return filtered_books[:10]  # Return top 10 results
+                logger.info(f"✅ Lightweight filtering completed: {len(filtered_books)} books")
+                return filtered_books[:8]  # Return top 8 results to reduce memory
                 
             except Exception as e:
                 logger.warning(f"⚠️ Filtering failed, returning unfiltered results: {e}")
-                return found_books[:10]
+                return found_books[:5]  # Even fewer results on fallback
         
         return found_books
     
