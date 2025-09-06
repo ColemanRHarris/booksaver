@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_simple.html" %}
 
 {% block title %}Book Recommendations - Curated Reading Lists | BookSaver{% endblock %}
 {% block description %}Discover your next great read with BookSaver's curated book recommendations. Handpicked books across all genres with purchase links and reading app integration.{% endblock %}
@@ -63,223 +63,100 @@
 {% endblock %}
 
 {% block content %}
-<!-- Recommendations Hero Section -->
-<div class="results-hero">
-    <div class="results-hero-content">
-        <div class="success-animation">
-            <div class="check-circle">
-                <div class="check-mark">⭐</div>
-            </div>
+<div class="container">
+    <div class="main-content">
+        <div class="upload-section">
+            <h2>Book Recommendations</h2>
+            <p>Handpicked books we think you'll love based on popular trends and reader favorites</p>
+            <p><a href="{{ url_for('index') }}" style="color: #1a365d;">← Scan books with camera</a></p>
         </div>
-        <h1 class="results-title">
-            Discover Your Next Great Read
-        </h1>
-        <p class="results-subtitle">
-            Handpicked books we think you'll love based on popular trends and reader favorites
-        </p>
-        <div class="results-actions">
-            <a href="{{ url_for('index') }}" class="action-btn secondary-btn">
-                <span>Scan Books</span>
-            </a>
-            <button class="action-btn primary-btn" onclick="scrollToBooks()">
-                <span>Browse Books</span>
-            </button>
+        
+        <div class="results-section">
+            {% if books %}
+            <h2>{{ books|length }} Curated Book{{ "s" if books|length > 1 else "" }}</h2>
+            <div class="books-grid">
+                    {% for book in books %}
+                    <div class="book-card">
+                        {% if book.thumbnail %}
+                        <img src="{{ book.thumbnail }}" alt="{{ book.title }}" style="width: 80px; height: auto; float: left; margin-right: 15px; border-radius: 4px;">
+                        {% endif %}
+                        
+                        <div class="book-info">
+                            <div class="book-title">{{ book.title }}</div>
+                            {% if book.authors %}
+                            <div class="book-authors">by {{ book.authors | join(', ') }}</div>
+                            {% endif %}
+                            
+                            {% if book.published_date %}
+                            <div style="font-size: 12px; color: #718096; margin: 5px 0;">{{ book.published_date }}</div>
+                            {% endif %}
+                            
+                            {% if book.description %}
+                            <div style="font-size: 13px; color: #4a5568; margin: 10px 0; line-height: 1.4;">
+                                {% set max_length = 300 %}
+                                {% if book.description|length <= max_length %}
+                                    {{ book.description }}
+                                {% else %}
+                                    {% set truncated = book.description[:max_length] %}
+                                    {% set last_space = truncated.rfind(' ') %}
+                                    {% if last_space > max_length - 50 %}
+                                        {{ truncated[:last_space] }}...
+                                    {% else %}
+                                        {{ truncated }}...
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="book-actions" style="clear: both; margin-top: 15px;">
+                            {% if book.purchase_links %}
+                            <div style="margin-bottom: 10px; font-weight: 600; font-size: 13px;">Buy:</div>
+                            <div class="purchase-links">
+                                {% if book.purchase_links.amazon %}
+                                <a href="{{ book.purchase_links.amazon }}" class="retailer-btn amazon-btn" target="_blank" rel="noopener">Amazon</a>
+                                {% endif %}
+                                {% if book.purchase_links.audible %}
+                                <a href="{{ book.purchase_links.audible }}" class="retailer-btn audible-btn" target="_blank" rel="noopener">Audible</a>
+                                {% endif %}
+                                {% if book.purchase_links.barnes_noble %}
+                                <a href="{{ book.purchase_links.barnes_noble }}" class="retailer-btn bn-btn" target="_blank" rel="noopener">B&N</a>
+                                {% endif %}
+                                {% if book.purchase_links.bookshop %}
+                                <a href="{{ book.purchase_links.bookshop }}" class="retailer-btn bookshop-btn" target="_blank" rel="noopener">Bookshop</a>
+                                {% endif %}
+                                {% if book.purchase_links.google_books %}
+                                <a href="{{ book.purchase_links.google_books }}" class="retailer-btn google-btn" target="_blank" rel="noopener">Google</a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if book.reader_app_links %}
+                            <div style="margin-bottom: 10px; margin-top: 15px; font-weight: 600; font-size: 13px;">Reading Apps:</div>
+                            <div class="reader-app-links">
+                                {% if book.reader_app_links.goodreads %}
+                                <a href="{{ book.reader_app_links.goodreads }}" class="retailer-btn goodreads-btn" target="_blank" rel="noopener">Goodreads</a>
+                                {% endif %}
+                                {% if book.reader_app_links.overdrive %}
+                                <a href="{{ book.reader_app_links.overdrive }}" class="retailer-btn overdrive-btn" target="_blank" rel="noopener">OverDrive</a>
+                                {% endif %}
+                                {% if book.reader_app_links.storygraph %}
+                                <a href="{{ book.reader_app_links.storygraph }}" class="retailer-btn storygraph-btn" target="_blank" rel="noopener">StoryGraph</a>
+                                {% endif %}
+                                {% if book.reader_app_links.librarything %}
+                                <a href="{{ book.reader_app_links.librarything }}" class="retailer-btn librarything-btn" target="_blank" rel="noopener">LibraryThing</a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+            {% endfor %}
+            </div>
+            {% else %}
+            <p>No book recommendations available at the moment.</p>
+            {% endif %}
         </div>
     </div>
 </div>
-
-<div class="results-container" id="books-section">
-    <!-- Recommendations Stats -->
-    <div class="results-stats">
-        <div class="stat-card">
-            <div class="stat-icon">⭐</div>
-            <div class="stat-content">
-                <div class="stat-number">{{ books|length }}</div>
-                <div class="stat-label">Curated Books</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">🎯</div>
-            <div class="stat-content">
-                <div class="stat-number">95%</div>
-                <div class="stat-label">Reader Satisfaction</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">🛒</div>
-            <div class="stat-content">
-                <div class="stat-number">5+</div>
-                <div class="stat-label">Buy Options</div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modern Books Grid -->
-    <div class="modern-books-grid">
-        {% for book in books %}
-        <div class="modern-book-card" data-book-index="{{ loop.index0 }}">
-            <div class="book-cover-container">
-                {% if book.thumbnail %}
-                <img src="{{ book.thumbnail }}" alt="{{ book.title }}" class="modern-book-cover">
-                <div class="cover-overlay">
-                    <button class="quick-preview-btn" onclick="showBookModal({{ loop.index0 }})" 
-                            data-book-title="{{ book.title }}"
-                            data-book-authors="{{ book.authors | join(', ') }}"
-                            data-book-description="{{ book.description or 'No description available.' }}"
-                            data-book-thumbnail="{{ book.thumbnail or '' }}"
-                            data-book-published="{{ book.published_date or 'Unknown' }}"
-                            data-book-isbn="{{ book.isbn or 'N/A' }}">
-                        <span>Quick View</span>
-                    </button>
-                </div>
-                {% else %}
-                <div class="modern-no-cover">
-                    <div class="no-cover-icon">📖</div>
-                    <div class="no-cover-text">No Cover Available</div>
-                </div>
-                {% endif %}
-            </div>
-            
-            <div class="modern-book-info">
-                <div class="book-header">
-                    <h3 class="modern-book-title">{{ book.title }}</h3>
-                    <div class="book-rating">
-                        <div class="stars">⭐⭐⭐⭐⭐</div>
-                        <span class="rating-text">4.5</span>
-                    </div>
-                </div>
-                <p class="modern-book-authors">by {{ book.authors | join(', ') }}</p>
-                
-                {% if book.published_date %}
-                <p class="book-date">Published: {{ book.published_date }}</p>
-                {% endif %}
-                
-                {% if book.isbn %}
-                <p class="book-isbn">ISBN: {{ book.isbn }}</p>
-                {% endif %}
-                
-                {% if book.description %}
-                <p class="book-description">{{ book.description[:150] }}{% if book.description|length > 150 %}...{% endif %}</p>
-                {% endif %}
-                
-                <div class="modern-book-actions">
-                    <div class="action-section">
-                        <h4 class="action-title">🛍️ Get This Book</h4>
-                        {% if book.purchase_links %}
-                        <div class="modern-retailer-grid">
-                            {% if book.purchase_links.amazon %}
-                            <a href="{{ book.purchase_links.amazon }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn amazon-btn">
-                                <span>Amazon</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.purchase_links.audible %}
-                            <a href="{{ book.purchase_links.audible }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn audible-btn">
-                                <span>Audible</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.purchase_links.barnes_noble %}
-                            <a href="{{ book.purchase_links.barnes_noble }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn bn-btn">
-                                <span>B&N</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.purchase_links.bookshop %}
-                            <a href="{{ book.purchase_links.bookshop }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn bookshop-btn">
-                                <span>Bookshop</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.purchase_links.google_books %}
-                            <a href="{{ book.purchase_links.google_books }}" 
-                               target="_blank" 
-                               class="modern-retailer-btn google-btn">
-                                <span>Google</span>
-                            </a>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="action-section">
-                        <h4 class="action-title">📱 Reading Apps</h4>
-                        {% if book.reader_app_links %}
-                        <div class="modern-app-grid">
-                            {% if book.reader_app_links.goodreads %}
-                            <a href="{{ book.reader_app_links.goodreads }}" 
-                               target="_blank" 
-                               class="modern-app-btn goodreads-btn">
-                                <span>Goodreads</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.reader_app_links.overdrive %}
-                            <a href="{{ book.reader_app_links.overdrive }}" 
-                               target="_blank" 
-                               class="modern-app-btn overdrive-btn">
-                                <span>OverDrive</span>
-                            </a>
-                            {% endif %}
-                            
-                            {% if book.reader_app_links.storygraph %}
-                            <a href="{{ book.reader_app_links.storygraph }}" 
-                               target="_blank" 
-                               class="modern-app-btn storygraph-btn">
-                                <span>StoryGraph</span>
-                            </a>
-                            {% endif %}
-                        </div>
-                        {% else %}
-                        <div class="no-apps-message">
-                            <span class="no-apps-icon">📱</span>
-                            <span>Reading app links coming soon!</span>
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    {% if book.preview_link %}
-                    <div class="action-section">
-                        <a href="{{ book.preview_link }}" 
-                           target="_blank" 
-                           class="modern-preview-btn">
-                            <span>Preview Book</span>
-                        </a>
-                    </div>
-                    {% endif %}
-                    
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    
-</div>
-
-<style>
-.recommendations-subtitle {
-    color: #666;
-    font-style: italic;
-    margin-bottom: 10px;
-}
-
-</style>
-
-<script>
-function scrollToBooks() {
-    document.getElementById('books-section').scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-    });
-}
-</script>
 
 {% endblock %}

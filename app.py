@@ -10,14 +10,12 @@ from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 import os
 import logging
-import redis
 from logging.config import dictConfig
 
 from services.books_client import build_reader_app_links
-from services.recommendation_engine import get_recommendation_engine
-from system_monitor import get_system_monitor
 from core.utils import sanitize_input
 from routes.images import register_image_routes
+from routes.seo_pages import register_seo_routes
 
 load_dotenv()
 
@@ -71,7 +69,6 @@ def log_environment_status():
     """Log the status of important environment variables"""
     env_vars = {
         'GEMINI_API_KEY': os.getenv('GEMINI_API_KEY'),
-        'REDIS_URL': os.getenv('REDIS_URL'), 
         'SECRET_KEY': os.getenv('SECRET_KEY'),
         'FLASK_ENV': os.getenv('FLASK_ENV'),
         'GOOGLE_BOOKS_KEY': os.getenv('GOOGLE_BOOKS_KEY'),
@@ -141,6 +138,7 @@ def add_security_headers(response):
 
 # Register route modules
 register_image_routes(app, limiter)
+register_seo_routes(app, limiter)
 
 
 # Main routes
@@ -154,15 +152,10 @@ def index():
 def health_check():
     """Simple health check endpoint"""
     try:
-        # Test database/Redis connection if needed
-        system_monitor = get_system_monitor()
-        stats = system_monitor.get_current_stats()
-        
-        # Basic health indicators
+        # Basic health check
         health_status = {
             'status': 'healthy',
-            'system': stats.get('system', {}),
-            'current_process': stats.get('current_process', {})
+            'timestamp': datetime.utcnow().isoformat()
         }
         
         return jsonify(health_status), 200
@@ -258,7 +251,7 @@ def sitemap():
         },
     ]
     
-    # Simple sitemap - no complex SEO pages needed for simplified version
+    # Enhanced sitemap with SEO landing pages
     
     # Generate XML
     xml_content = ['<?xml version="1.0" encoding="UTF-8"?>']

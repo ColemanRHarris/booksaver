@@ -1,18 +1,19 @@
 """
 SEO Landing Pages service for managing parasite SEO content.
-Handles creation, management, and serving of SEO-optimized landing pages
-for book recommendations, author pages, and genre-specific content.
+Simplified version for streamlined BookSaver deployment.
 """
 
 import os
 import json
-import redis
 import hashlib
 import re
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from urllib.parse import quote, unquote
-from core.logging_utils import get_safe_logger
+import logging
+
+# Simple logger
+logger = logging.getLogger(__name__)
 
 
 class InMemoryRedis:
@@ -80,25 +81,11 @@ class InMemoryRedis:
 class SEOService:
     """Service for managing SEO landing pages and content."""
     
-    def __init__(self, redis_client=None):
-        self.logger = get_safe_logger(__name__)
-        
-        if redis_client:
-            self.redis = redis_client
-        else:
-            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-            
-            try:
-                if redis_url.startswith('memory://'):
-                    raise redis.ConnectionError("Using memory mode")
-                
-                self.redis = redis.from_url(redis_url, decode_responses=True)
-                self.redis.ping()
-                self.logger.info("✅ SEO Service connected to Redis")
-                
-            except Exception as e:
-                self.logger.warning(f"⚠️ Redis connection failed ({e}), using in-memory storage")
-                self.redis = InMemoryRedis()
+    def __init__(self):
+        # Use in-memory storage for streamlined deployment
+        self.logger = logger
+        self.logger.info("🔧 SEO Service using in-memory storage")
+        self.redis = InMemoryRedis()
         
         # Initialize default genres and popular books
         self._initialize_default_data()

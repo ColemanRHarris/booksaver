@@ -6,22 +6,11 @@ Sitemap: https://booksaver.app/sitemap.xml
 
 # Allow important pages
 Allow: /recommendations
-Allow: /signup
-Allow: /login
 Allow: /privacy
 Allow: /terms
 
-# Disallow admin/processing pages
-Disallow: /processing/
-Disallow: /task-status/
-Disallow: /cancel-task/
-Disallow: /image-results/
+# Disallow health check
 Disallow: /health
-
-# Disallow user-specific content
-Disallow: /account
-Disallow: /subscribe
-Disallow: /subscription/
 
 # Crawl-delay for respectful crawling
 Crawl-delay: 1

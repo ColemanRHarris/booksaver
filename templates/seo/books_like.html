@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_simple.html" %}
 
 {% block title %}{{ page_data.title }}{% endblock %}
 {% block description %}{{ page_data.meta_description }}{% endblock %}
@@ -79,716 +79,85 @@
 {% endblock %}
 
 {% block content %}
-<!-- Books Like Hero Section -->
-<div class="books-like-hero-section">
-    <div class="books-like-hero-content">
-        <div class="breadcrumb-nav">
-            <a href="{{ url_for('index') }}">Home</a>
-            <span>→</span>
-            <a href="{{ url_for('recommendations') }}">Recommendations</a>
-            <span>→</span>
-            <span>Books Like {{ original_book.title }}</span>
+<div class="container">
+    <div class="main-content">
+        <div class="upload-section">
+            <nav style="margin-bottom: 20px; font-size: 14px; color: #718096;">
+                <a href="{{ url_for('index') }}" style="color: #1a365d;">Home</a>
+                <span> → </span>
+                <a href="{{ url_for('recommendations') }}" style="color: #1a365d;">Recommendations</a>
+                <span> → Books Like {{ original_book.title }}</span>
+            </nav>
+            
+            <h1>Books Like {{ original_book.title }}</h1>
+            <p>If you enjoyed "{{ original_book.title }}" by {{ original_book.author }}, you'll love these similar book recommendations.</p>
+            <p><a href="{{ url_for('index') }}" style="color: #1a365d;">📸 Scan books with camera</a></p>
         </div>
         
-        <div class="original-book-spotlight">
-            <div class="book-cover-large">
-                <img src="{{ original_book.thumbnail or url_for('static', filename='ornate-b-large.png') }}" 
-                     alt="{{ original_book.title }} cover" 
-                     loading="lazy">
-            </div>
-            
-            <div class="book-details-large">
-                <h1 class="books-like-title">
-                    Books Like <span class="highlight">{{ original_book.title }}</span>
-                </h1>
-                <p class="book-author-large">by {{ original_book.author }}</p>
-                
-                {% if original_book.description %}
-                <p class="book-description-large">
-                    {{ original_book.description[:200] + '...' if original_book.description|length > 200 else original_book.description }}
-                </p>
-                {% endif %}
-                
-                <div class="hero-cta">
-                    <a href="{{ url_for('index') }}" class="cta-btn primary">
-                        <span class="cta-icon">📸</span>
-                        <span class="cta-text">
-                            <strong>Found Another Great Book?</strong>
-                            <small>Scan it to find similar titles</small>
-                        </span>
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <div class="similarity-intro">
-            <p>If you loved <strong>{{ original_book.title }}</strong>, these {{ similar_books|length }} carefully selected books will capture your imagination with similar themes, writing styles, and storytelling approaches.</p>
-        </div>
-    </div>
-</div>
-
-<!-- Similar Books Grid -->
-<div class="similar-books-container">
-    <div class="similar-books-header">
-        <h2>{{ similar_books|length }} Books You'll Love</h2>
-        <p>Handpicked recommendations based on themes, style, and reader preferences</p>
-    </div>
-    
-    {% if similar_books %}
-    <div class="similar-books-grid">
-        {% for book in similar_books %}
-        <div class="similar-book-card" data-similarity="{{ book.similarity_score if book.similarity_score else 0.8 }}">
-            <!-- Similarity Badge -->
-            <div class="similarity-badge">
-                {{ "%.0f"|format((book.similarity_score * 100) if book.similarity_score else 85) }}% Match
-            </div>
-            
-            <div class="book-cover">
-                <img src="{{ book.thumbnail or url_for('static', filename='ornate-b-medium.png') }}" 
-                     alt="{{ book.title }} cover" 
-                     loading="lazy">
-            </div>
-            
-            <div class="book-info">
-                <h3 class="book-title">{{ book.title }}</h3>
-                <p class="book-author">by {{ book.authors[0] if book.authors else 'Unknown Author' }}</p>
-                
-                <p class="book-description">
-                    {{ book.description[:100] + '...' if book.description and book.description|length > 100 else book.description or 'A compelling story that readers of ' + original_book.title + ' will enjoy.' }}
-                </p>
-                
-                {% if book.similarity_reasons %}
-                <div class="similarity-reasons">
-                    <strong>Why you'll love it:</strong>
-                    <ul>
-                        {% for reason in book.similarity_reasons[:3] %}
-                        <li>{{ reason }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-                
-                <div class="book-actions">
-                    {% if book.purchase_links %}
-                    <div class="purchase-links">
-                        {% if book.purchase_links.amazon %}
-                        <a href="{{ book.purchase_links.amazon }}" class="purchase-btn amazon" target="_blank" rel="noopener">
-                            📖 Get on Amazon
-                        </a>
-                        {% endif %}
-                        {% if book.purchase_links.google_books %}
-                        <a href="{{ book.purchase_links.google_books }}" class="purchase-btn google" target="_blank" rel="noopener">
-                            📚 Google Books
-                        </a>
-                        {% endif %}
-                    </div>
+        <div class="results-section">
+            {% if similar_books %}
+            <h2>{{ similar_books|length }} Similar Book{{ "s" if similar_books|length > 1 else "" }}</h2>
+            <div class="books-grid">
+                {% for book in similar_books %}
+                <div class="book-card">
+                    {% if book.thumbnail %}
+                    <img src="{{ book.thumbnail }}" alt="{{ book.title }}" style="width: 80px; height: auto; float: left; margin-right: 15px; border-radius: 4px;">
                     {% endif %}
                     
-                    <div class="scan-action">
-                        <a href="{{ url_for('index') }}" class="scan-similar-btn">
-                            📸 Scan This Book
-                        </a>
+                    <div class="book-info">
+                        <div class="book-title">{{ book.title }}</div>
+                        {% if book.authors %}
+                        <div class="book-authors">by {{ book.authors[0] if book.authors else 'Unknown Author' }}</div>
+                        {% endif %}
+                        
+                        {% if book.published_date %}
+                        <div style="font-size: 12px; color: #718096; margin: 5px 0;">{{ book.published_date }}</div>
+                        {% endif %}
+                        
+                        {% if book.description %}
+                        <div style="font-size: 13px; color: #4a5568; margin: 10px 0; line-height: 1.4;">
+                            {% set max_length = 200 %}
+                            {% if book.description|length <= max_length %}
+                                {{ book.description }}
+                            {% else %}
+                                {% set truncated = book.description[:max_length] %}
+                                {% set last_space = truncated.rfind(' ') %}
+                                {% if last_space > max_length - 50 %}
+                                    {{ truncated[:last_space] }}...
+                                {% else %}
+                                    {{ truncated }}...
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="book-actions" style="clear: both; margin-top: 15px;">
+                        {% if book.purchase_links %}
+                        <div style="margin-bottom: 10px; font-weight: 600; font-size: 13px;">Buy:</div>
+                        <div class="purchase-links">
+                            {% if book.purchase_links.amazon %}
+                            <a href="{{ book.purchase_links.amazon }}" class="retailer-btn amazon-btn" target="_blank" rel="noopener">Amazon</a>
+                            {% endif %}
+                            {% if book.purchase_links.google_books %}
+                            <a href="{{ book.purchase_links.google_books }}" class="retailer-btn google-btn" target="_blank" rel="noopener">Google</a>
+                            {% endif %}
+                            {% if book.purchase_links.barnes_noble %}
+                            <a href="{{ book.purchase_links.barnes_noble }}" class="retailer-btn bn-btn" target="_blank" rel="noopener">B&N</a>
+                            {% endif %}
+                            {% if book.purchase_links.bookshop %}
+                            <a href="{{ book.purchase_links.bookshop }}" class="retailer-btn bookshop-btn" target="_blank" rel="noopener">Bookshop</a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
+                {% endfor %}
             </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="no-similar-books">
-        <p>We're currently building our recommendations for books similar to {{ original_book.title }}. Check back soon!</p>
-        <a href="{{ url_for('index') }}" class="scan-cta-btn">
-            📸 Scan Books Like {{ original_book.title }} Now
-        </a>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Why These Books Section -->
-<div class="recommendation-methodology">
-    <div class="methodology-content">
-        <h2>How We Choose These Recommendations</h2>
-        <div class="methodology-grid">
-            <div class="method-item">
-                <div class="method-icon">🎯</div>
-                <h3>Theme Analysis</h3>
-                <p>We analyze core themes, plot elements, and narrative structures to find books with similar storytelling approaches.</p>
-            </div>
-            <div class="method-item">
-                <div class="method-icon">✍️</div>
-                <h3>Writing Style</h3>
-                <p>Books are matched based on writing style, pacing, character development, and literary techniques.</p>
-            </div>
-            <div class="method-item">
-                <div class="method-icon">👥</div>
-                <h3>Reader Preferences</h3>
-                <p>Our recommendations are refined using reading patterns and preferences from thousands of book lovers.</p>
-            </div>
-            <div class="method-item">
-                <div class="method-icon">⭐</div>
-                <h3>Quality Curation</h3>
-                <p>Every recommendation is evaluated for quality, ensuring you discover books worth your reading time.</p>
-            </div>
+            {% else %}
+            <p>No similar books found for "{{ original_book.title }}" at the moment.</p>
+            {% endif %}
         </div>
     </div>
 </div>
-
-<!-- Conversion Section -->
-<div class="books-like-conversion">
-    <div class="conversion-content">
-        <h2>📚 Discover More Books You'll Love</h2>
-        <p>Use BookSaver to scan any book and instantly discover similar titles, get purchase links, and build your perfect reading list!</p>
-        
-        <div class="conversion-demo">
-            <div class="demo-step">
-                <div class="demo-icon">📸</div>
-                <h3>1. Scan Any Book</h3>
-                <p>Point your camera at any book cover</p>
-            </div>
-            <div class="demo-arrow">→</div>
-            <div class="demo-step">
-                <div class="demo-icon">🎯</div>
-                <h3>2. Instant ID</h3>
-                <p>Get book details in seconds</p>
-            </div>
-            <div class="demo-arrow">→</div>
-            <div class="demo-step">
-                <div class="demo-icon">💡</div>
-                <h3>3. Find Similar</h3>
-                <p>Discover your next favorite read</p>
-            </div>
-        </div>
-        
-        <a href="{{ url_for('index') }}" class="conversion-cta-btn">
-            <span class="cta-icon">🚀</span>
-            <span class="cta-text">Start Discovering Books Now</span>
-        </a>
-        
-        <p class="conversion-subtext">
-            Join thousands of readers who use BookSaver to build their perfect reading lists
-        </p>
-    </div>
-</div>
-
-<!-- More Recommendations Section -->
-<div class="more-recommendations">
-    <h2>Explore More Book Recommendations</h2>
-    <div class="rec-categories">
-        <a href="{{ url_for('best_genre_books', genre_slug='science-fiction') }}" class="rec-category">
-            <span class="cat-icon">🚀</span>
-            <span class="cat-name">Science Fiction</span>
-        </a>
-        <a href="{{ url_for('best_genre_books', genre_slug='fantasy') }}" class="rec-category">
-            <span class="cat-icon">🐉</span>
-            <span class="cat-name">Fantasy</span>
-        </a>
-        <a href="{{ url_for('best_genre_books', genre_slug='mystery') }}" class="rec-category">
-            <span class="cat-icon">🔍</span>
-            <span class="cat-name">Mystery</span>
-        </a>
-        <a href="{{ url_for('best_genre_books', genre_slug='romance') }}" class="rec-category">
-            <span class="cat-icon">💕</span>
-            <span class="cat-name">Romance</span>
-        </a>
-    </div>
-</div>
-
-<style>
-/* Books Like Page Styles */
-.books-like-hero-section {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    color: white;
-    padding: 3rem 0;
-    position: relative;
-    overflow: hidden;
-}
-
-.books-like-hero-content {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 0 2rem;
-}
-
-.breadcrumb-nav {
-    margin-bottom: 2rem;
-    font-size: 0.9rem;
-    opacity: 0.9;
-}
-
-.breadcrumb-nav a {
-    color: white;
-    text-decoration: none;
-}
-
-.breadcrumb-nav a:hover {
-    text-decoration: underline;
-}
-
-.original-book-spotlight {
-    display: flex;
-    align-items: center;
-    gap: 2rem;
-    margin-bottom: 2rem;
-}
-
-.book-cover-large img {
-    width: 150px;
-    height: auto;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-}
-
-.book-details-large {
-    flex: 1;
-}
-
-.books-like-title {
-    font-size: 2.2rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-    line-height: 1.2;
-}
-
-.highlight {
-    color: #fbbf24;
-    text-decoration: underline;
-    text-decoration-color: rgba(251, 191, 36, 0.3);
-    text-underline-offset: 4px;
-}
-
-.book-author-large {
-    font-size: 1.2rem;
-    opacity: 0.9;
-    margin-bottom: 1rem;
-}
-
-.book-description-large {
-    font-size: 1rem;
-    line-height: 1.6;
-    opacity: 0.9;
-    margin-bottom: 1.5rem;
-}
-
-.hero-cta {
-    margin-top: 1rem;
-}
-
-.similarity-intro {
-    text-align: center;
-    font-size: 1.1rem;
-    line-height: 1.6;
-    opacity: 0.95;
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 1.5rem;
-    background: rgba(255,255,255,0.1);
-    border-radius: 12px;
-    backdrop-filter: blur(10px);
-}
-
-/* Similar Books Grid */
-.similar-books-container {
-    max-width: 1200px;
-    margin: 4rem auto;
-    padding: 0 2rem;
-}
-
-.similar-books-header {
-    text-align: center;
-    margin-bottom: 3rem;
-}
-
-.similar-books-header h2 {
-    font-size: 2rem;
-    color: #1f2937;
-    margin-bottom: 0.5rem;
-}
-
-.similar-books-header p {
-    color: #6b7280;
-    font-size: 1.1rem;
-}
-
-.similar-books-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 2rem;
-}
-
-.similar-book-card {
-    background: white;
-    border-radius: 16px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    position: relative;
-    border: 1px solid #f3f4f6;
-}
-
-.similar-book-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
-    border-color: #4f46e5;
-}
-
-.similarity-badge {
-    position: absolute;
-    top: -8px;
-    right: 1rem;
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-}
-
-.book-cover {
-    text-align: center;
-    margin-bottom: 1.5rem;
-}
-
-.book-cover img {
-    width: 100px;
-    height: auto;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.book-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 0.5rem;
-    line-height: 1.3;
-}
-
-.book-author {
-    color: #6b7280;
-    margin-bottom: 1rem;
-    font-style: italic;
-}
-
-.book-description {
-    font-size: 0.9rem;
-    color: #4b5563;
-    line-height: 1.5;
-    margin-bottom: 1rem;
-}
-
-.similarity-reasons {
-    margin-bottom: 1.5rem;
-    font-size: 0.9rem;
-}
-
-.similarity-reasons strong {
-    color: #1f2937;
-    display: block;
-    margin-bottom: 0.5rem;
-}
-
-.similarity-reasons ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.similarity-reasons li {
-    color: #059669;
-    margin-bottom: 0.25rem;
-    position: relative;
-    padding-left: 1rem;
-}
-
-.similarity-reasons li:before {
-    content: '✓';
-    position: absolute;
-    left: 0;
-    color: #10b981;
-    font-weight: 600;
-}
-
-.book-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.purchase-links {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.purchase-btn {
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    flex: 1;
-    text-align: center;
-    min-width: 120px;
-}
-
-.purchase-btn.amazon {
-    background: #ff9900;
-    color: white;
-}
-
-.purchase-btn.google {
-    background: #4285f4;
-    color: white;
-}
-
-.purchase-btn:hover {
-    transform: translateY(-1px);
-    opacity: 0.9;
-}
-
-.scan-similar-btn {
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #d1d5db;
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    text-align: center;
-}
-
-.scan-similar-btn:hover {
-    background: #e5e7eb;
-    transform: translateY(-1px);
-}
-
-/* Methodology Section */
-.recommendation-methodology {
-    background: #f9fafb;
-    padding: 4rem 0;
-}
-
-.methodology-content {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    text-align: center;
-}
-
-.methodology-content h2 {
-    font-size: 2rem;
-    color: #1f2937;
-    margin-bottom: 3rem;
-}
-
-.methodology-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 2rem;
-}
-
-.method-item {
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-.method-icon {
-    font-size: 2rem;
-    margin-bottom: 1rem;
-}
-
-.method-item h3 {
-    color: #1f2937;
-    margin-bottom: 1rem;
-    font-size: 1.1rem;
-}
-
-.method-item p {
-    color: #6b7280;
-    font-size: 0.9rem;
-    line-height: 1.5;
-}
-
-/* Conversion Section */
-.books-like-conversion {
-    background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-    color: white;
-    padding: 4rem 0;
-    text-align: center;
-}
-
-.conversion-content {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 0 2rem;
-}
-
-.conversion-content h2 {
-    font-size: 2rem;
-    margin-bottom: 1rem;
-}
-
-.conversion-content p {
-    font-size: 1.1rem;
-    opacity: 0.9;
-    margin-bottom: 3rem;
-}
-
-.conversion-demo {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 2rem;
-    margin-bottom: 3rem;
-    flex-wrap: wrap;
-}
-
-.demo-step {
-    text-align: center;
-    flex: 1;
-    min-width: 150px;
-}
-
-.demo-icon {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-    background: rgba(255,255,255,0.1);
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 1rem;
-}
-
-.demo-step h3 {
-    font-size: 1.2rem;
-    margin-bottom: 0.5rem;
-}
-
-.demo-step p {
-    font-size: 0.9rem;
-    opacity: 0.8;
-    margin: 0;
-}
-
-.demo-arrow {
-    font-size: 1.5rem;
-    opacity: 0.7;
-}
-
-.conversion-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    color: white;
-    padding: 1rem 2rem;
-    border-radius: 12px;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 1.1rem;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
-    margin-bottom: 1rem;
-}
-
-.conversion-cta-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
-}
-
-.conversion-subtext {
-    font-size: 0.9rem;
-    opacity: 0.7;
-    margin: 1rem 0 0 0;
-}
-
-/* More Recommendations */
-.more-recommendations {
-    max-width: 800px;
-    margin: 4rem auto;
-    padding: 0 2rem;
-    text-align: center;
-}
-
-.more-recommendations h2 {
-    font-size: 1.8rem;
-    color: #1f2937;
-    margin-bottom: 2rem;
-}
-
-.rec-categories {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
-}
-
-.rec-category {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 1.5rem;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.rec-category:hover {
-    border-color: #4f46e5;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
-}
-
-.cat-icon {
-    font-size: 1.5rem;
-}
-
-.cat-name {
-    color: #1f2937;
-    font-weight: 500;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .books-like-title {
-        font-size: 1.8rem;
-    }
-    
-    .original-book-spotlight {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .book-cover-large img {
-        width: 120px;
-    }
-    
-    .conversion-demo {
-        flex-direction: column;
-    }
-    
-    .demo-arrow {
-        transform: rotate(90deg);
-    }
-    
-    .similarity-reasons li {
-        font-size: 0.8rem;
-    }
-    
-    .purchase-links {
-        flex-direction: column;
-    }
-}
-</style>
 {% endblock %}

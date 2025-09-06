@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_simple.html" %}
 
 {% block title %}{{ page_data.title }}{% endblock %}
 {% block description %}{{ page_data.meta_description }}{% endblock %}
@@ -71,574 +71,86 @@
 {% endblock %}
 
 {% block content %}
-<!-- SEO Genre Books Hero Section -->
-<div class="seo-hero-section">
-    <div class="seo-hero-content">
-        <div class="breadcrumb-nav">
-            <a href="{{ url_for('index') }}">Home</a>
-            <span>→</span>
-            <a href="{{ url_for('genre_landing', genre_slug=genre.slug) }}">{{ genre.display_name }}</a>
-            <span>→</span>
-            <span>Best {{ year }}</span>
+<div class="container">
+    <div class="main-content">
+        <div class="upload-section">
+            <nav style="margin-bottom: 20px; font-size: 14px; color: #718096;">
+                <a href="{{ url_for('index') }}" style="color: #1a365d;">Home</a>
+                <span> → </span>
+                <a href="{{ url_for('genre_landing', genre_slug=genre.slug) }}" style="color: #1a365d;">{{ genre.display_name }}</a>
+                <span> → Best {{ year }}</span>
+            </nav>
+            
+            <h1>Best {{ genre.display_name }} Books of {{ year }}</h1>
+            <p>Discover the most captivating {{ genre.display_name|lower }} books from {{ year }}. Our curated selection features award winners, bestsellers, and hidden gems that define the genre.</p>
+            <p><a href="{{ url_for('index') }}" style="color: #1a365d;">📸 Scan books with camera</a></p>
         </div>
         
-        <h1 class="seo-hero-title">
-            Best {{ genre.display_name }} Books of {{ year }}
-        </h1>
-        <p class="seo-hero-subtitle">
-            Discover the most captivating {{ genre.display_name|lower }} books from {{ year }}. Our curated selection features award winners, bestsellers, and hidden gems that define the genre.
-        </p>
-        
-        <!-- Primary CTA -->
-        <div class="seo-hero-cta">
-            <a href="{{ url_for('index') }}" class="cta-btn primary">
-                <span class="cta-icon">📸</span>
-                <span class="cta-text">
-                    <strong>Scan Books with Camera</strong>
-                    <small>Instantly identify any book</small>
-                </span>
-            </a>
-            <p class="cta-subtext">Found a {{ genre.display_name|lower }} book? Use BookSaver to instantly identify it and find similar titles!</p>
-        </div>
-    </div>
+        <div class="results-section">
+            <h2>{{ books|length }} {{ genre.display_name }} Book{{ "s" if books|length > 1 else "" }}</h2>
     
-    <div class="seo-hero-visual">
-        <div class="floating-genre-icons">
-            <div class="genre-icon">📚</div>
-            <div class="genre-icon">⭐</div>
-            <div class="genre-icon">🏆</div>
-        </div>
-    </div>
-</div>
-
-<!-- Books Grid Section -->
-<div class="seo-books-container">
-    <div class="seo-books-header">
-        <h2>Top {{ genre.display_name }} Books of {{ year }}</h2>
-        <p>{{ books|length }} carefully selected {{ genre.display_name|lower }} books that captured readers' hearts in {{ year }}</p>
-    </div>
-    
-    {% if books %}
-    <div class="seo-books-grid">
-        {% for book in books %}
-        <div class="seo-book-card" data-book-index="{{ loop.index }}">
-            <div class="book-rank">#{{ loop.index }}</div>
-            <div class="book-cover">
-                <img src="{{ book.thumbnail or url_for('static', filename='ornate-b-medium.png') }}" 
-                     alt="{{ book.title }} cover" 
-                     loading="lazy">
-            </div>
-            <div class="book-details">
-                <h3 class="book-title">{{ book.title }}</h3>
-                <p class="book-author">by {{ book.authors[0] if book.authors else 'Unknown Author' }}</p>
-                <p class="book-description">
-                    {{ book.description[:150] + '...' if book.description and book.description|length > 150 else book.description or 'A compelling ' + genre.display_name|lower + ' story.' }}
-                </p>
-                
-                <div class="book-actions">
-                    {% if book.purchase_links %}
-                    <div class="purchase-links">
-                        {% if book.purchase_links.amazon %}
-                        <a href="{{ book.purchase_links.amazon }}" class="purchase-btn amazon" target="_blank" rel="noopener">
-                            Amazon
-                        </a>
+            {% if books %}
+            <div class="books-grid">
+                {% for book in books %}
+                <div class="book-card">
+                    {% if book.thumbnail %}
+                    <img src="{{ book.thumbnail }}" alt="{{ book.title }}" style="width: 80px; height: auto; float: left; margin-right: 15px; border-radius: 4px;">
+                    {% endif %}
+                    
+                    <div class="book-info">
+                        <div class="book-title">{{ book.title }}</div>
+                        {% if book.authors %}
+                        <div class="book-authors">by {{ book.authors[0] if book.authors else 'Unknown Author' }}</div>
                         {% endif %}
-                        {% if book.purchase_links.google_books %}
-                        <a href="{{ book.purchase_links.google_books }}" class="purchase-btn google" target="_blank" rel="noopener">
-                            Google Books
-                        </a>
+                        
+                        {% if book.description %}
+                        <div style="font-size: 13px; color: #4a5568; margin: 10px 0; line-height: 1.4;">
+                            {% set max_length = 200 %}
+                            {% if book.description|length <= max_length %}
+                                {{ book.description }}
+                            {% else %}
+                                {% set truncated = book.description[:max_length] %}
+                                {% set last_space = truncated.rfind(' ') %}
+                                {% if last_space > max_length - 50 %}
+                                    {{ truncated[:last_space] }}...
+                                {% else %}
+                                    {{ truncated }}...
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div style="font-size: 13px; color: #4a5568; margin: 10px 0; line-height: 1.4;">
+                            A compelling {{ genre.display_name|lower }} story.
+                        </div>
                         {% endif %}
                     </div>
-                    {% endif %}
+                    
+                    <div class="book-actions" style="clear: both; margin-top: 15px;">
+                        {% if book.purchase_links %}
+                        <div style="margin-bottom: 10px; font-weight: 600; font-size: 13px;">Buy:</div>
+                        <div class="purchase-links">
+                            {% if book.purchase_links.amazon %}
+                            <a href="{{ book.purchase_links.amazon }}" class="retailer-btn amazon-btn" target="_blank" rel="noopener">Amazon</a>
+                            {% endif %}
+                            {% if book.purchase_links.google_books %}
+                            <a href="{{ book.purchase_links.google_books }}" class="retailer-btn google-btn" target="_blank" rel="noopener">Google</a>
+                            {% endif %}
+                            {% if book.purchase_links.barnes_noble %}
+                            <a href="{{ book.purchase_links.barnes_noble }}" class="retailer-btn bn-btn" target="_blank" rel="noopener">B&N</a>
+                            {% endif %}
+                            {% if book.purchase_links.bookshop %}
+                            <a href="{{ book.purchase_links.bookshop }}" class="retailer-btn bookshop-btn" target="_blank" rel="noopener">Bookshop</a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
+                {% endfor %}
             </div>
+            {% else %}
+            <p>We're currently curating the best {{ genre.display_name|lower }} books for {{ year }}. Check back soon!</p>
+            {% endif %}
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="no-books-message">
-        <p>We're currently curating the best {{ genre.display_name|lower }} books for {{ year }}. Check back soon!</p>
-        <a href="{{ url_for('index') }}" class="scan-cta-btn">
-            📸 Scan Books Now Instead
-        </a>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Conversion Section -->
-<div class="seo-conversion-section">
-    <div class="conversion-content">
-        <h2>📖 Found Your Next Read?</h2>
-        <p>Use BookSaver to scan any book cover and instantly get purchase links, reviews, and similar recommendations!</p>
-        
-        <div class="conversion-features">
-            <div class="feature">
-                <div class="feature-icon">📸</div>
-                <div class="feature-text">
-                    <strong>Instant Recognition</strong>
-                    <span>Scan any book cover with your camera</span>
-                </div>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🔗</div>
-                <div class="feature-text">
-                    <strong>Purchase Links</strong>
-                    <span>Get links to Amazon, Google Books, and more</span>
-                </div>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">💡</div>
-                <div class="feature-text">
-                    <strong>Smart Recommendations</strong>
-                    <span>Find similar books you'll love</span>
-                </div>
-            </div>
-        </div>
-        
-        <a href="{{ url_for('index') }}" class="conversion-cta-btn">
-            <span class="cta-icon">🚀</span>
-            <span class="cta-text">Start Scanning Books Now</span>
-        </a>
     </div>
 </div>
-
-<!-- Related Genres Section -->
-<div class="related-genres-section">
-    <h2>Explore More Book Genres</h2>
-    <div class="related-genres-grid">
-        {% set other_genres = [
-            {'slug': 'science-fiction', 'name': 'Science Fiction'},
-            {'slug': 'fantasy', 'name': 'Fantasy'},
-            {'slug': 'mystery', 'name': 'Mystery'},
-            {'slug': 'romance', 'name': 'Romance'},
-            {'slug': 'thriller', 'name': 'Thriller'},
-            {'slug': 'literary-fiction', 'name': 'Literary Fiction'}
-        ] %}
-        
-        {% for other_genre in other_genres %}
-        {% if other_genre.slug != genre.slug %}
-        <a href="{{ url_for('best_genre_books', genre_slug=other_genre.slug, year=year) }}" class="genre-link">
-            <span class="genre-name">{{ other_genre.name }}</span>
-            <span class="genre-year">{{ year }}</span>
-        </a>
-        {% endif %}
-        {% endfor %}
-    </div>
-</div>
-
-<style>
-/* SEO Genre Books Styles */
-.seo-hero-section {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 4rem 0;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-
-.seo-hero-content {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    position: relative;
-    z-index: 2;
-}
-
-.breadcrumb-nav {
-    margin-bottom: 2rem;
-    font-size: 0.9rem;
-    opacity: 0.9;
-}
-
-.breadcrumb-nav a {
-    color: white;
-    text-decoration: none;
-}
-
-.breadcrumb-nav a:hover {
-    text-decoration: underline;
-}
-
-.seo-hero-title {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    line-height: 1.2;
-}
-
-.seo-hero-subtitle {
-    font-size: 1.2rem;
-    margin-bottom: 2rem;
-    opacity: 0.9;
-    line-height: 1.6;
-}
-
-.seo-hero-cta {
-    margin-top: 2rem;
-}
-
-.cta-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 1rem;
-    background: white;
-    color: #667eea;
-    padding: 1rem 2rem;
-    border-radius: 12px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-.cta-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-}
-
-.cta-icon {
-    font-size: 1.5rem;
-}
-
-.cta-text {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-.cta-text strong {
-    font-size: 1.1rem;
-    margin-bottom: 0.25rem;
-}
-
-.cta-text small {
-    font-size: 0.9rem;
-    opacity: 0.7;
-    font-weight: 400;
-}
-
-.cta-subtext {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    opacity: 0.8;
-}
-
-.seo-hero-visual {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-}
-
-.floating-genre-icons {
-    position: absolute;
-    top: 20%;
-    right: 10%;
-    font-size: 2rem;
-}
-
-.genre-icon {
-    position: absolute;
-    animation: float 6s ease-in-out infinite;
-}
-
-.genre-icon:nth-child(1) { animation-delay: 0s; }
-.genre-icon:nth-child(2) { animation-delay: 2s; top: 50px; right: -30px; }
-.genre-icon:nth-child(3) { animation-delay: 4s; top: 100px; right: 20px; }
-
-@keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-20px); }
-}
-
-/* Books Grid */
-.seo-books-container {
-    max-width: 1200px;
-    margin: 4rem auto;
-    padding: 0 2rem;
-}
-
-.seo-books-header {
-    text-align: center;
-    margin-bottom: 3rem;
-}
-
-.seo-books-header h2 {
-    font-size: 2rem;
-    color: #1f2937;
-    margin-bottom: 0.5rem;
-}
-
-.seo-books-header p {
-    color: #6b7280;
-    font-size: 1.1rem;
-}
-
-.seo-books-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
-}
-
-.seo-book-card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    position: relative;
-}
-
-.seo-book-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-}
-
-.book-rank {
-    position: absolute;
-    top: -10px;
-    left: -10px;
-    background: #667eea;
-    color: white;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-.book-cover {
-    text-align: center;
-    margin-bottom: 1rem;
-}
-
-.book-cover img {
-    max-width: 120px;
-    height: auto;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.book-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 0.5rem;
-    line-height: 1.3;
-}
-
-.book-author {
-    color: #6b7280;
-    margin-bottom: 1rem;
-    font-style: italic;
-}
-
-.book-description {
-    font-size: 0.9rem;
-    color: #4b5563;
-    line-height: 1.5;
-    margin-bottom: 1.5rem;
-}
-
-.purchase-links {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.purchase-btn {
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.purchase-btn.amazon {
-    background: #ff9900;
-    color: white;
-}
-
-.purchase-btn.google {
-    background: #4285f4;
-    color: white;
-}
-
-.purchase-btn:hover {
-    transform: translateY(-1px);
-    opacity: 0.9;
-}
-
-/* Conversion Section */
-.seo-conversion-section {
-    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
-    padding: 4rem 0;
-    text-align: center;
-}
-
-.conversion-content {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 0 2rem;
-}
-
-.conversion-content h2 {
-    font-size: 2rem;
-    color: #1f2937;
-    margin-bottom: 1rem;
-}
-
-.conversion-content p {
-    font-size: 1.1rem;
-    color: #6b7280;
-    margin-bottom: 2rem;
-}
-
-.conversion-features {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 2rem;
-    margin-bottom: 2rem;
-}
-
-.feature {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.feature-icon {
-    font-size: 1.5rem;
-    background: white;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.feature-text {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-.feature-text strong {
-    color: #1f2937;
-    margin-bottom: 0.25rem;
-}
-
-.feature-text span {
-    color: #6b7280;
-    font-size: 0.9rem;
-}
-
-.conversion-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-    padding: 1rem 2rem;
-    border-radius: 12px;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 1.1rem;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-}
-
-.conversion-cta-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-}
-
-/* Related Genres */
-.related-genres-section {
-    max-width: 1200px;
-    margin: 4rem auto;
-    padding: 0 2rem;
-    text-align: center;
-}
-
-.related-genres-section h2 {
-    font-size: 1.8rem;
-    color: #1f2937;
-    margin-bottom: 2rem;
-}
-
-.related-genres-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-}
-
-.genre-link {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 1rem;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.genre-link:hover {
-    border-color: #667eea;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
-}
-
-.genre-name {
-    color: #1f2937;
-    font-weight: 500;
-    margin-bottom: 0.25rem;
-}
-
-.genre-year {
-    color: #6b7280;
-    font-size: 0.9rem;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .seo-hero-title {
-        font-size: 2rem;
-    }
-    
-    .seo-hero-subtitle {
-        font-size: 1rem;
-    }
-    
-    .cta-btn {
-        flex-direction: column;
-        text-align: center;
-        gap: 0.5rem;
-    }
-    
-    .conversion-features {
-        grid-template-columns: 1fr;
-    }
-    
-    .feature {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .feature-text {
-        align-items: center;
-    }
-}
-</style>
 {% endblock %}

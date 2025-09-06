@@ -12,7 +12,6 @@ from google import genai
 
 from services.image_storage import get_image_storage_service
 from services.books_client import GoogleBooksClient, build_purchase_links, build_reader_app_links
-from services.recommendation_engine import get_recommendation_engine
 from core.filters import create_fuzzy_searcher, create_book_filter, create_trending_detector, create_language_filter
 
 # Configure logging
@@ -37,7 +36,6 @@ class ImageProcessor:
     
     def __init__(self):
         self.image_storage = get_image_storage_service()
-        self.recommendation_engine = get_recommendation_engine()
         
         # Verify Gemini API key
         self.api_key = os.getenv('GEMINI_API_KEY')
@@ -58,12 +56,6 @@ class ImageProcessor:
             Dictionary with processing results
         """
         logger.info(f"🚀 Starting image processing for: {image_id}")
-        
-        # Check cache first
-        cached_result = self.recommendation_engine.get_cached_results(image_id)
-        if cached_result:
-            logger.info(f"🎉 Cache hit! Returning cached results for: {image_id}")
-            return cached_result
         
         temp_image_path = None
         
@@ -124,9 +116,6 @@ class ImageProcessor:
                 'books': books,
                 'total_texts': len(book_texts)
             }
-            
-            # Cache the result
-            self.recommendation_engine.cache_results(image_id, 'image', result)
             
             # Clean up stored image
             self.image_storage.delete_image(image_id)

@@ -1,33 +1,17 @@
 [project]
 name = "booksaver"
 version = "0.1.0"
-description = "Add your description here"
+description = "BookSaver - Identify books with your camera"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "celery>=5.5.3",
-    "easyocr>=1.7.0",
     "flask>=3.1.1",
     "fuzzywuzzy>=0.18.0",
     "gunicorn>=23.0.0",
-    "langdetect>=1.0.9",
-    "opencv-python-headless>=4.12.0.88",
     "python-levenshtein>=0.25.0",
-    "pytesseract>=0.3.13",
     "python-dotenv>=1.1.1",
-    "redis>=6.4.0",
     "requests>=2.32.4",
-    "setuptools>=65.0.0",
-    "torch<2.6",
-    "torchvision<0.20",
-    "ultralytics>=8.3.182",
-    "paddleocr>=3.1.1",
-    "paddlepaddle>=3.1.0",
     "flask-limiter>=3.12",
-    "flask-wtf>=1.2.2",
-    "psutil>=5.9.0",
     "google-genai>=1.31.0",
-    "stripe>=11.5.0",
-    "bcrypt>=4.1.2",
-    "flask-session>=0.8.0",
+    "pillow>=10.0.0",
 ]
