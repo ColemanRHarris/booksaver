@@ -340,23 +340,4 @@ def get_seo_service() -> SEOService:
         _seo_service = SEOService()
     return _seo_service
 
-def initialize_seo_service_with_app(app):
-    """Initialize SEO service with Flask app context for Redis consistency."""
-    global _seo_service
-    
-    # Use same Redis connection pattern as user service
-    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-    
-    try:
-        if redis_url.startswith('memory://'):
-            raise redis.ConnectionError("Using memory mode")
-        
-        redis_client = redis.from_url(redis_url, decode_responses=True)
-        redis_client.ping()
-        
-        _seo_service = SEOService(redis_client=redis_client)
-        app.logger.info("✅ SEO Service initialized with Redis")
-        
-    except Exception as e:
-        app.logger.warning(f"⚠️ SEO Service using in-memory storage: {e}")
-        _seo_service = SEOService()
+# Redis initialization function removed - using in-memory storage only
