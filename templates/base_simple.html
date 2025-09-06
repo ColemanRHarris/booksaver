@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}BookSaver - Identify Books with Your Camera{% endblock %}</title>
     <meta name="description" content="Upload a photo of books to instantly identify them and get purchase links.">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
     
     <style>
         * {
@@ -18,12 +21,18 @@
             line-height: 1.6;
             color: #1a365d; /* Navy text */
             background-color: white;
-            padding: 20px;
+            padding: 10px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         
         .container {
             max-width: 1200px;
             margin: 0 auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
         
         h1, h2, h3 {
@@ -31,29 +40,42 @@
             margin-bottom: 10px;
         }
         
+        header {
+            padding: 15px;
+            
+            margin-bottom: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
         .main-content {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 40px;
-            margin-top: 20px;
-            min-height: 600px;
+            flex: 1;
+            overflow: hidden;
         }
         
         .upload-section, .results-section {
-            padding: 20px;
+            padding: 15px;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
+            height: 100%;
+            overflow-y: auto;
         }
         
         .upload-area {
             border: 2px dashed #cbd5e0;
             border-radius: 8px;
-            padding: 40px 20px;
+            padding: 30px 15px;
             text-align: center;
             background: #f7fafc;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin: 20px 0;
+            margin: 15px 0;
         }
         
         .upload-area:hover,
@@ -235,24 +257,24 @@
             font-weight: 600;
             color: white;
             display: inline-block;
+            background: #1a365d; /* Navy background for all buttons */
+            min-width: 94px; /* Consistent width to fit "LibraryThing" */
+            text-align: center;
+            transition: background-color 0.3s ease;
         }
         
-        /* Purchase button colors */
-        .amazon-btn { background: #ff9900; opacity: 0.6}
-        .audible-btn { background: #f46500; opacity: 0.6}
-        .bn-btn { background: #00704a; opacity: 0.6}
-        .bookshop-btn { background: #664228; opacity: 0.6}
-        .google-btn { background: #4285f4; opacity: 0.6}
+        /* Hover colors - Purchase buttons */
+        .amazon-btn:hover { background: #ff9900; }
+        .audible-btn:hover { background: #f46500; }
+        .bn-btn:hover { background: #00704a; }
+        .bookshop-btn:hover { background: #664228; }
+        .google-btn:hover { background: #4285f4; }
         
-        /* Reader app button colors */
-        .goodreads-btn { background: #8b4513; opacity: 0.6}
-        .storygraph-btn { background: #ff6b6b; opacity: 0.6}
-        .overdrive-btn { background: #003d7a; opacity: 0.6}
-        .librarything-btn { background: #228b22; opacity: 0.6}
-        
-        .retailer-btn:hover {
-            opacity: 0.8;
-        }
+        /* Hover colors - Reader app buttons */
+        .goodreads-btn:hover { background: #BFB8A8; }
+        .storygraph-btn:hover { background: #000000; }
+        .overdrive-btn:hover { background: #006595; }
+        .librarything-btn:hover { background: #891D13; }
         
         /* Responsive design */
         @media (max-width: 768px) {
@@ -268,21 +290,30 @@
             .upload-area {
                 padding: 30px 15px;
             }
+            
+            header {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                text-align: center;
+                justify-items: center;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1><a href="{{ url_for('index') }}" style="text-decoration: none; color: inherit;">Booksaver</a></h1>
-            <p>Identify books instantly with your camera!</p>
+            <a href="{{ url_for('index') }}" style="text-decoration: none;">
+                <img src="{{ url_for('static', filename='booksaver_logo.png') }}" alt="Booksaver" style="height: 75px; width: auto;">
+            </a>
+            <p style="margin: 0; color: #1a365d; text-align: right; font-style: italic;">Identify books instantly with your camera!</p>
         </header>
         
-        <main>
+        <main style="flex: 1; display: flex; flex-direction: column;">
             {% block content %}{% endblock %}
         </main>
         
-        <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #718096;">
+        <footer style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #718096; flex-shrink: 0;">
             <p>&copy; 2025 Booksaver. Made with ❤️ for book lovers.</p>
         </footer>
     </div>
