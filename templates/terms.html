@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_simple.html" %}
 
 {% block title %}Terms of Service - BookSaver AI Book Scanner{% endblock %}
 {% block description %}BookSaver terms of service and user agreement. Understand the terms and conditions for using our AI-powered book identification and scanning service.{% endblock %}
@@ -24,22 +24,14 @@
         <li>Offers both free (limited) and premium subscription tiers</li>
     </ul>
     
-    <h2>3. User Account and Responsibilities</h2>
-    <h3>Free Users</h3>
-    <p>Free users can access limited features including up to 3 book scans per day.</p>
-    
-    <h3>Premium Subscribers</h3>
-    <p>Premium subscribers receive unlimited scans, batch processing, AI recommendations, and priority support.</p>
-    
+    <h2>3. User Responsibilities</h2>
     <h3>All Users Agree To:</h3>
     <ul>
-        <li>Provide accurate information when creating accounts</li>
         <li>Use the service only for lawful, personal purposes</li>
         <li>Not attempt to circumvent usage limits or security measures</li>
         <li>Not upload inappropriate, harmful, or copyrighted content</li>
         <li>Not use automated tools or bots to access the service</li>
         <li>Maintain the security of your account credentials</li>
-        <li>Pay applicable subscription fees on time</li>
     </ul>
     
     <h2>4. Content and Intellectual Property</h2>
@@ -64,24 +56,8 @@
     <h2>5. Privacy and Data</h2>
     <p>Your privacy is important to us. Please review our <a href="{{ url_for('privacy') }}">Privacy Policy</a> to understand how we collect, use, and protect your information.</p>
     
-    <h2>6. Subscription Terms and Billing</h2>
-    <h3>Premium Subscription</h3>
-    <ul>
-        <li><strong>Price:</strong> $2.99/month (subject to change with 30-day notice)</li>
-        <li><strong>Billing:</strong> Automatic monthly renewal unless cancelled</li>
-        <li><strong>Free Trial:</strong> 7-day free trial for new premium subscribers</li>
-        <li><strong>Cancellation:</strong> Cancel anytime; access continues until period end</li>
-        <li><strong>Refunds:</strong> 30-day money-back guarantee for new subscriptions</li>
-        <li><strong>Price Changes:</strong> We will notify you 30 days before any price increases</li>
-    </ul>
     
-    <h3>Usage Limits</h3>
-    <ul>
-        <li><strong>Free Users:</strong> 3 book scans per day, basic features only</li>
-        <li><strong>Premium Users:</strong> Unlimited scans, all features, priority support</li>
-    </ul>
-    
-    <h2>7. Affiliate Relationships and Commissions</h2>
+    <h2>6. Affiliate Relationships and Commissions</h2>
     <p>BookSaver participates in affiliate programs including:</p>
     <ul>
         <li><strong>Amazon Associates:</strong> We earn commissions from qualifying purchases</li>
@@ -90,7 +66,7 @@
     </ul>
     <p>Affiliate relationships do not influence our book identification accuracy or recommendations. All purchase links are clearly marked.</p>
     
-    <h2>8. Service Disclaimers</h2>
+    <h2>7. Service Disclaimers</h2>
     <h3>Service Availability</h3>
     <ul>
         <li>We strive for high uptime but cannot guarantee uninterrupted service</li>
@@ -106,7 +82,7 @@
         <li>We do not guarantee the availability or pricing of books from retailers</li>
     </ul>
     
-    <h2>9. AI Technology and Data Usage</h2>
+    <h2>8. AI Technology and Data Usage</h2>
     <p>Our service uses artificial intelligence and machine learning technologies:</p>
     <ul>
         <li>Uploaded images are analyzed using Google Gemini AI for book identification</li>
@@ -116,7 +92,7 @@
         <li>AI-generated content may occasionally be inaccurate or inappropriate</li>
     </ul>
     
-    <h2>10. Limitation of Liability</h2>
+    <h2>9. Limitation of Liability</h2>
     <p>To the fullest extent permitted by law:</p>
     <ul>
         <li>We provide the service "as is" without warranties</li>
@@ -124,7 +100,7 @@
         <li>Our total liability is limited to the amount you paid for the service (if any)</li>
     </ul>
     
-    <h2>11. Prohibited Uses</h2>
+    <h2>10. Prohibited Uses</h2>
     <p>You may not use our service to:</p>
     <ul>
         <li>Violate any laws or regulations</li>
@@ -137,45 +113,75 @@
         <li>Reverse engineer our AI algorithms or proprietary technology</li>
     </ul>
     
-    <h2>12. Account Termination and Data Deletion</h2>
-    <h3>Termination by Us</h3>
-    <p>We may terminate your account for:</p>
-    <ul>
-        <li>Violations of these terms or our community guidelines</li>
-        <li>Fraudulent activity or payment disputes</li>
-        <li>Abuse of service features or excessive usage</li>
-        <li>At our discretion for business reasons (with 30-day notice)</li>
-    </ul>
     
-    <h3>Termination by You</h3>
-    <ul>
-        <li>Cancel premium subscription anytime through account settings</li>
-        <li>Request account deletion and data removal</li>
-        <li>Export your data before account closure (premium users)</li>
-    </ul>
-    
-    <h2>13. Changes to Terms</h2>
+    <h2>11. Changes to Terms</h2>
     <p>We reserve the right to modify these terms at any time. Continued use of the service constitutes acceptance of any changes.</p>
     
-    <h2>14. Governing Law and Disputes</h2>
+    <h2>12. Governing Law and Disputes</h2>
     <p>These terms are governed by the laws of the United States of America. Any disputes will be resolved through binding arbitration or in the courts of the State of Tennessee. You agree to resolve disputes individually, not as part of a class action.</p>
     
-    <h2>15. Contact Information</h2>
+    <h2>13. Contact Us</h2>
     <p>For questions about these terms, billing issues, or account support, please contact us at:</p>
     <p><strong>General Support:</strong> support@viscidlabs.com<br>
-    <strong>Billing Questions:</strong> billing@viscidlabs.com<br>
-    <strong>Legal Inquiries:</strong> legal@viscidlabs.com<br>
     <strong>Website:</strong> viscidlabs.com</p>
     
     <p><strong>Response Times:</strong></p>
-    <ul>
-        <li>Premium subscribers: Within 24 hours</li>
-        <li>Free users: Within 72 hours</li>
-        <li>Billing issues: Within 48 hours</li>
-    </ul>
+    <p>Within 30 days.</p>
     
     <div class="back-link">
         <a href="{{ url_for('index') }}">← Back to Book Saver</a>
     </div>
 </div>
+<style>
+.legal-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    line-height: 1.6;
+}
+
+.legal-container h1 {
+    color: #8B0000;
+    border-bottom: 2px solid #8B0000;
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+}
+
+.legal-container h2 {
+    color: #333;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+.legal-container h3 {
+    color: #555;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.legal-container ul {
+    margin-bottom: 1rem;
+}
+
+.legal-container li {
+    margin-bottom: 0.5rem;
+}
+
+.back-link {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid #ddd;
+}
+
+.back-link a {
+    color: #8B0000;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.back-link a:hover {
+    text-decoration: underline;
+}
+</style>
+
 {% endblock %}
