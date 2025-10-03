@@ -130,7 +130,7 @@ class ImageProcessor:
             logger.info("🤖 Generating book identification...")
             try:
                 response = self.genai_client.models.generate_content(
-                    model="gemini-2.0-flash-lite", 
+                    model="gemini-2.5-flash-preview-09-2025", 
                     contents=[gen_file, prompt]
                 )
                 logger.info("✅ Gemini response received")
