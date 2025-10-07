@@ -225,7 +225,7 @@ def build_purchase_links(book: Dict) -> Dict[str, str]:
             links['google_books'] = f"https://books.google.com/books?q={encoded_term}"
         
         # Bookshop.org (supports independent bookstores)
-        links['bookshop'] = f"https://bookshop.org/search?keywords={encoded_term}"
+        links['bookshop'] = f"https://bookshop.org/search?keywords={encoded_term}&affiliate=117660"
     
     return links
 

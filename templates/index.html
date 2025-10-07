@@ -16,7 +16,7 @@
             <form method="POST" action="{{ url_for('process_image_upload') }}" enctype="multipart/form-data" id="image-form">
                 <div class="upload-area" id="upload-area">
                     <div class="upload-content">
-                        <div class="upload-icon">📸</div>
+                        <div class="upload-icon"></div>
                         <p>Drop your book photo here or click to browse</p>
                         <input type="file" id="file-input" accept="image/*" name="image" style="display: none;">
                         <button type="button" id="file-btn" class="upload-btn">Choose File</button>
@@ -59,6 +59,9 @@
     </div>
 </div>
 
+<div class="recs">
+<script src="https://bookshop.org/widgets.js" data-type="list" data-list-slug="our-recommendations-booksaver"></script>
+</div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.getElementById('file-input');
