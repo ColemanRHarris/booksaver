@@ -73,6 +73,8 @@ packaging==25.0
     #   limits
 pillow==11.3.0
     # via booksaver (pyproject.toml)
+psutil==5.9.8
+    # via booksaver (pyproject.toml)
 pyasn1==0.6.1
     # via
     #   pyasn1-modules

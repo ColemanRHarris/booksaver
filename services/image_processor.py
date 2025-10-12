@@ -56,7 +56,18 @@ class ImageProcessor:
             Dictionary with processing results
         """
         logger.info(f"🚀 Starting image processing for: {image_id}")
-        
+
+        # Log memory usage at start
+        try:
+            import psutil
+            process = psutil.Process()
+            mem_info = process.memory_info()
+            logger.info(f"💾 Memory usage at start: {mem_info.rss / (1024*1024):.1f}MB RSS, {mem_info.vms / (1024*1024):.1f}MB VMS")
+        except ImportError:
+            logger.debug("psutil not available for memory monitoring")
+        except Exception as mem_err:
+            logger.debug(f"Could not get memory info: {mem_err}")
+
         temp_image_path = None
         
         try:
@@ -157,9 +168,28 @@ class ImageProcessor:
             
             # Search for books with fallback handling
             logger.info("🔍 Searching for book details...")
+
+            # Log memory usage before search
+            try:
+                import psutil
+                process = psutil.Process()
+                mem_info = process.memory_info()
+                logger.info(f"💾 Memory before search: {mem_info.rss / (1024*1024):.1f}MB RSS")
+            except:
+                pass
+
             try:
                 books = self._search_books_from_text(book_texts) if book_texts else []
                 logger.info(f"✅ Book search completed: {len(books)} books found")
+
+                # Log memory usage after search
+                try:
+                    import psutil
+                    process = psutil.Process()
+                    mem_info = process.memory_info()
+                    logger.info(f"💾 Memory after search: {mem_info.rss / (1024*1024):.1f}MB RSS")
+                except:
+                    pass
                 
             except Exception as search_error:
                 logger.error(f"❌ Book search failed: {search_error}")

@@ -11,6 +11,10 @@ services:
         value: 3.11.0
       - key: SECRET_KEY
         generateValue: true
+      - key: FLASK_ENV
+        value: production
+      - key: DEBUG_ERRORS
+        value: "true"  # Set to "true" to see technical errors in production
       - key: GEMINI_API_KEY
         sync: false  # You'll set this manually in Render dashboard
       - key: GOOGLE_BOOKS_KEY

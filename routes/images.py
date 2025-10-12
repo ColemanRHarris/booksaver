@@ -80,8 +80,23 @@ def register_image_routes(app, limiter):
                     return render_template('index.html', error=error_msg)
                 
             except Exception as e:
-                current_app.logger.error(f"❌ Failed to process image: {e}")
-                return render_template('index.html', error=f"Failed to process image: {str(e)}")
+                import traceback
+                # Log full technical details for debugging
+                current_app.logger.error(f"❌ TECHNICAL ERROR: {type(e).__name__}: {str(e)}")
+                current_app.logger.error(f"❌ Full exception: {e.__class__.__module__}.{e.__class__.__name__}")
+                current_app.logger.error(f"❌ Stack trace: {traceback.format_exc()}")
+
+                # Log request context
+                current_app.logger.error(f"❌ Request context - File size: {len(image_data)} bytes, Filename: {filename}, IP: {request.remote_addr}")
+
+                # Determine error message based on environment
+                show_technical = os.getenv('FLASK_ENV') != 'production' or os.getenv('DEBUG_ERRORS') == 'true'
+                if show_technical:
+                    error_msg = f"TECHNICAL ERROR: {type(e).__name__}: {str(e)}"
+                else:
+                    error_msg = f"Failed to process image: {str(e)}"
+
+                return render_template('index.html', error=error_msg)
         else:
             return render_template('index.html', error="Invalid file format. Please upload a JPG or PNG image.")
     

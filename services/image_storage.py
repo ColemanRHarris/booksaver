@@ -22,23 +22,92 @@ class ImageStorageService:
     
     def __init__(self, storage_dir=None):
         """Initialize with storage directory."""
-        # Use system temp directory or provided directory
-        if storage_dir:
-            self.storage_dir = Path(storage_dir)
-        else:
-            self.storage_dir = Path(tempfile.gettempdir()) / "booksaver_images"
-        
-        # Create storage directory if it doesn't exist
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
-        
+        # Context-aware logger (initialize early for diagnostics)
+        self.logger = get_safe_logger(__name__)
+
         # Configuration
         self.default_ttl = 3600  # 1 hour TTL for temporary images
         self.max_image_size = 10 * 1024 * 1024  # 10MB max
-        
-        # Context-aware logger
-        self.logger = get_safe_logger(__name__)
-        
-        self.logger.info(f"📁 Image storage initialized at: {self.storage_dir}")
+
+        # Try multiple storage locations with fallback
+        if storage_dir:
+            self.storage_dir = Path(storage_dir)
+            self.logger.info(f"📁 Using provided storage directory: {self.storage_dir}")
+        else:
+            self.storage_dir = self._find_writable_storage_dir()
+
+        # Create storage directory if it doesn't exist
+        try:
+            self.storage_dir.mkdir(parents=True, exist_ok=True)
+            self.logger.info(f"✅ Image storage initialized at: {self.storage_dir}")
+
+            # Verify directory is writable
+            test_file = self.storage_dir / ".write_test"
+            try:
+                test_file.write_text("test")
+                test_file.unlink()
+                self.logger.info(f"✅ Storage directory is writable: {self.storage_dir}")
+            except Exception as write_error:
+                self.logger.error(f"❌ Storage directory is NOT writable: {self.storage_dir} - {write_error}")
+                raise PermissionError(f"Storage directory not writable: {self.storage_dir}")
+
+        except Exception as e:
+            self.logger.error(f"❌ Failed to create storage directory: {self.storage_dir} - {e}")
+            raise
+
+    def _find_writable_storage_dir(self) -> Path:
+        """Find a writable directory for image storage with fallback options."""
+        import shutil
+
+        # List of potential storage locations (in order of preference)
+        potential_dirs = [
+            Path(tempfile.gettempdir()) / "booksaver_images",  # /tmp/booksaver_images
+            Path("/var/tmp/booksaver_images"),                  # /var/tmp (more persistent)
+            Path.cwd() / "tmp" / "booksaver_images",           # ./tmp/booksaver_images (app directory)
+            Path.home() / ".cache" / "booksaver_images"         # ~/.cache/booksaver_images
+        ]
+
+        self.logger.info("🔍 Searching for writable storage directory...")
+
+        for dir_path in potential_dirs:
+            try:
+                # Check if parent directory exists and is writable
+                parent = dir_path.parent
+                if not parent.exists():
+                    self.logger.warning(f"⚠️ Parent directory doesn't exist: {parent}")
+                    continue
+
+                # Check disk space (need at least 50MB)
+                stat = shutil.disk_usage(parent)
+                free_mb = stat.free / (1024 * 1024)
+                self.logger.info(f"💾 {parent} has {free_mb:.1f}MB free space")
+
+                if free_mb < 50:
+                    self.logger.warning(f"⚠️ Insufficient disk space at {parent}: {free_mb:.1f}MB")
+                    continue
+
+                # Try to create the directory
+                dir_path.mkdir(parents=True, exist_ok=True)
+
+                # Test write permissions
+                test_file = dir_path / ".write_test"
+                test_file.write_text("test")
+                test_file.unlink()
+
+                self.logger.info(f"✅ Found writable storage directory: {dir_path}")
+                return dir_path
+
+            except PermissionError as e:
+                self.logger.warning(f"⚠️ Permission denied for {dir_path}: {e}")
+            except OSError as e:
+                self.logger.warning(f"⚠️ OS error for {dir_path}: {e}")
+            except Exception as e:
+                self.logger.warning(f"⚠️ Unexpected error for {dir_path}: {e}")
+
+        # If all options fail, raise error with details
+        error_msg = f"No writable storage directory found. Tried: {', '.join(str(d) for d in potential_dirs)}"
+        self.logger.error(f"❌ {error_msg}")
+        raise PermissionError(error_msg)
     
     def store_image(self, image_data: bytes, filename: str, ttl: int = None) -> str:
         """
