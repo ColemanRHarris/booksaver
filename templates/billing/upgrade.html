@@ -1,0 +1,104 @@
+{% extends "base_simple.html" %}
+
+{% block title %}Upgrade to Pro - BookSaver{% endblock %}
+
+{% block content %}
+<div class="main-content" style="display: flex; justify-content: center; align-items: center;">
+    <div class="upload-section" style="max-width: 700px; height: auto;">
+        <h2 style="text-align: center; margin-bottom: 10px;">Upgrade to BookSaver Pro</h2>
+        <p style="text-align: center; margin-bottom: 30px; color: #4a5568;">
+            Unlock unlimited book scans and support the development of BookSaver
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="{{ category }} error" style="margin-bottom: 20px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+            <!-- Pay Per Scan -->
+            <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; background: white;">
+                <h3 style="font-size: 18px; margin-bottom: 10px;">Pay Per Scan</h3>
+                <p style="font-size: 32px; font-weight: bold; color: #1a365d; margin-bottom: 20px;">
+                    $0.99
+                    <span style="font-size: 14px; font-weight: normal; color: #718096;">/scan</span>
+                </p>
+                <ul style="list-style: none; padding: 0; margin-bottom: 20px;">
+                    <li style="margin-bottom: 10px; color: #4a5568;">✓ One-time payment per scan</li>
+                    <li style="margin-bottom: 10px; color: #4a5568;">✓ Full book identification</li>
+                    <li style="margin-bottom: 10px; color: #4a5568;">✓ Purchase and reader links</li>
+                </ul>
+                <div style="text-align: center; padding: 12px; background: #f7fafc; border-radius: 4px; color: #4a5568; font-weight: 600;">
+                    Current Plan
+                </div>
+            </div>
+
+            <!-- Pro Tier -->
+            <div style="border: 3px solid #1a365d; border-radius: 8px; padding: 20px; background: white; position: relative;">
+                <div style="position: absolute; top: -15px; right: 20px; background: #1a365d; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                    POPULAR
+                </div>
+                <h3 style="font-size: 18px; margin-bottom: 10px;">Pro</h3>
+                <p style="font-size: 32px; font-weight: bold; color: #1a365d; margin-bottom: 20px;">
+                    $2.99
+                    <span style="font-size: 14px; font-weight: normal; color: #718096;">/month</span>
+                </p>
+                <ul style="list-style: none; padding: 0; margin-bottom: 20px;">
+                    <li style="margin-bottom: 10px; color: #4a5568;">✓ <strong>Unlimited</strong> book scans</li>
+                    <li style="margin-bottom: 10px; color: #4a5568;">✓ Scan history saved</li>
+                    <li style="margin-bottom: 10px; color: #4a5568;">✓ Full book identification</li>
+                    <li style="margin-bottom: 10px; color: #4a5568;">✓ Purchase and reader links</li>
+                    <li style="margin-bottom: 10px; color: #4a5568;">✓ Support development</li>
+                </ul>
+                <form method="POST" action="{{ url_for('billing.create_checkout_session') }}">
+                    <input type="hidden" name="price_id" value="{{ monthly_price_id }}">
+                    <button type="submit" class="scan-btn">
+                        Subscribe Monthly
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Annual Option -->
+        <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; background: #f7fafc; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div>
+                    <h3 style="font-size: 18px; margin-bottom: 5px;">Annual Plan</h3>
+                    <p style="color: #4a5568; font-size: 14px; margin: 0;">
+                        Save 16% with annual billing
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <p style="font-size: 28px; font-weight: bold; color: #1a365d; margin: 0;">
+                        $30
+                        <span style="font-size: 14px; font-weight: normal; color: #718096;">/year</span>
+                    </p>
+                    <p style="font-size: 12px; color: #718096; margin: 0;">($2.50/month)</p>
+                </div>
+            </div>
+            <form method="POST" action="{{ url_for('billing.create_checkout_session') }}">
+                <input type="hidden" name="price_id" value="{{ annual_price_id }}">
+                <button type="submit" class="scan-btn">
+                    Subscribe Annually
+                </button>
+            </form>
+        </div>
+
+        <div class="instructions">
+            <h4>Why Go Pro?</h4>
+            <p style="font-size: 13px; color: #4a5568; margin-top: 10px;">
+                Your subscription directly supports the development and maintenance of BookSaver.
+                We use the latest AI technology to identify books accurately, and your support
+                helps us continue improving the service for all book lovers.
+            </p>
+        </div>
+
+        <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #718096;">
+            Secure payment powered by Stripe. Cancel anytime.
+        </p>
+    </div>
+</div>
+{% endblock %}

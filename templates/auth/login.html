@@ -1,0 +1,53 @@
+{% extends "base_simple.html" %}
+
+{% block title %}Log In - BookSaver{% endblock %}
+
+{% block content %}
+<div class="main-content" style="display: flex; justify-content: center; align-items: center;">
+    <div class="upload-section" style="max-width: 500px; height: auto;">
+        <h2 style="text-align: center; margin-bottom: 20px;">Welcome to BookSaver!</h2>
+        <p style="text-align: center; margin-bottom: 30px; color: #4a5568;">
+            Enter your email to receive a magic link to log in. No password required.
+        </p>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="{{ category }} error" style="margin-bottom: 20px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('auth.send_magic_link') }}">
+            <div style="margin-bottom: 20px;">
+                <label for="email" style="display: block; margin-bottom: 8px; font-weight: 600;">Email Address</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required
+                    value="{{ email if email else '' }}"
+                    placeholder="you@example.com"
+                    style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 4px; font-size: 16px;"
+                >
+            </div>
+
+            <button type="submit" class="scan-btn">
+                Send Magic Link
+            </button>
+        </form>
+
+        <div class="instructions" style="margin-top: 30px;">
+            <h4>What's a magic link?</h4>
+            <p style="font-size: 13px; color: #4a5568; margin-top: 10px;">
+                We'll send you a secure link to your email. Click it to instantly log in - no password needed!
+                The link expires after 15 minutes for security.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

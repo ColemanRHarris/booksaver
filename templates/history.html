@@ -1,0 +1,101 @@
+{% extends "base_simple.html" %}
+
+{% block title %}Scan History - BookSaver{% endblock %}
+
+{% block content %}
+<div class="main-content" style="display: block; max-width: 1200px; margin: 0 auto;">
+    <div class="upload-section">
+        <h2>Your Scan History</h2>
+        <p style="color: #4a5568; margin-bottom: 20px;">View all your previous book scans</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="{{ category }} error" style="margin-bottom: 20px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if scans %}
+            {% for scan in scans %}
+            <div class="scan-card" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: white;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div>
+                        <h3 style="font-size: 18px; margin: 0;">{{ scan.books_count }} book{% if scan.books_count != 1 %}s{% endif %} found</h3>
+                        <p style="color: #718096; font-size: 14px; margin: 5px 0 0 0;">
+                            {{ scan.get_relative_date() }} • {{ scan.get_formatted_date() }}
+                        </p>
+                    </div>
+                    <button class="toggle-books" onclick="toggleBooks({{scan.id}})" style="background: #1a365d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                        View Books
+                    </button>
+                </div>
+
+                <div id="books-{{scan.id}}" class="books-list" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
+                    {% for book in scan.books %}
+                    <div style="display: flex; gap: 20px; margin-bottom: 25px; padding-bottom: 25px; border-bottom: 1px solid #e2e8f0;">
+                        {% if book.thumbnail %}
+                        <img src="{{ book.thumbnail }}" alt="{{ book.title }}" style="width: 80px; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        {% endif %}
+
+                        <div style="flex: 1;">
+                            <h4 style="font-size: 16px; margin: 0 0 5px 0; color: #1a365d;">{{ book.title }}</h4>
+
+                            {% if book.authors %}
+                            <p style="color: #4a5568; font-size: 14px; margin: 0 0 5px 0;">
+                                by {{ book.authors|join(', ') }}
+                            </p>
+                            {% endif %}
+
+                            {% if book.published_date %}
+                            <p style="color: #718096; font-size: 13px; margin: 0 0 10px 0;">
+                                Published: {{ book.published_date }}
+                            </p>
+                            {% endif %}
+
+                            {% if book.purchase_links %}
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                {% if book.purchase_links.amazon %}
+                                <a href="{{ book.purchase_links.amazon }}" target="_blank" rel="noopener" style="font-size: 12px; padding: 6px 12px; background: #FF9900; color: white; text-decoration: none; border-radius: 4px;">Amazon</a>
+                                {% endif %}
+                                {% if book.purchase_links.bookshop %}
+                                <a href="{{ book.purchase_links.bookshop }}" target="_blank" rel="noopener" style="font-size: 12px; padding: 6px 12px; background: #5C4033; color: white; text-decoration: none; border-radius: 4px;">Bookshop</a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 8px; border: 2px solid #e2e8f0;">
+                <div style="font-size: 4rem; margin-bottom: 20px;">📚</div>
+                <h3 style="font-size: 20px; margin-bottom: 10px; color: #1a365d;">No Scan History Yet</h3>
+                <p style="color: #4a5568; margin-bottom: 30px;">
+                    Your book scans will appear here. Start scanning to build your library!
+                </p>
+                <a href="{{ url_for('index') }}" class="scan-btn" style="text-decoration: none;">
+                    Scan Your First Book
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleBooks(scanId) {
+    const booksList = document.getElementById('books-' + scanId);
+    const button = event.target;
+
+    if (booksList.style.display === 'none') {
+        booksList.style.display = 'block';
+        button.textContent = 'Hide Books';
+    } else {
+        booksList.style.display = 'none';
+        button.textContent = 'View Books';
+    }
+}
+</script>
+{% endblock %}

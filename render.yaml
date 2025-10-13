@@ -6,17 +6,61 @@ services:
     plan: starter
     buildCommand: ./build.sh
     startCommand: gunicorn -w 2 --timeout 120 -b 0.0.0.0:$PORT app:app
+
+    # Persistent disk for SQLite database
+    disk:
+      name: booksaver-data
+      mountPath: /opt/render/project/src/instance
+      sizeGB: 1
+
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: SECRET_KEY
         generateValue: true
+      - key: MAGIC_LINK_SECRET
+        generateValue: true
       - key: FLASK_ENV
         value: production
       - key: DEBUG_ERRORS
-        value: "true"  # Set to "true" to see technical errors in production
+        value: "false"  # Set to "true" to see technical errors in production
+
+      # API Keys
       - key: GEMINI_API_KEY
         sync: false  # You'll set this manually in Render dashboard
       - key: GOOGLE_BOOKS_KEY
         sync: false  # You'll set this manually in Render dashboard
+
+      # Database
+      - key: DATABASE_PATH
+        value: /opt/render/project/src/instance/booksaver.db
+
+      # Email Service (SendGrid or Mailgun)
+      - key: SENDGRID_API_KEY
+        sync: false  # Optional: Set this in Render dashboard for email
+      - key: MAILGUN_API_KEY
+        sync: false  # Alternative to SendGrid
+      - key: MAILGUN_DOMAIN
+        sync: false  # Required if using Mailgun
+      - key: MAIL_FROM_EMAIL
+        value: noreply@booksaver.com
+      - key: MAIL_FROM_NAME
+        value: BookSaver
+
+      # Stripe
+      - key: STRIPE_SECRET_KEY
+        sync: false  # Set this in Render dashboard
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false  # Set this in Render dashboard
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false  # Set this in Render dashboard
+      - key: STRIPE_PRICE_MONTHLY
+        sync: false  # Set to your monthly price ID from Stripe
+      - key: STRIPE_PRICE_ANNUAL
+        sync: false  # Set to your annual price ID from Stripe
+
+      # Application URL (for magic links and Stripe redirects)
+      - key: APP_URL
+        value: https://booksaver-web.onrender.com  # Update with your actual URL
+
     healthCheckPath: /health

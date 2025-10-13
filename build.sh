@@ -16,5 +16,9 @@ apt-get install -y \
 pip install --upgrade pip
 pip install -r requirements.txt
 
+# Run database migrations
+echo "Running database migrations..."
+flask db upgrade || echo "No migrations to run or migrations failed (this is OK on first deploy)"
+
 # YOLO models not currently used in production
 # Book detection happens through OCR processing

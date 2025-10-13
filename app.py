@@ -7,15 +7,21 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 from datetime import datetime
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_migrate import Migrate
+from flask_login import login_required, current_user
 from dotenv import load_dotenv
 import os
 import logging
 from logging.config import dictConfig
 
+from config import get_config
+from models import db, login_manager, User
 from services.books_client import build_reader_app_links
 from core.utils import sanitize_input
 from routes.images import register_image_routes
 from routes.seo_pages import register_seo_routes
+from routes.auth import auth_bp
+from routes.billing import billing_bp
 
 load_dotenv()
 
@@ -58,9 +64,35 @@ dictConfig({
 
 # Create Flask app
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Load configuration
+config = get_config()
+app.config.from_object(config)
 
 logger = logging.getLogger(__name__)
+
+# Initialize database
+db.init_app(app)
+
+# Initialize Flask-Migrate
+migrate = Migrate(app, db)
+
+# Initialize Flask-Login
+login_manager.init_app(app)
+login_manager.login_view = 'auth.send_magic_link'
+login_manager.login_message = 'Please log in to access this page.'
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    """Load user by ID for Flask-Login."""
+    return User.query.get(int(user_id))
+
+
+# Create instance directory if it doesn't exist
+instance_path = app.instance_path
+os.makedirs(instance_path, exist_ok=True)
+logger.info(f"📁 Instance path: {instance_path}")
 
 
 
@@ -139,12 +171,45 @@ def add_security_headers(response):
 # Register route modules
 register_image_routes(app, limiter)
 register_seo_routes(app, limiter)
+app.register_blueprint(auth_bp)
+app.register_blueprint(billing_bp)
 
 
 # Main routes
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/account')
+@login_required
+def account():
+    """User account page with subscription management."""
+    from models.subscription import Subscription
+
+    # Get active subscription
+    subscription = Subscription.get_active_for_user(current_user.id)
+
+    return render_template('account.html',
+                         user=current_user,
+                         subscription=subscription)
+
+
+@app.route('/history')
+@login_required
+def history():
+    """View scan history (Pro users only)."""
+    from models.scan_history import ScanHistory
+
+    # Check if user is Pro
+    if not current_user.is_pro():
+        flash('Scan history is only available for Pro subscribers.', 'warning')
+        return redirect(url_for('billing.upgrade'))
+
+    # Get scan history for current user
+    scans = ScanHistory.get_history_for_user(current_user.id, limit=50)
+
+    return render_template('history.html', scans=scans)
 
 
 @app.route('/health')

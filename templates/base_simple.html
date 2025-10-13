@@ -42,11 +42,11 @@
         
         header {
             padding: 15px;
-            
+
             margin-bottom: 15px;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
+            grid-template-columns: auto 1fr auto;
+            gap: 20px;
             align-items: center;
             flex-shrink: 0;
         }
@@ -276,26 +276,72 @@
         .overdrive-btn:hover { background: #006595; }
         .librarything-btn:hover { background: #891D13; }
         
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-info {
+            font-size: 14px;
+            color: #4a5568;
+        }
+
+        .nav-link {
+            color: #1a365d;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background 0.3s ease;
+        }
+
+        .nav-link:hover {
+            background: #e2e8f0;
+        }
+
+        .btn-primary {
+            background: #1a365d;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            background: #2d3748;
+        }
+
         /* Responsive design */
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
                 gap: 20px;
             }
-            
+
             body {
                 padding: 10px;
             }
-            
+
             .upload-area {
                 padding: 30px 15px;
             }
-            
+
             header {
                 grid-template-columns: 1fr;
                 gap: 10px;
                 text-align: center;
                 justify-items: center;
+            }
+
+            .user-menu {
+                flex-direction: column;
+                gap: 10px;
             }
         }
     </style>
@@ -315,7 +361,25 @@
             <a href="{{ url_for('index') }}" style="text-decoration: none;">
                 <img src="{{ url_for('static', filename='booksaver_logo.png') }}" alt="Booksaver" style="height: 75px; width: auto;">
             </a>
-            <p style="margin: 0; color: #1a365d; text-align: right; font-style: italic;">Identify books instantly with your camera!</p>
+            <p style="margin: 0; color: #1a365d; font-style: italic; text-align: center;">Identify books instantly with your camera!</p>
+
+            <div class="user-menu">
+                {% if current_user.is_authenticated %}
+                    <div class="user-info">
+                        {% if current_user.is_pro() %}
+                            <span style="color: #1a365d; font-weight: 600;">Pro</span>
+                        {% else %}
+                            <span>{{ current_user.get_usage_status() }}</span>
+                        {% endif %}
+                    </div>
+                    {% if current_user.is_pro() %}
+                        <a href="{{ url_for('history') }}" class="nav-link">History</a>
+                    {% endif %}
+                    <a href="{{ url_for('account') }}" class="nav-link">Account</a>
+                {% else %}
+                    <a href="{{ url_for('auth.send_magic_link') }}" class="btn-primary">Log In</a>
+                {% endif %}
+            </div>
         </header>
         
         <main style="flex: 1; display: flex; flex-direction: column;">

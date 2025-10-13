@@ -1,0 +1,132 @@
+{% extends "base_simple.html" %}
+
+{% block title %}My Account - BookSaver{% endblock %}
+
+{% block content %}
+<div class="main-content" style="display: flex; justify-content: center; align-items: center;">
+    <div class="upload-section" style="max-width: 700px; height: auto;">
+        <h2 style="margin-bottom: 30px;">My Account</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="{{ category }} error" style="margin-bottom: 20px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Account Info -->
+        <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: white;">
+            <h3 style="font-size: 18px; margin-bottom: 15px;">Account Information</h3>
+            <div style="display: grid; grid-template-columns: 150px 1fr; gap: 15px; color: #4a5568;">
+                <div style="font-weight: 600;">Email:</div>
+                <div>{{ user.email }}</div>
+
+                <div style="font-weight: 600;">Member Since:</div>
+                <div>{{ user.created_at.strftime('%B %d, %Y') }}</div>
+
+                <div style="font-weight: 600;">Plan:</div>
+                <div>
+                    {% if user.is_pro() %}
+                        <span style="color: #1a365d; font-weight: 600;">Pro {{ user.subscription_plan.title() }}</span>
+                    {% else %}
+                        <span>Free Tier</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Stats -->
+        <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: white;">
+            <h3 style="font-size: 18px; margin-bottom: 15px;">Usage Statistics</h3>
+
+            {% if user.is_pro() %}
+                <div style="text-align: center; padding: 30px;">
+                    <div style="font-size: 3rem; margin-bottom: 10px;">♾️</div>
+                    <p style="font-size: 20px; font-weight: 600; color: #1a365d; margin-bottom: 5px;">Unlimited Scans</p>
+                    <p style="color: #4a5568; font-size: 14px;">Enjoy unlimited book scanning with your Pro subscription</p>
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 20px;">
+                    <p style="font-size: 14px; color: #4a5568; margin-bottom: 15px;">
+                        {{ user.get_usage_status() }} this month
+                    </p>
+
+                    <!-- Progress bar -->
+                    <div style="width: 100%; background: #e2e8f0; border-radius: 20px; height: 24px; overflow: hidden; margin-bottom: 15px;">
+                        <div style="width: {{ (user.usage_count / 3 * 100) }}%; background: {% if user.usage_count >= 3 %}#e53e3e{% else %}#1a365d{% endif %}; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 600;">
+                            {{ user.usage_count }}/3
+                        </div>
+                    </div>
+
+                    {% if user.usage_count >= 3 %}
+                        <p style="color: #e53e3e; font-weight: 600; margin-bottom: 20px;">
+                            You've reached your monthly limit
+                        </p>
+                        <a href="{{ url_for('billing.upgrade') }}" class="scan-btn" style="text-decoration: none;">
+                            Upgrade to Pro for Unlimited Scans
+                        </a>
+                    {% else %}
+                        <p style="color: #4a5568; font-size: 13px; margin-bottom: 15px;">
+                            Resets: {{ user.usage_reset_date.strftime('%B %d, %Y') }}
+                        </p>
+                        <a href="{{ url_for('billing.upgrade') }}" style="color: #1a365d; text-decoration: none; font-size: 14px; font-weight: 600;">
+                            Want unlimited? Upgrade to Pro →
+                        </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Subscription Management -->
+        {% if subscription and subscription.is_active() %}
+        <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: white;">
+            <h3 style="font-size: 18px; margin-bottom: 15px;">Subscription Details</h3>
+            <div style="display: grid; grid-template-columns: 150px 1fr; gap: 15px; color: #4a5568; margin-bottom: 20px;">
+                <div style="font-weight: 600;">Status:</div>
+                <div>
+                    <span style="color: #38a169; font-weight: 600;">{{ subscription.get_status_display() }}</span>
+                </div>
+
+                <div style="font-weight: 600;">Plan:</div>
+                <div>{{ subscription.get_plan_display() }}</div>
+
+                <div style="font-weight: 600;">Next Billing:</div>
+                <div>{{ subscription.current_period_end.strftime('%B %d, %Y') }}</div>
+
+                {% if subscription.cancel_at_period_end %}
+                <div style="font-weight: 600; color: #e53e3e;">Notice:</div>
+                <div style="color: #e53e3e;">Subscription will cancel on {{ subscription.current_period_end.strftime('%B %d, %Y') }}</div>
+                {% endif %}
+            </div>
+
+            <form method="GET" action="{{ url_for('billing.customer_portal') }}">
+                <button type="submit" class="scan-btn">
+                    Manage Subscription
+                </button>
+            </form>
+            <p style="font-size: 12px; color: #718096; margin-top: 10px; text-align: center;">
+                Cancel or update payment method through Stripe's secure portal
+            </p>
+        </div>
+        {% elif not user.is_pro() %}
+        <div style="border: 2px solid #bee3f8; border-radius: 8px; padding: 20px; background: #ebf8ff;">
+            <h3 style="font-size: 18px; margin-bottom: 10px; color: #1a365d;">Upgrade to Pro</h3>
+            <p style="color: #4a5568; margin-bottom: 20px;">
+                Get unlimited book scans and support BookSaver's development for just $2.99/month
+            </p>
+            <a href="{{ url_for('billing.upgrade') }}" class="scan-btn" style="text-decoration: none;">
+                View Pro Plans
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Account Actions -->
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
+            <a href="{{ url_for('auth.logout') }}" style="color: #e53e3e; text-decoration: none; font-weight: 600;">
+                Log Out
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base_simple.html" %}
+
+{% block title %}Subscription Successful - BookSaver{% endblock %}
+
+{% block content %}
+<div class="main-content" style="display: flex; justify-content: center; align-items: center;">
+    <div class="upload-section" style="max-width: 500px; height: auto; text-align: center;">
+        <div style="font-size: 4rem; margin-bottom: 20px;">✅</div>
+        <h2 style="margin-bottom: 20px;">Welcome to BookSaver Pro!</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="{{ category }}" style="padding: 15px; border-radius: 8px; margin-bottom: 20px; background: #d4edda; border: 1px solid #c3e6cb; color: #155724;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <p style="color: #4a5568; margin-bottom: 30px;">
+            Your subscription is now active. Enjoy unlimited book scans!
+        </p>
+
+        <div style="background: #ebf8ff; border: 2px solid #bee3f8; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+            <h3 style="font-size: 16px; margin-bottom: 10px;">What's Next?</h3>
+            <ul style="text-align: left; color: #4a5568; font-size: 14px; line-height: 1.8;">
+                <li>Start scanning as many books as you want</li>
+                <li>No more monthly limits</li>
+                <li>Manage your subscription anytime from your account</li>
+            </ul>
+        </div>
+
+        <a href="{{ url_for('index') }}" class="scan-btn" style="text-decoration: none; margin-bottom: 15px;">
+            Start Scanning Books
+        </a>
+
+        <a href="{{ url_for('account') }}" style="display: block; text-align: center; color: #1a365d; text-decoration: none; font-size: 14px;">
+            View My Account
+        </a>
+    </div>
+</div>
+{% endblock %}

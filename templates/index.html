@@ -13,7 +13,7 @@
             <h2>Upload Book Image</h2>
             <p>Take a photo or upload an image of books to identify them!</p>
             
-            <form method="POST" action="{{ url_for('process_image_upload') }}" enctype="multipart/form-data" id="image-form">
+            <form method="POST" action="{% if current_user.is_authenticated and current_user.is_pro() %}{{ url_for('process_image_upload') }}{% else %}{{ url_for('billing.pay_per_scan') }}{% endif %}" enctype="multipart/form-data" id="image-form">
                 <div class="upload-area" id="upload-area">
                     <div class="upload-content">
                         <div class="upload-icon"></div>
@@ -22,16 +22,20 @@
                         <button type="button" id="file-btn" class="upload-btn">Choose File</button>
                     </div>
                 </div>
-                
+
                 <div id="image-preview-section" class="preview-section" style="display: none;">
                     <div class="preview-container">
                         <img id="image-preview" src="" alt="Selected image" class="preview-image">
                         <button type="button" id="clear-image" class="clear-btn">×</button>
                     </div>
                 </div>
-                
+
                 <button type="submit" class="scan-btn" id="scan-submit" disabled>
+                    {% if current_user.is_authenticated and current_user.is_pro() %}
                     <span class="btn-text">Identify Books</span>
+                    {% else %}
+                    <span class="btn-text">Pay $0.99 to Scan</span>
+                    {% endif %}
                     <span class="btn-loading" style="display: none;">
                         <span class="loading-spinner"></span>
                         <span>Processing...</span>

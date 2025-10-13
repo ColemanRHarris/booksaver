@@ -16,4 +16,10 @@ dependencies = [
     "pillow>=10.0.0",
     "langdetect>=1.0.9",
     "psutil>=5.9.0",
+    "flask-sqlalchemy>=3.1.1",
+    "flask-login>=0.6.3",
+    "flask-migrate>=4.0.5",
+    "stripe>=7.9.0",
+    "email-validator>=2.1.0",
+    "sendgrid>=6.11.0",
 ]
