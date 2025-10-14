@@ -47,33 +47,15 @@
                     <p style="color: #4a5568; font-size: 14px;">Enjoy unlimited book scanning with your Pro subscription</p>
                 </div>
             {% else %}
-                <div style="text-align: center; padding: 20px;">
-                    <p style="font-size: 14px; color: #4a5568; margin-bottom: 15px;">
-                        {{ user.get_usage_status() }} this month
+                <div style="text-align: center; padding: 30px;">
+                    <div style="font-size: 3rem; margin-bottom: 10px;">💳</div>
+                    <p style="font-size: 18px; font-weight: 600; color: #1a365d; margin-bottom: 10px;">Pay-Per-Scan</p>
+                    <p style="color: #4a5568; font-size: 14px; margin-bottom: 20px;">
+                        $0.99 per scan, or upgrade to Pro for unlimited access
                     </p>
-
-                    <!-- Progress bar -->
-                    <div style="width: 100%; background: #e2e8f0; border-radius: 20px; height: 24px; overflow: hidden; margin-bottom: 15px;">
-                        <div style="width: {{ (user.usage_count / 3 * 100) }}%; background: {% if user.usage_count >= 3 %}#e53e3e{% else %}#1a365d{% endif %}; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 600;">
-                            {{ user.usage_count }}/3
-                        </div>
-                    </div>
-
-                    {% if user.usage_count >= 3 %}
-                        <p style="color: #e53e3e; font-weight: 600; margin-bottom: 20px;">
-                            You've reached your monthly limit
-                        </p>
-                        <a href="{{ url_for('billing.upgrade') }}" class="scan-btn" style="text-decoration: none;">
-                            Upgrade to Pro for Unlimited Scans
-                        </a>
-                    {% else %}
-                        <p style="color: #4a5568; font-size: 13px; margin-bottom: 15px;">
-                            Resets: {{ user.usage_reset_date.strftime('%B %d, %Y') }}
-                        </p>
-                        <a href="{{ url_for('billing.upgrade') }}" style="color: #1a365d; text-decoration: none; font-size: 14px; font-weight: 600;">
-                            Want unlimited? Upgrade to Pro →
-                        </a>
-                    {% endif %}
+                    <a href="{{ url_for('billing.upgrade') }}" class="scan-btn" style="text-decoration: none; display: inline-block;">
+                        Upgrade to Pro for Unlimited Scans
+                    </a>
                 </div>
             {% endif %}
         </div>
