@@ -220,7 +220,10 @@ def success():
     if session_id:
         try:
             stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
-            session = stripe.checkout.Session.retrieve(session_id, expand=['subscription'])
+            session = stripe.checkout.Session.retrieve(
+                session_id,
+                expand=['subscription', 'subscription.items', 'subscription.items.data.price']
+            )
 
             current_app.logger.info(f"Checkout session retrieved: payment_status={session.payment_status}")
 
