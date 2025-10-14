@@ -73,12 +73,14 @@
                 <div style="font-weight: 600;">Plan:</div>
                 <div>{{ subscription.get_plan_display() }}</div>
 
+                {% if subscription.current_period_end %}
                 <div style="font-weight: 600;">Next Billing:</div>
                 <div>{{ subscription.current_period_end.strftime('%B %d, %Y') }}</div>
+                {% endif %}
 
                 {% if subscription.cancel_at_period_end %}
                 <div style="font-weight: 600; color: #e53e3e;">Notice:</div>
-                <div style="color: #e53e3e;">Subscription will cancel on {{ subscription.current_period_end.strftime('%B %d, %Y') }}</div>
+                <div style="color: #e53e3e;">Subscription will cancel on {{ subscription.current_period_end.strftime('%B %d, %Y') if subscription.current_period_end else 'the end of your billing period' }}</div>
                 {% endif %}
             </div>
 
