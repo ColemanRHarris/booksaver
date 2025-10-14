@@ -77,6 +77,29 @@ db.init_app(app)
 # Initialize Flask-Migrate
 migrate = Migrate(app, db)
 
+# Ensure database tables exist (fallback if migrations fail)
+with app.app_context():
+    try:
+        # Try to query the users table to see if it exists
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
+
+        if 'users' not in tables:
+            logger.warning("Database tables not found. Creating tables...")
+            db.create_all()
+            logger.info("✓ Database tables created successfully")
+        else:
+            logger.info(f"✓ Database connected. Found {len(tables)} tables")
+    except Exception as e:
+        logger.error(f"Database initialization check failed: {e}")
+        # Try to create tables anyway
+        try:
+            db.create_all()
+            logger.info("✓ Database tables created successfully (after error)")
+        except Exception as create_error:
+            logger.error(f"Failed to create database tables: {create_error}")
+
 # Initialize Flask-Login
 login_manager.init_app(app)
 login_manager.login_view = 'auth.send_magic_link'

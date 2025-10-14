@@ -16,9 +16,21 @@ apt-get install -y \
 pip install --upgrade pip
 pip install -r requirements.txt
 
+# Database initialization
+echo "Initializing database..."
+
+# Ensure instance directory exists with proper permissions
+mkdir -p instance
+chmod 755 instance
+
 # Run database migrations
 echo "Running database migrations..."
-flask db upgrade || echo "No migrations to run or migrations failed (this is OK on first deploy)"
+if flask db upgrade; then
+    echo "✓ Database migrations completed successfully"
+else
+    echo "⚠ Database migrations failed or not needed"
+    echo "  Tables will be auto-created on first app startup if needed"
+fi
 
 # YOLO models not currently used in production
 # Book detection happens through OCR processing
