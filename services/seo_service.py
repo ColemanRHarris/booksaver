@@ -1,330 +1,357 @@
 """
 SEO Landing Pages service for managing parasite SEO content.
-Simplified version for streamlined BookSaver deployment.
+Now using persistent SQLAlchemy database storage.
 """
 
-import os
-import json
-import hashlib
 import re
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List, Tuple
-from urllib.parse import quote, unquote
 import logging
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any, List
+
+from models import db
+from models.genre import Genre
+from models.author import Author
+from models.popular_book import PopularBook
+from models.seo_page import SEOPage
 
 # Simple logger
 logger = logging.getLogger(__name__)
 
 
-class InMemoryRedis:
-    """Simple in-memory Redis-like storage for local development."""
-    
-    def __init__(self):
-        self._data = {}
-        self._sets = {}
-    
-    def hset(self, key: str, field: str = None, value: str = None, mapping: Dict[str, str] = None) -> int:
-        """Set hash fields."""
-        if key not in self._data:
-            self._data[key] = {}
-        
-        if mapping:
-            self._data[key].update(mapping)
-            return len(mapping)
-        elif field is not None and value is not None:
-            self._data[key][field] = value
-            return 1
-        else:
-            raise TypeError("Must provide either field/value or mapping")
-    
-    def hgetall(self, key: str) -> Dict[str, str]:
-        """Get all hash fields."""
-        return self._data.get(key, {}).copy()
-    
-    def hget(self, key: str, field: str) -> Optional[str]:
-        """Get specific hash field."""
-        return self._data.get(key, {}).get(field)
-    
-    def exists(self, key: str) -> bool:
-        """Check if key exists."""
-        return key in self._data
-    
-    def sadd(self, key: str, *values) -> int:
-        """Add values to set."""
-        if key not in self._sets:
-            self._sets[key] = set()
-        
-        count = 0
-        for value in values:
-            if value not in self._sets[key]:
-                self._sets[key].add(value)
-                count += 1
-        return count
-    
-    def smembers(self, key: str) -> set:
-        """Get all members of set."""
-        return self._sets.get(key, set()).copy()
-    
-    def srem(self, key: str, *values) -> int:
-        """Remove values from set."""
-        if key not in self._sets:
-            return 0
-        
-        count = 0
-        for value in values:
-            if value in self._sets[key]:
-                self._sets[key].remove(value)
-                count += 1
-        return count
-
-
 class SEOService:
-    """Service for managing SEO landing pages and content."""
-    
+    """Service for managing SEO landing pages and content with database persistence."""
+
     def __init__(self):
-        # Use in-memory storage for streamlined deployment
         self.logger = logger
-        self.logger.info("🔧 SEO Service using in-memory storage")
-        self.redis = InMemoryRedis()
-        
-        # Initialize default genres and popular books
+        self.logger.info("🔧 SEO Service using SQLAlchemy database storage")
+
+        # Initialize default data if tables are empty
         self._initialize_default_data()
-    
+
     def _initialize_default_data(self):
-        """Initialize default genres and popular books if not exists."""
-        default_genres = [
-            "science-fiction", "fantasy", "mystery", "thriller", "romance",
-            "literary-fiction", "historical-fiction", "horror", "young-adult",
-            "non-fiction", "biography", "self-help", "business", "psychology"
-        ]
-        
-        for genre in default_genres:
-            self.add_genre(genre, genre.replace('-', ' ').title())
-        
-        # Add some popular books for "books like" pages
-        popular_books = [
-            {"slug": "fourth-wing", "title": "Fourth Wing", "author": "Rebecca Yarros"},
-            {"slug": "project-hail-mary", "title": "Project Hail Mary", "author": "Andy Weir"},
-            {"slug": "atomic-habits", "title": "Atomic Habits", "author": "James Clear"},
-            {"slug": "where-crawdads-sing", "title": "Where the Crawdads Sing", "author": "Delia Owens"},
-            {"slug": "dune", "title": "Dune", "author": "Frank Herbert"}
-        ]
-        
-        for book in popular_books:
-            self.add_popular_book(book["slug"], book["title"], book["author"])
-    
+        """Initialize default genres and popular books if database is empty."""
+        try:
+            # Check if we already have genres
+            if Genre.query.count() > 0:
+                self.logger.info("✅ SEO data already initialized, skipping seed")
+                return
+
+            self.logger.info("🌱 Seeding default SEO data...")
+
+            # Add default genres
+            default_genres = [
+                "science-fiction", "fantasy", "mystery", "thriller", "romance",
+                "literary-fiction", "historical-fiction", "horror", "young-adult",
+                "non-fiction", "biography", "self-help", "business", "psychology"
+            ]
+
+            for genre_slug in default_genres:
+                display_name = genre_slug.replace('-', ' ').title()
+                self.add_genre(genre_slug, display_name)
+
+            # Add some popular books for "books like" pages
+            popular_books = [
+                {"slug": "fourth-wing", "title": "Fourth Wing", "author": "Rebecca Yarros"},
+                {"slug": "project-hail-mary", "title": "Project Hail Mary", "author": "Andy Weir"},
+                {"slug": "atomic-habits", "title": "Atomic Habits", "author": "James Clear"},
+                {"slug": "where-crawdads-sing", "title": "Where the Crawdads Sing", "author": "Delia Owens"},
+                {"slug": "dune", "title": "Dune", "author": "Frank Herbert"}
+            ]
+
+            for book in popular_books:
+                self.add_popular_book(book["slug"], book["title"], book["author"])
+
+            self.logger.info("✅ Default SEO data seeded successfully")
+
+        except Exception as e:
+            self.logger.error(f"❌ Error initializing default data: {e}")
+
     def slugify(self, text: str) -> str:
         """Convert text to URL-safe slug."""
         # Convert to lowercase and replace spaces/special chars with hyphens
         slug = re.sub(r'[^\w\s-]', '', text.lower())
         slug = re.sub(r'[-\s]+', '-', slug)
         return slug.strip('-')
-    
+
     # Genre Management
     def add_genre(self, slug: str, display_name: str) -> bool:
         """Add a new genre."""
         try:
-            genre_data = {
-                "slug": slug,
-                "display_name": display_name,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            
-            self.redis.hset(f"genre:{slug}", mapping=genre_data)
-            self.redis.sadd("genres", slug)
-            
+            # Check if genre already exists
+            existing = Genre.find_by_slug(slug)
+            if existing:
+                self.logger.info(f"ℹ️  Genre already exists: {display_name} ({slug})")
+                return True
+
+            genre = Genre(
+                slug=slug,
+                display_name=display_name
+            )
+
+            db.session.add(genre)
+            db.session.commit()
+
             self.logger.info(f"✅ Added genre: {display_name} ({slug})")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"❌ Failed to add genre {slug}: {e}")
+            db.session.rollback()
             return False
-    
+
     def get_genre(self, slug: str) -> Optional[Dict[str, str]]:
         """Get genre data by slug."""
         try:
-            return self.redis.hgetall(f"genre:{slug}")
+            genre = Genre.find_by_slug(slug)
+            if not genre:
+                return None
+
+            return {
+                'slug': genre.slug,
+                'display_name': genre.display_name,
+                'created_at': genre.created_at.isoformat() if genre.created_at else None
+            }
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get genre {slug}: {e}")
             return None
-    
+
     def get_all_genres(self) -> List[Dict[str, str]]:
         """Get all genres."""
         try:
-            genre_slugs = self.redis.smembers("genres")
-            genres = []
-            
-            for slug in genre_slugs:
-                genre_data = self.get_genre(slug)
-                if genre_data:
-                    genres.append(genre_data)
-            
-            return sorted(genres, key=lambda x: x.get('display_name', ''))
-            
+            genres = Genre.get_all()
+            return [
+                {
+                    'slug': g.slug,
+                    'display_name': g.display_name,
+                    'created_at': g.created_at.isoformat() if g.created_at else None
+                }
+                for g in genres
+            ]
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get all genres: {e}")
             return []
-    
+
     # Popular Books Management
     def add_popular_book(self, slug: str, title: str, author: str, description: str = "") -> bool:
         """Add a popular book for 'books like' pages."""
         try:
-            book_data = {
-                "slug": slug,
-                "title": title,
-                "author": author,
-                "description": description,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            
-            self.redis.hset(f"popular_book:{slug}", mapping=book_data)
-            self.redis.sadd("popular_books", slug)
-            
+            # Check if book already exists
+            existing = PopularBook.find_by_slug(slug)
+            if existing:
+                self.logger.info(f"ℹ️  Popular book already exists: {title}")
+                return True
+
+            book = PopularBook(
+                slug=slug,
+                title=title,
+                author=author,
+                description=description
+            )
+
+            db.session.add(book)
+            db.session.commit()
+
             self.logger.info(f"✅ Added popular book: {title} by {author}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"❌ Failed to add popular book {slug}: {e}")
+            db.session.rollback()
             return False
-    
+
     def get_popular_book(self, slug: str) -> Optional[Dict[str, str]]:
         """Get popular book data by slug."""
         try:
-            return self.redis.hgetall(f"popular_book:{slug}")
+            book = PopularBook.find_by_slug(slug)
+            if not book:
+                return None
+
+            return {
+                'slug': book.slug,
+                'title': book.title,
+                'author': book.author,
+                'description': book.description or '',
+                'created_at': book.created_at.isoformat() if book.created_at else None
+            }
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get popular book {slug}: {e}")
             return None
-    
+
     def get_all_popular_books(self) -> List[Dict[str, str]]:
         """Get all popular books."""
         try:
-            book_slugs = self.redis.smembers("popular_books")
-            books = []
-            
-            for slug in book_slugs:
-                book_data = self.get_popular_book(slug)
-                if book_data:
-                    books.append(book_data)
-            
-            return sorted(books, key=lambda x: x.get('title', ''))
-            
+            books = PopularBook.get_all()
+            return [
+                {
+                    'slug': b.slug,
+                    'title': b.title,
+                    'author': b.author,
+                    'description': b.description or '',
+                    'created_at': b.created_at.isoformat() if b.created_at else None
+                }
+                for b in books
+            ]
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get all popular books: {e}")
             return []
-    
+
     # Author Management
     def add_author(self, slug: str, name: str, bio: str = "", image_url: str = "") -> bool:
         """Add an author for author recommendation pages."""
         try:
-            author_data = {
-                "slug": slug,
-                "name": name,
-                "bio": bio,
-                "image_url": image_url,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            
-            self.redis.hset(f"author:{slug}", mapping=author_data)
-            self.redis.sadd("authors", slug)
-            
+            # Check if author already exists
+            existing = Author.find_by_slug(slug)
+            if existing:
+                self.logger.info(f"ℹ️  Author already exists: {name}")
+                return True
+
+            author = Author(
+                slug=slug,
+                name=name,
+                bio=bio,
+                image_url=image_url
+            )
+
+            db.session.add(author)
+            db.session.commit()
+
             self.logger.info(f"✅ Added author: {name}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"❌ Failed to add author {slug}: {e}")
+            db.session.rollback()
             return False
-    
+
     def get_author(self, slug: str) -> Optional[Dict[str, str]]:
         """Get author data by slug."""
         try:
-            return self.redis.hgetall(f"author:{slug}")
+            author = Author.find_by_slug(slug)
+            if not author:
+                return None
+
+            return {
+                'slug': author.slug,
+                'name': author.name,
+                'bio': author.bio or '',
+                'image_url': author.image_url or '',
+                'created_at': author.created_at.isoformat() if author.created_at else None
+            }
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get author {slug}: {e}")
             return None
-    
+
     # SEO Page Management
-    def create_seo_page(self, page_type: str, slug: str, title: str, 
+    def create_seo_page(self, page_type: str, slug: str, title: str,
                        meta_description: str, content_data: Dict[str, Any]) -> bool:
         """Create an SEO landing page."""
         try:
-            page_data = {
-                "page_type": page_type,  # 'genre', 'author', 'books_like'
-                "slug": slug,
-                "title": title,
-                "meta_description": meta_description,
-                "content_data": json.dumps(content_data),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            
-            self.redis.hset(f"seo_page:{page_type}:{slug}", mapping=page_data)
-            self.redis.sadd(f"seo_pages:{page_type}", slug)
-            self.redis.sadd("all_seo_pages", f"{page_type}:{slug}")
-            
+            # Check if page already exists
+            existing = SEOPage.find_by_type_and_slug(page_type, slug)
+            if existing:
+                # Update existing page
+                existing.title = title
+                existing.meta_description = meta_description
+                existing.content_data = content_data
+                existing.updated_at = datetime.utcnow()
+                db.session.commit()
+                self.logger.info(f"✅ Updated SEO page: {page_type}/{slug}")
+                return True
+
+            page = SEOPage(
+                page_type=page_type,
+                slug=slug,
+                title=title,
+                meta_description=meta_description,
+                content_data=content_data
+            )
+
+            db.session.add(page)
+            db.session.commit()
+
             self.logger.info(f"✅ Created SEO page: {page_type}/{slug}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"❌ Failed to create SEO page {page_type}/{slug}: {e}")
+            db.session.rollback()
             return False
-    
+
     def get_seo_page(self, page_type: str, slug: str) -> Optional[Dict[str, Any]]:
         """Get SEO page data."""
         try:
-            page_data = self.redis.hgetall(f"seo_page:{page_type}:{slug}")
-            if page_data and 'content_data' in page_data:
-                page_data['content_data'] = json.loads(page_data['content_data'])
-            return page_data if page_data else None
-            
+            page = SEOPage.find_by_type_and_slug(page_type, slug)
+            if not page:
+                return None
+
+            return {
+                'page_type': page.page_type,
+                'slug': page.slug,
+                'title': page.title,
+                'meta_description': page.meta_description,
+                'content_data': page.content_data or {},
+                'created_at': page.created_at.isoformat() if page.created_at else None,
+                'updated_at': page.updated_at.isoformat() if page.updated_at else None
+            }
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get SEO page {page_type}/{slug}: {e}")
             return None
-    
+
     def get_seo_pages_by_type(self, page_type: str) -> List[Dict[str, Any]]:
         """Get all SEO pages of a specific type."""
         try:
-            page_slugs = self.redis.smembers(f"seo_pages:{page_type}")
-            pages = []
-            
-            for slug in page_slugs:
-                page_data = self.get_seo_page(page_type, slug)
-                if page_data:
-                    pages.append(page_data)
-            
-            return sorted(pages, key=lambda x: x.get('created_at', ''))
-            
+            pages = SEOPage.get_by_type(page_type)
+            return [
+                {
+                    'page_type': p.page_type,
+                    'slug': p.slug,
+                    'title': p.title,
+                    'meta_description': p.meta_description,
+                    'content_data': p.content_data or {},
+                    'created_at': p.created_at.isoformat() if p.created_at else None,
+                    'updated_at': p.updated_at.isoformat() if p.updated_at else None
+                }
+                for p in pages
+            ]
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get SEO pages of type {page_type}: {e}")
             return []
-    
+
     # URL Generation
     def generate_genre_url(self, genre_slug: str, year: str = "2025") -> str:
         """Generate URL for best genre books page."""
         return f"/best-books/{genre_slug}/{year}/"
-    
+
     def generate_author_url(self, author_slug: str) -> str:
         """Generate URL for author recommendations page."""
         return f"/authors/{author_slug}/recommendations/"
-    
+
     def generate_books_like_url(self, book_slug: str) -> str:
         """Generate URL for books like page."""
         return f"/books-like/{book_slug}/"
-    
+
     # Analytics and Stats
     def get_seo_stats(self) -> Dict[str, int]:
         """Get SEO pages statistics."""
         try:
             stats = {
-                "total_genres": len(self.redis.smembers("genres")),
-                "total_authors": len(self.redis.smembers("authors")),
-                "total_popular_books": len(self.redis.smembers("popular_books")),
-                "total_seo_pages": len(self.redis.smembers("all_seo_pages")),
-                "genre_pages": len(self.redis.smembers("seo_pages:genre")),
-                "author_pages": len(self.redis.smembers("seo_pages:author")),
-                "books_like_pages": len(self.redis.smembers("seo_pages:books_like"))
+                "total_genres": Genre.query.count(),
+                "total_authors": Author.query.count(),
+                "total_popular_books": PopularBook.query.count(),
+                "total_seo_pages": SEOPage.query.count(),
+                "genre_pages": SEOPage.query.filter_by(page_type='genre').count(),
+                "author_pages": SEOPage.query.filter_by(page_type='author').count(),
+                "books_like_pages": SEOPage.query.filter_by(page_type='books_like').count()
             }
             return stats
-            
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get SEO stats: {e}")
             return {}
@@ -339,5 +366,3 @@ def get_seo_service() -> SEOService:
     if _seo_service is None:
         _seo_service = SEOService()
     return _seo_service
-
-# Redis initialization function removed - using in-memory storage only

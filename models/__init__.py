@@ -13,5 +13,9 @@ login_manager = LoginManager()
 from models.user import User
 from models.subscription import Subscription
 from models.scan_history import ScanHistory
+from models.genre import Genre
+from models.author import Author
+from models.popular_book import PopularBook
+from models.seo_page import SEOPage
 
-__all__ = ['db', 'login_manager', 'User', 'Subscription', 'ScanHistory']
+__all__ = ['db', 'login_manager', 'User', 'Subscription', 'ScanHistory', 'Genre', 'Author', 'PopularBook', 'SEOPage']
