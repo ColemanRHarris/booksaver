@@ -53,7 +53,7 @@ def create_checkout_session():
             try:
                 # Verify the customer still exists in Stripe
                 stripe.Customer.retrieve(customer_id)
-            except stripe.error.InvalidRequestError:
+            except stripe.InvalidRequestError:
                 # Customer was deleted in Stripe, clear the invalid ID
                 current_app.logger.warning(f"Customer {customer_id} no longer exists in Stripe, clearing")
                 current_user.stripe_customer_id = None
@@ -101,7 +101,7 @@ def create_checkout_session():
 
         return redirect(session.url, code=303)
 
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         current_app.logger.error(f"Stripe error: {e}")
         flash('Payment processing error. Please try again.', 'error')
         return redirect(url_for('billing.upgrade'))
@@ -129,7 +129,7 @@ def pay_per_scan():
             try:
                 # Verify the customer still exists in Stripe
                 stripe.Customer.retrieve(customer_id)
-            except stripe.error.InvalidRequestError:
+            except stripe.InvalidRequestError:
                 # Customer was deleted in Stripe, clear the invalid ID
                 current_app.logger.warning(f"Customer {customer_id} no longer exists in Stripe, clearing")
                 current_user.stripe_customer_id = None
@@ -177,7 +177,7 @@ def pay_per_scan():
 
         return redirect(session.url, code=303)
 
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         current_app.logger.error(f"Stripe error: {e}")
         flash('Payment processing error. Please try again.', 'error')
         return redirect(url_for('index'))
@@ -332,7 +332,7 @@ def customer_portal():
         # Validate customer exists in Stripe
         try:
             stripe.Customer.retrieve(current_user.stripe_customer_id)
-        except stripe.error.InvalidRequestError:
+        except stripe.InvalidRequestError:
             # Customer was deleted in Stripe
             current_app.logger.warning(f"Customer {current_user.stripe_customer_id} no longer exists")
             current_user.stripe_customer_id = None
@@ -348,7 +348,7 @@ def customer_portal():
 
         return redirect(session.url, code=303)
 
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         current_app.logger.error(f"Portal error: {e}")
         flash('Unable to access subscription management. Please try again.', 'error')
         return redirect(url_for('account'))
@@ -388,7 +388,7 @@ def webhook():
     except ValueError as e:
         current_app.logger.error(f"Invalid webhook payload: {e}")
         return jsonify({'error': 'Invalid payload'}), 400
-    except stripe.error.SignatureVerificationError as e:
+    except stripe.SignatureVerificationError as e:
         current_app.logger.error(f"Invalid webhook signature: {e}")
         return jsonify({'error': 'Invalid signature'}), 400
 
@@ -412,9 +412,15 @@ def handle_subscription_created(subscription):
         current_app.logger.info(f"Subscription {subscription_id} already exists, updating instead")
         # Update existing subscription
         existing_sub.status = status
-        existing_sub.current_period_start = datetime.fromtimestamp(subscription['current_period_start'])
-        existing_sub.current_period_end = datetime.fromtimestamp(subscription['current_period_end'])
-        existing_sub.cancel_at_period_end = subscription['cancel_at_period_end']
+
+        # Safely extract timestamp fields
+        if subscription.get('current_period_start'):
+            existing_sub.current_period_start = datetime.fromtimestamp(subscription['current_period_start'])
+        if subscription.get('current_period_end'):
+            existing_sub.current_period_end = datetime.fromtimestamp(subscription['current_period_end'])
+        if 'cancel_at_period_end' in subscription:
+            existing_sub.cancel_at_period_end = subscription['cancel_at_period_end']
+
         db.session.commit()
         return
 
@@ -428,15 +434,27 @@ def handle_subscription_created(subscription):
         plan = 'unknown'
 
     # Create subscription record
+    # Safely extract timestamp fields
+    period_start = None
+    period_end = None
+    cancel_at_period_end = False
+
+    if subscription.get('current_period_start'):
+        period_start = datetime.fromtimestamp(subscription['current_period_start'])
+    if subscription.get('current_period_end'):
+        period_end = datetime.fromtimestamp(subscription['current_period_end'])
+    if 'cancel_at_period_end' in subscription:
+        cancel_at_period_end = subscription['cancel_at_period_end']
+
     new_subscription = Subscription(
         user_id=user.id,
         stripe_subscription_id=subscription_id,
         stripe_price_id=price_id,
         status=status,
         plan=plan,
-        current_period_start=datetime.fromtimestamp(subscription['current_period_start']),
-        current_period_end=datetime.fromtimestamp(subscription['current_period_end']),
-        cancel_at_period_end=subscription['cancel_at_period_end']
+        current_period_start=period_start,
+        current_period_end=period_end,
+        cancel_at_period_end=cancel_at_period_end
     )
 
     # Update user subscription status
@@ -461,9 +479,14 @@ def handle_subscription_updated(subscription):
 
     # Update subscription details
     sub_record.status = subscription['status']
-    sub_record.current_period_start = datetime.fromtimestamp(subscription['current_period_start'])
-    sub_record.current_period_end = datetime.fromtimestamp(subscription['current_period_end'])
-    sub_record.cancel_at_period_end = subscription['cancel_at_period_end']
+
+    # Safely extract timestamp fields
+    if subscription.get('current_period_start'):
+        sub_record.current_period_start = datetime.fromtimestamp(subscription['current_period_start'])
+    if subscription.get('current_period_end'):
+        sub_record.current_period_end = datetime.fromtimestamp(subscription['current_period_end'])
+    if 'cancel_at_period_end' in subscription:
+        sub_record.cancel_at_period_end = subscription['cancel_at_period_end']
 
     if subscription.get('canceled_at'):
         sub_record.canceled_at = datetime.fromtimestamp(subscription['canceled_at'])
