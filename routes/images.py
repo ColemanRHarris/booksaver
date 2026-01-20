@@ -43,9 +43,9 @@ def register_image_routes(app, limiter):
                 try:
                     import stripe
                     stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
-                    session = stripe.checkout.Session.retrieve(session_id)
+                    checkout_session = stripe.checkout.Session.retrieve(session_id)
 
-                    if session.payment_status != 'paid':
+                    if checkout_session.payment_status != 'paid':
                         flash('Payment not confirmed. Please try again.', 'error')
                         return redirect(url_for('index'))
 

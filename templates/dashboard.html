@@ -172,79 +172,81 @@
 
 {% block scripts %}
 <script>
-// Simple chart colors
-const chartColors = {
-    primary: '#382110',
-    secondary: '#5C3D2E',
-    tertiary: '#8B7355',
-    grid: '#D8D4CC'
-};
+document.addEventListener('DOMContentLoaded', function() {
+    // Simple chart colors
+    const chartColors = {
+        primary: '#382110',
+        secondary: '#5C3D2E',
+        tertiary: '#8B7355',
+        grid: '#D8D4CC'
+    };
 
-// Scans Over Time Chart
-{% if scans_over_time %}
-const scansCtx = document.getElementById('scansChart');
-if (scansCtx) {
-    new Chart(scansCtx, {
-        type: 'bar',
-        data: {
-            labels: {{ scans_over_time | map(attribute='month') | list | tojson }},
-            datasets: [{
-                label: 'Scans',
-                data: {{ scans_over_time | map(attribute='count') | list | tojson }},
-                backgroundColor: chartColors.primary,
-                borderColor: chartColors.primary,
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 0 },
-            plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1, color: '#666' },
-                    grid: { color: chartColors.grid }
-                },
-                x: {
-                    ticks: { color: '#666' },
-                    grid: { display: false }
+    // Scans Over Time Chart
+    {% if scans_over_time %}
+    const scansCtx = document.getElementById('scansChart');
+    if (scansCtx) {
+        new Chart(scansCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ scans_over_time | map(attribute='month') | list | tojson }},
+                datasets: [{
+                    label: 'Scans',
+                    data: {{ scans_over_time | map(attribute='count') | list | tojson }},
+                    backgroundColor: chartColors.primary,
+                    borderColor: chartColors.primary,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, color: '#666' },
+                        grid: { color: chartColors.grid }
+                    },
+                    x: {
+                        ticks: { color: '#666' },
+                        grid: { display: false }
+                    }
                 }
             }
-        }
-    });
-}
-{% endif %}
+        });
+    }
+    {% endif %}
 
-// Genre Distribution Chart
-{% if genre_distribution %}
-const genreCtx = document.getElementById('genreChart');
-if (genreCtx && {{ genre_distribution | length }} > 0) {
-    const topGenres = {{ genre_distribution[:6] | tojson }};
+    // Genre Distribution Chart
+    {% if genre_distribution %}
+    const genreCtx = document.getElementById('genreChart');
+    if (genreCtx && {{ genre_distribution | length }} > 0) {
+        const topGenres = {{ genre_distribution[:6] | tojson }};
 
-    new Chart(genreCtx, {
-        type: 'doughnut',
-        data: {
-            labels: topGenres.map(g => g.genre),
-            datasets: [{
-                data: topGenres.map(g => g.count),
-                backgroundColor: ['#382110', '#5C3D2E', '#8B7355', '#A69076', '#C9A227', '#D8D4CC']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 0 },
-            plugins: {
-                legend: {
-                    position: 'right',
-                    labels: { boxWidth: 12, font: { size: 11 }, color: '#666' }
+        new Chart(genreCtx, {
+            type: 'doughnut',
+            data: {
+                labels: topGenres.map(g => g.genre),
+                datasets: [{
+                    data: topGenres.map(g => g.count),
+                    backgroundColor: ['#382110', '#5C3D2E', '#8B7355', '#A69076', '#C9A227', '#D8D4CC']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { boxWidth: 12, font: { size: 11 }, color: '#666' }
+                    }
                 }
             }
-        }
-    });
-}
-{% endif %}
+        });
+    }
+    {% endif %}
+});
 </script>
 {% endblock %}
