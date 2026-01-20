@@ -59,6 +59,33 @@
                     {% endif %}
                 {% endwith %}
 
+                <!-- What's New Modal -->
+                <div id="whats-new-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="whats-new-title">
+                    <div class="modal-dialog">
+                        <div class="modal-header">
+                            <h2 id="whats-new-title">What's New in BookSaver</h2>
+                            <button class="modal-close" aria-label="Close">&times;</button>
+                        </div>
+                        <div class="modal-content">
+                            <ul class="feature-list">
+                                <li><strong>Reading Dashboard</strong> - Track your reading stats, see scans over time, and view genre distribution charts</li>
+                                <li><strong>Collections</strong> - Organize books into shelves (Want to Read, Currently Reading, Read) with tags and notes</li>
+                                <li><strong>Scan History</strong> - View all your past scans with quick actions to add books to your collection</li>
+                                <li><strong>AI Recommendations</strong> - Get personalized book suggestions based on your reading preferences (Pro)</li>
+                            </ul>
+                            <div class="feedback-section">
+                                <p>Have feedback or suggestions?</p>
+                                <a href="mailto:coleman@viscidlabs.com?subject=BookSaver Feedback" class="btn btn-secondary">
+                                    Email us
+                                </a>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="whats-new-dismiss">Got it!</button>
+                        </div>
+                    </div>
+                </div>
+
                 {% block content %}{% endblock %}
             </div>
         </main>
@@ -77,5 +104,51 @@
     </div>
 
     {% block scripts %}{% endblock %}
+
+    <!-- What's New Modal Script -->
+    <script>
+    (function() {
+        const WHATS_NEW_VERSION = 'whatsNewSeen_v1';
+        const modal = document.getElementById('whats-new-modal');
+        const dismissBtn = document.getElementById('whats-new-dismiss');
+        const closeBtn = modal.querySelector('.modal-close');
+        const dialog = modal.querySelector('.modal-dialog');
+
+        function openModal() {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            dismissBtn.focus();
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+            localStorage.setItem(WHATS_NEW_VERSION, 'true');
+        }
+
+        // Show modal on first visit
+        if (!localStorage.getItem(WHATS_NEW_VERSION)) {
+            openModal();
+        }
+
+        // Close handlers
+        dismissBtn.addEventListener('click', closeModal);
+        closeBtn.addEventListener('click', closeModal);
+
+        // Close on backdrop click
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                closeModal();
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
