@@ -282,6 +282,10 @@ img {
   text-decoration: underline;
 }
 
+.btn-primary .btn-text {
+  color: inherit;
+}
+
 .btn-sm {
   padding: var(--space-1) var(--space-3);
   font-size: var(--text-xs);
