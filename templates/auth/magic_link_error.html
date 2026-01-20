@@ -3,25 +3,23 @@
 {% block title %}Magic Link Error - BookSaver{% endblock %}
 
 {% block content %}
-<div class="main-content" style="display: flex; justify-content: center; align-items: center;">
-    <div class="upload-section" style="max-width: 500px; height: auto; text-align: center;">
-        <div style="font-size: 4rem; margin-bottom: 20px;">❌</div>
-        <h2 style="margin-bottom: 20px;">Magic Link Error</h2>
+<div class="container-narrow">
+    <div class="card text-center">
+        <div style="font-size: 3rem; margin-bottom: var(--space-4);">❌</div>
+        <h1>Magic Link Error</h1>
 
-        <div class="error" style="text-align: left; margin-bottom: 30px;">
+        <div class="alert alert-error text-left mb-4">
             {{ error }}
         </div>
 
-        <p style="color: #4a5568; margin-bottom: 30px;">
-            This could happen if:
-        </p>
-        <ul style="text-align: left; color: #4a5568; font-size: 14px; line-height: 1.8; margin-bottom: 30px;">
+        <p class="text-muted mb-4">This could happen if:</p>
+        <ul class="text-left text-muted mb-6" style="padding-left: var(--space-4);">
             <li>The link has expired (they expire after 15 minutes)</li>
             <li>The link was already used</li>
             <li>The link was malformed or incomplete</li>
         </ul>
 
-        <a href="{{ url_for('auth.send_magic_link') }}" class="scan-btn" style="text-decoration: none;">
+        <a href="{{ url_for('auth.send_magic_link') }}" class="btn btn-primary">
             Request New Magic Link
         </a>
     </div>

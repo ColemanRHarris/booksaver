@@ -3,180 +3,133 @@
 {% block title %}Booksaver - Identify Books with Your Camera{% endblock %}
 
 {% block content %}
-<div class="container">
-    {% if error %}
-    <div class="error">{{ error }}</div>
-    {% endif %}
-    
-    <div class="main-content">
-        <div class="upload-section">
-            <h2>Upload Book Image</h2>
-            <p>Take a photo or upload an image of books to identify them!</p>
-            
-            <form method="POST" action="{% if current_user.is_authenticated and current_user.is_pro() %}{{ url_for('process_image_upload') }}{% else %}{{ url_for('billing.pay_per_scan') }}{% endif %}" enctype="multipart/form-data" id="image-form">
-                <div class="upload-area" id="upload-area">
-                    <div class="upload-content">
-                        <div class="upload-icon"></div>
-                        <p>Drop your book photo here or click to browse</p>
-                        <input type="file" id="file-input" accept="image/*" name="image" style="display: none;">
-                        <button type="button" id="file-btn" class="upload-btn">Choose File</button>
-                    </div>
-                </div>
+<div class="grid grid-2" style="gap: 2rem;">
+    <!-- Upload Section -->
+    <div class="card">
+        <h2>Upload Book Image</h2>
+        <p class="text-muted mb-4">Take a photo or upload an image of books to identify them.</p>
 
-                <div id="image-preview-section" class="preview-section" style="display: none;">
-                    <div class="preview-container">
-                        <img id="image-preview" src="" alt="Selected image" class="preview-image">
-                        <button type="button" id="clear-image" class="clear-btn">×</button>
-                    </div>
-                </div>
-
-                <button type="submit" class="scan-btn" id="scan-submit" disabled>
-                    {% if current_user.is_authenticated and current_user.is_pro() %}
-                    <span class="btn-text">Identify Books</span>
-                    {% else %}
-                    <span class="btn-text">Pay $0.99 to Scan</span>
-                    {% endif %}
-                    <span class="btn-loading" style="display: none;">
-                        <span class="loading-spinner"></span>
-                        <span>Processing...</span>
-                    </span>
-                </button>
-            </form>
-            
-            <div class="instructions">
-                <h4>Tips for best results:</h4>
-                <ul>
-                    <li>Use good lighting.</li>
-                    <li>Include book covers or spines clearly.</li>
-                    <li>Supported formats: JPG, PNG (max 10MB).</li>
-                </ul>
+        <form method="POST" action="{% if current_user.is_authenticated and current_user.is_pro() %}{{ url_for('process_image_upload') }}{% else %}{{ url_for('billing.pay_per_scan') }}{% endif %}" enctype="multipart/form-data" id="image-form">
+            <div class="upload-area" id="upload-area">
+                <div class="upload-icon">📚</div>
+                <p class="upload-text">Drop your book photo here or click to browse</p>
+                <p class="upload-hint">JPG, PNG (max 10MB)</p>
+                <input type="file" id="file-input" accept="image/*" name="image" style="display: none;">
             </div>
+
+            <div id="image-preview-section" class="upload-preview hidden">
+                <img id="image-preview" src="" alt="Selected image">
+                <button type="button" id="clear-image" class="btn btn-secondary btn-sm mt-2" style="display: block; margin: var(--space-2) auto 0;">Remove</button>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg mt-4" id="scan-submit" disabled>
+                {% if current_user.is_authenticated and current_user.is_pro() %}
+                <span class="btn-text">Identify Books</span>
+                {% else %}
+                <span class="btn-text">Pay $0.99 to Scan</span>
+                {% endif %}
+                <span class="btn-loading hidden">Processing...</span>
+            </button>
+        </form>
+
+        <div class="card mt-4" style="background: var(--bg-tertiary);">
+            <strong class="text-sm">Tips for best results:</strong>
+            <ul style="margin: var(--space-2) 0 0; padding-left: var(--space-4); font-size: var(--text-sm); color: var(--text-secondary);">
+                <li>Use good lighting</li>
+                <li>Include book covers or spines clearly</li>
+                <li>Supported formats: JPG, PNG (max 10MB)</li>
+            </ul>
         </div>
-        
-        <div class="results-section" id="results-section">
-            <h2>Results will appear here!</h2>
-            <p>Upload an image to see book identification results.</p>
-            <div style="text-align: center; margin-top: 20px;">
-                <img src="{{ url_for('static', filename='book_gif.gif') }}" alt="Book scanning demonstration" style="width: 100%; max-width: 500px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="card">
+        <h2>Results</h2>
+        <div class="empty-state">
+            <div class="empty-state-icon">📖</div>
+            <p class="empty-state-title">Upload an image to get started</p>
+            <p class="empty-state-text">Book identification results will appear here.</p>
+        </div>
+        <div style="text-align: center; margin-top: var(--space-4);">
+            <img src="{{ url_for('static', filename='book_gif.gif') }}" alt="Book scanning demonstration" style="max-width: 100%; border-radius: 4px; border: 1px solid var(--border-light);">
         </div>
     </div>
 </div>
+{% endblock %}
 
-<div class="recs">
-<script src="https://bookshop.org/widgets.js" data-type="list" data-list-slug="our-recommendations-booksaver"></script>
-</div>
+{% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.getElementById('file-input');
-    const fileBtn = document.getElementById('file-btn');
     const uploadArea = document.getElementById('upload-area');
     const imagePreview = document.getElementById('image-preview');
     const imagePreviewSection = document.getElementById('image-preview-section');
     const clearImageBtn = document.getElementById('clear-image');
     const submitBtn = document.getElementById('scan-submit');
     const form = document.getElementById('image-form');
-    
-    // Drag and Drop functionality
-    uploadArea.addEventListener('dragover', handleDragOver);
-    uploadArea.addEventListener('dragenter', handleDragEnter);
-    uploadArea.addEventListener('dragleave', handleDragLeave);
-    uploadArea.addEventListener('drop', handleFileDrop);
-    uploadArea.addEventListener('click', function() {
-        fileInput.click();
+
+    // Click to upload
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    // Drag and Drop
+    uploadArea.addEventListener('dragover', e => {
+        e.preventDefault();
+        uploadArea.classList.add('drag-over');
     });
-    
-    function handleDragOver(e) {
+
+    uploadArea.addEventListener('dragleave', e => {
         e.preventDefault();
-        uploadArea.classList.add('dragover');
-    }
-    
-    function handleDragEnter(e) {
+        uploadArea.classList.remove('drag-over');
+    });
+
+    uploadArea.addEventListener('drop', e => {
         e.preventDefault();
-        uploadArea.classList.add('dragover');
-    }
-    
-    function handleDragLeave(e) {
-        e.preventDefault();
-        if (!uploadArea.contains(e.relatedTarget)) {
-            uploadArea.classList.remove('dragover');
-        }
-    }
-    
-    function handleFileDrop(e) {
-        e.preventDefault();
-        uploadArea.classList.remove('dragover');
-        
+        uploadArea.classList.remove('drag-over');
         const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            const file = files[0];
-            if (file.type.startsWith('image/')) {
-                fileInput.files = files;
-                handleFileSelection(file);
-            } else {
-                alert('Please drop an image file (JPG or PNG)');
-            }
-        }
-    }
-    
-    // Button click handler
-    fileBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        fileInput.click();
-    });
-    
-    // File selection handler
-    fileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            handleFileSelection(file);
+        if (files.length > 0 && files[0].type.startsWith('image/')) {
+            fileInput.files = files;
+            handleFileSelection(files[0]);
         }
     });
-    
+
+    // File selection
+    fileInput.addEventListener('change', e => {
+        if (e.target.files[0]) handleFileSelection(e.target.files[0]);
+    });
+
     function handleFileSelection(file) {
-        // Validate file type
         if (!file.type.startsWith('image/')) {
             alert('Please select an image file');
             return;
         }
-        
-        // Check file size (10MB limit)
-        const maxSize = 10 * 1024 * 1024;
-        if (file.size > maxSize) {
+        if (file.size > 10 * 1024 * 1024) {
             alert('Image file is too large. Please use an image smaller than 10MB.');
             return;
         }
-        
-        showImagePreview(URL.createObjectURL(file));
+        imagePreview.src = URL.createObjectURL(file);
+        imagePreviewSection.classList.remove('hidden');
+        uploadArea.classList.add('hidden');
         submitBtn.disabled = false;
-        uploadArea.style.display = 'none';
     }
-    
-    function showImagePreview(src) {
-        imagePreview.src = src;
-        imagePreviewSection.style.display = 'block';
-    }
-    
-    // Clear image functionality
-    clearImageBtn.addEventListener('click', function() {
+
+    // Clear image
+    clearImageBtn.addEventListener('click', () => {
         fileInput.value = '';
-        imagePreviewSection.style.display = 'none';
-        uploadArea.style.display = 'block';
+        imagePreviewSection.classList.add('hidden');
+        uploadArea.classList.remove('hidden');
         submitBtn.disabled = true;
         URL.revokeObjectURL(imagePreview.src);
     });
-    
-    // Form submission with loading state
-    form.addEventListener('submit', function(e) {
+
+    // Form submission
+    form.addEventListener('submit', e => {
         if (!fileInput.files.length) {
             e.preventDefault();
             alert('Please select an image first');
             return;
         }
-        
-        // Show loading state
-        submitBtn.querySelector('.btn-text').style.display = 'none';
-        submitBtn.querySelector('.btn-loading').style.display = 'inline-flex';
+        submitBtn.querySelector('.btn-text').classList.add('hidden');
+        submitBtn.querySelector('.btn-loading').classList.remove('hidden');
         submitBtn.disabled = true;
     });
 });

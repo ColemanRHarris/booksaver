@@ -1,0 +1,236 @@
+{% extends "base_simple.html" %}
+
+{% block title %}My Collections - BookSaver{% endblock %}
+
+{% block content %}
+<div class="flex flex-between flex-center mb-4">
+    <div>
+        <h1>My Collections</h1>
+        <p class="text-muted">{{ stats['total'] }} book{% if stats['total'] != 1 %}s{% endif %} in your library</p>
+    </div>
+    {% if stats['total'] > 0 %}
+    <a href="{{ url_for('collections.export_csv') }}" class="btn btn-primary">
+        Export CSV
+    </a>
+    {% endif %}
+</div>
+
+<!-- View toggle -->
+<div class="flex flex-between flex-center mb-4">
+    <div class="tabs">
+        <a href="{{ url_for('collections.index', tab='want_to_read') }}" class="tab {% if active_tab == 'want_to_read' %}active{% endif %}">
+            Want to Read <span class="tab-count">({{ stats['shelves']['want_to_read'] }})</span>
+        </a>
+        <a href="{{ url_for('collections.index', tab='currently_reading') }}" class="tab {% if active_tab == 'currently_reading' %}active{% endif %}">
+            Currently Reading <span class="tab-count">({{ stats['shelves']['currently_reading'] }})</span>
+        </a>
+        <a href="{{ url_for('collections.index', tab='read') }}" class="tab {% if active_tab == 'read' %}active{% endif %}">
+            Read <span class="tab-count">({{ stats['shelves']['read'] }})</span>
+        </a>
+    </div>
+
+    <div class="view-toggle">
+        <button class="toggle-btn active" data-view="cover">Covers</button>
+        <button class="toggle-btn" data-view="text">List</button>
+    </div>
+</div>
+
+{% if books %}
+<div class="book-list" id="book-list" data-view-mode="cover">
+    {% for book in books %}
+    <div class="book-item">
+        {% if book.thumbnail %}
+        <img src="{{ book.thumbnail }}" alt="{{ book.title }}" class="book-cover">
+        {% else %}
+        <div class="book-cover" style="display: flex; align-items: center; justify-content: center; color: var(--text-muted);">📖</div>
+        {% endif %}
+
+        <div class="book-info">
+            <span class="book-title">{{ book.title }}</span>
+            <span class="book-author">by {{ book.get_authors_display() }}</span>
+
+            {% if book.published_date %}
+            <div class="book-meta">{{ book.published_date }}</div>
+            {% endif %}
+
+            <!-- Tags -->
+            <div class="mt-2" id="tags-container-{{ book.id }}">
+                <div id="tags-display-{{ book.id }}">
+                    {% if book.tags %}
+                        {% for tag in book.tags %}
+                        <span class="tag">{{ tag }}</span>
+                        {% endfor %}
+                    {% endif %}
+                    <button onclick="editTags({{ book.id }})" class="btn-text text-xs" id="edit-tags-btn-{{ book.id }}">Edit tags</button>
+                </div>
+                <div id="tags-edit-{{ book.id }}" class="hidden">
+                    <input type="text" id="tags-input-{{ book.id }}" value="{{ book.get_tags_display() }}" placeholder="Add tags (comma-separated)" class="form-input" style="font-size: var(--text-sm);">
+                    <div class="mt-1">
+                        <button onclick="saveTags({{ book.id }})" class="btn btn-primary btn-sm">Save</button>
+                        <button onclick="cancelEditTags({{ book.id }})" class="btn btn-secondary btn-sm">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="mt-4 flex flex-gap" style="flex-wrap: wrap; gap: var(--space-2);">
+                <select id="shelf-select-{{ book.id }}" onchange="moveBook({{ book.id }})" class="form-select" style="width: auto; font-size: var(--text-sm);">
+                    <option value="" disabled selected>Move to...</option>
+                    {% if book.shelf != 'want_to_read' %}
+                    <option value="want_to_read">Want to Read</option>
+                    {% endif %}
+                    {% if book.shelf != 'currently_reading' %}
+                    <option value="currently_reading">Currently Reading</option>
+                    {% endif %}
+                    {% if book.shelf != 'read' %}
+                    <option value="read">Read</option>
+                    {% endif %}
+                </select>
+
+                {% if book.read_status != 'read' %}
+                <button onclick="markAsRead({{ book.id }})" class="btn btn-sm" style="background: var(--accent-success); color: white;">
+                    Mark Read
+                </button>
+                {% else %}
+                <span class="badge badge-success">Read{% if book.date_read %} {{ book.date_read.strftime('%b %Y') }}{% endif %}</span>
+                {% endif %}
+
+                <button onclick="confirmRemove({{ book.id }}, '{{ book.title|replace("'", "\\'") }}')" class="btn btn-sm" style="background: var(--accent-error); color: white;">
+                    Remove
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state card">
+    <div class="empty-state-icon">
+        {% if active_tab == 'want_to_read' %}📚
+        {% elif active_tab == 'currently_reading' %}📖
+        {% else %}✓{% endif %}
+    </div>
+    <p class="empty-state-title">No Books in {{ active_tab.replace('_', ' ').title() }}</p>
+    <p class="empty-state-text">
+        {% if active_tab == 'want_to_read' %}
+            Add books you want to read from your scan history!
+        {% elif active_tab == 'currently_reading' %}
+            Mark books as "Currently Reading" to track your progress.
+        {% else %}
+            Mark books as "Read" when you finish them.
+        {% endif %}
+    </p>
+    <a href="{{ url_for('history') }}" class="btn btn-primary">View Scan History</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// View toggle
+document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const mode = btn.dataset.view;
+        document.getElementById('book-list').dataset.viewMode = mode;
+        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        localStorage.setItem('bookViewMode', mode);
+    });
+});
+// Restore preference
+const savedMode = localStorage.getItem('bookViewMode');
+if (savedMode) {
+    document.getElementById('book-list').dataset.viewMode = savedMode;
+    document.querySelectorAll('.toggle-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === savedMode);
+    });
+}
+
+// Edit tags
+function editTags(bookId) {
+    document.getElementById('tags-display-' + bookId).classList.add('hidden');
+    document.getElementById('tags-edit-' + bookId).classList.remove('hidden');
+}
+
+function cancelEditTags(bookId) {
+    document.getElementById('tags-display-' + bookId).classList.remove('hidden');
+    document.getElementById('tags-edit-' + bookId).classList.add('hidden');
+}
+
+function saveTags(bookId) {
+    const tagsInput = document.getElementById('tags-input-' + bookId).value;
+    const formData = new FormData();
+    formData.append('collection_id', bookId);
+    formData.append('tags', tagsInput);
+
+    fetch('{{ url_for("collections.update_tags") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) location.reload();
+        else alert('Failed to update tags: ' + (data.error || 'Unknown error'));
+    })
+    .catch(error => alert('Error updating tags: ' + error));
+}
+
+// Move book
+function moveBook(bookId) {
+    const select = document.getElementById('shelf-select-' + bookId);
+    const newShelf = select.value;
+    if (!newShelf) return;
+
+    const formData = new FormData();
+    formData.append('collection_id', bookId);
+    formData.append('shelf', newShelf);
+
+    fetch('{{ url_for("collections.move_book") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) location.reload();
+        else { alert('Failed to move book: ' + (data.error || 'Unknown error')); select.value = ''; }
+    })
+    .catch(error => { alert('Error moving book: ' + error); select.value = ''; });
+}
+
+// Mark as read
+function markAsRead(bookId) {
+    const formData = new FormData();
+    formData.append('collection_id', bookId);
+
+    fetch('{{ url_for("collections.mark_as_read") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) location.reload();
+        else alert('Failed to mark as read: ' + (data.error || 'Unknown error'));
+    })
+    .catch(error => alert('Error marking as read: ' + error));
+}
+
+// Remove book
+function confirmRemove(bookId, bookTitle) {
+    if (confirm('Remove "' + bookTitle + '" from your collection?')) {
+        const formData = new FormData();
+        formData.append('collection_id', bookId);
+
+        fetch('{{ url_for("collections.remove_book") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) location.reload();
+            else alert('Failed to remove book: ' + (data.error || 'Unknown error'));
+        })
+        .catch(error => alert('Error removing book: ' + error));
+    }
+}
+</script>
+{% endblock %}

@@ -54,11 +54,31 @@ def send_magic_link():
 
     # Send magic link email
     magic_link = url_for('auth.verify_magic_link', token=token, _external=True)
+
+    # In development mode, print magic link to console instead of sending email
+    if current_app.config.get('DEBUG') or current_app.config.get('TESTING'):
+        print("\n" + "="*80)
+        print("🔐 MAGIC LINK FOR DEVELOPMENT")
+        print("="*80)
+        print(f"Email: {email}")
+        print(f"Magic Link: {magic_link}")
+        print("="*80 + "\n")
+        return render_template('auth/magic_link_sent.html', email=email)
+
     try:
         send_magic_link_email(email, magic_link)
         return render_template('auth/magic_link_sent.html', email=email)
     except Exception as e:
         current_app.logger.error(f"Failed to send magic link to {email}: {e}")
+        # In development, still show the link even if email fails
+        if current_app.config.get('DEBUG'):
+            print("\n" + "="*80)
+            print("🔐 MAGIC LINK (Email failed, using console)")
+            print("="*80)
+            print(f"Email: {email}")
+            print(f"Magic Link: {magic_link}")
+            print("="*80 + "\n")
+            return render_template('auth/magic_link_sent.html', email=email)
         flash('Failed to send magic link. Please try again.', 'error')
         return render_template('auth/login.html', email=email)
 

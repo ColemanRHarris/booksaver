@@ -157,6 +157,7 @@ class GoogleBooksClient:
                     'published_date': volume_info.get('publishedDate', ''),
                     'isbn': self._extract_isbn(volume_info.get('industryIdentifiers', [])),
                     'thumbnail': thumbnail_url,
+                    'categories': volume_info.get('categories', []),
                     'preview_link': volume_info.get('previewLink', ''),
                     'info_link': volume_info.get('infoLink', ''),
                     'canonical_link': volume_info.get('canonicalVolumeLink', ''),

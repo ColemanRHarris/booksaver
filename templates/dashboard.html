@@ -1,0 +1,250 @@
+{% extends "base_simple.html" %}
+
+{% block title %}Dashboard - BookSaver{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>Reading Dashboard</h1>
+<p class="text-muted mb-6">Your reading stats and insights</p>
+
+<!-- Stats Cards -->
+<div class="grid grid-4 mb-6">
+    <div class="stat-card card">
+        <div class="stat-value">{{ total_stats.total_scans }}</div>
+        <div class="stat-label">Total Scans</div>
+    </div>
+    <div class="stat-card card">
+        <div class="stat-value">{{ total_stats.total_in_collection }}</div>
+        <div class="stat-label">Books in Collection</div>
+    </div>
+    <div class="stat-card card">
+        <div class="stat-value">{{ total_stats.unique_authors }}</div>
+        <div class="stat-label">Authors</div>
+    </div>
+    <div class="stat-card card">
+        <div class="stat-value" style="color: var(--accent-success);">{{ total_stats.books_read }}</div>
+        <div class="stat-label">Books Read</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-2 mb-6">
+    <div class="chart-container">
+        <div class="chart-title">Scans Over Time</div>
+        {% if scans_over_time %}
+        <div class="chart-wrapper">
+            <canvas id="scansChart"></canvas>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📊</div>
+            <p class="empty-state-text">No scan history yet</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="chart-container">
+        <div class="chart-title">Genre Distribution</div>
+        {% if genre_distribution %}
+        <div class="chart-wrapper">
+            <canvas id="genreChart"></canvas>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📚</div>
+            <p class="empty-state-text">Add books to see genre breakdown</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Top Authors -->
+{% if top_authors %}
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="card-title">Top Authors</h3>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Author</th>
+                <th style="text-align: right;">Books</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for author in top_authors %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ author.author }}</td>
+                <td style="text-align: right;"><span class="badge">{{ author.count }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Collection Breakdown -->
+{% if collection_breakdown.total > 0 %}
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="card-title">Collection Overview</h3>
+    </div>
+    <div class="grid grid-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ collection_breakdown.by_shelf.want_to_read }}</div>
+            <div class="stat-label">Want to Read</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ collection_breakdown.by_shelf.currently_reading }}</div>
+            <div class="stat-label">Currently Reading</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: var(--accent-success);">{{ collection_breakdown.by_shelf.read }}</div>
+            <div class="stat-label">Read</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Reading Pace -->
+{% if reading_pace.total_books > 0 %}
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="card-title">Reading Pace ({{ reading_pace.year }})</h3>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ reading_pace.books_per_month }}</div>
+        <div class="stat-label">books per month average</div>
+        <div class="text-muted text-sm mt-2">{{ reading_pace.total_books }} books in {{ reading_pace.months_elapsed }} month{% if reading_pace.months_elapsed != 1 %}s{% endif %}</div>
+    </div>
+</div>
+{% endif %}
+
+<!-- AI Recommendations -->
+{% if recommendations %}
+<div class="card mb-6">
+    <div class="card-header flex flex-between flex-center">
+        <h3 class="card-title" style="margin: 0;">AI Recommendations</h3>
+        <span class="text-muted text-xs">What to read next</span>
+    </div>
+    <div class="book-list">
+        {% for rec in recommendations %}
+        <div class="book-item">
+            <div class="book-info">
+                <span class="book-title">{{ rec.book_title }}</span>
+                <span class="book-author">by {{ rec.book_authors }}</span>
+                <p class="text-sm mt-2"><strong>Why read this:</strong> {{ rec.recommendation_reason }}</p>
+                <div class="book-meta mt-2">Recommended {{ rec.get_relative_date() }}</div>
+            </div>
+            <span class="badge">{{ rec.rank }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="text-center mt-4">
+        <a href="{{ url_for('collections.index') }}">View your full collection &rarr;</a>
+    </div>
+</div>
+{% elif total_stats.total_in_collection > 0 %}
+<div class="card mb-6">
+    <div class="empty-state">
+        <div class="empty-state-icon">🤖</div>
+        <p class="empty-state-title">AI Recommendations Coming Soon!</p>
+        <p class="empty-state-text">We'll analyze your collection and suggest what to read next.</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Empty State -->
+{% if total_stats.total_scans == 0 %}
+<div class="empty-state card">
+    <div class="empty-state-icon">📊</div>
+    <p class="empty-state-title">No Data Yet</p>
+    <p class="empty-state-text">Start scanning books to see your reading analytics!</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary">Scan Your First Book</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Simple chart colors
+const chartColors = {
+    primary: '#382110',
+    secondary: '#5C3D2E',
+    tertiary: '#8B7355',
+    grid: '#D8D4CC'
+};
+
+// Scans Over Time Chart
+{% if scans_over_time %}
+const scansCtx = document.getElementById('scansChart');
+if (scansCtx) {
+    new Chart(scansCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ scans_over_time | map(attribute='month') | list | tojson }},
+            datasets: [{
+                label: 'Scans',
+                data: {{ scans_over_time | map(attribute='count') | list | tojson }},
+                backgroundColor: chartColors.primary,
+                borderColor: chartColors.primary,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, color: '#666' },
+                    grid: { color: chartColors.grid }
+                },
+                x: {
+                    ticks: { color: '#666' },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+{% endif %}
+
+// Genre Distribution Chart
+{% if genre_distribution %}
+const genreCtx = document.getElementById('genreChart');
+if (genreCtx && {{ genre_distribution | length }} > 0) {
+    const topGenres = {{ genre_distribution[:6] | tojson }};
+
+    new Chart(genreCtx, {
+        type: 'doughnut',
+        data: {
+            labels: topGenres.map(g => g.genre),
+            datasets: [{
+                data: topGenres.map(g => g.count),
+                backgroundColor: ['#382110', '#5C3D2E', '#8B7355', '#A69076', '#C9A227', '#D8D4CC']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { boxWidth: 12, font: { size: 11 }, color: '#666' }
+                }
+            }
+        }
+    });
+}
+{% endif %}
+</script>
+{% endblock %}

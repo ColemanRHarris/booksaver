@@ -79,85 +79,80 @@
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="main-content">
-        <div class="upload-section">
-            <nav style="margin-bottom: 20px; font-size: 14px; color: #718096;">
-                <a href="{{ url_for('index') }}" style="color: #1a365d;">Home</a>
-                <span> → </span>
-                <a href="{{ url_for('recommendations') }}" style="color: #1a365d;">Recommendations</a>
-                <span> → Books Like {{ original_book.title }}</span>
-            </nav>
-            
-            <h1>Books Like {{ original_book.title }}</h1>
-            <p>If you enjoyed "{{ original_book.title }}" by {{ original_book.author }}, you'll love these similar book recommendations.</p>
-            <p><a href="{{ url_for('index') }}" style="color: #1a365d;">📸 Scan books with camera</a></p>
-        </div>
-        
-        <div class="results-section">
-            {% if similar_books %}
-            <h2>{{ similar_books|length }} Similar Book{{ "s" if similar_books|length > 1 else "" }}</h2>
-            <div class="books-grid">
-                {% for book in similar_books %}
-                <div class="book-card">
-                    {% if book.thumbnail %}
-                    <img src="{{ book.thumbnail }}" alt="{{ book.title }}" style="width: 80px; height: auto; float: left; margin-right: 15px; border-radius: 4px;">
+<nav class="breadcrumb mb-4">
+    <a href="{{ url_for('index') }}">Home</a>
+    <span class="text-muted"> &rarr; </span>
+    <a href="{{ url_for('recommendations') }}">Recommendations</a>
+    <span class="text-muted"> &rarr; Books Like {{ original_book.title }}</span>
+</nav>
+
+<h1>Books Like {{ original_book.title }}</h1>
+<p class="text-muted mb-4">If you enjoyed "{{ original_book.title }}" by {{ original_book.author }}, you'll love these similar book recommendations.</p>
+<p class="mb-6"><a href="{{ url_for('index') }}">Scan books with camera &rarr;</a></p>
+
+{% if similar_books %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">{{ similar_books|length }} Similar Book{{ "s" if similar_books|length > 1 else "" }}</h2>
+    </div>
+    <div class="book-list">
+        {% for book in similar_books %}
+        <div class="book-item">
+            {% if book.thumbnail %}
+            <img class="book-cover" src="{{ book.thumbnail }}" alt="{{ book.title }}">
+            {% endif %}
+            <div class="book-info">
+                <span class="book-title">{{ book.title }}</span>
+                {% if book.authors %}
+                <span class="book-author">by {{ book.authors[0] if book.authors else 'Unknown Author' }}</span>
+                {% endif %}
+                {% if book.published_date %}
+                <div class="book-meta">{{ book.published_date }}</div>
+                {% endif %}
+                {% if book.description %}
+                <p class="text-sm text-muted mt-2">
+                    {% set max_length = 200 %}
+                    {% if book.description|length <= max_length %}
+                        {{ book.description }}
+                    {% else %}
+                        {% set truncated = book.description[:max_length] %}
+                        {% set last_space = truncated.rfind(' ') %}
+                        {% if last_space > max_length - 50 %}
+                            {{ truncated[:last_space] }}...
+                        {% else %}
+                            {{ truncated }}...
+                        {% endif %}
                     {% endif %}
-                    
-                    <div class="book-info">
-                        <div class="book-title">{{ book.title }}</div>
-                        {% if book.authors %}
-                        <div class="book-authors">by {{ book.authors[0] if book.authors else 'Unknown Author' }}</div>
-                        {% endif %}
-                        
-                        {% if book.published_date %}
-                        <div style="font-size: 12px; color: #718096; margin: 5px 0;">{{ book.published_date }}</div>
-                        {% endif %}
-                        
-                        {% if book.description %}
-                        <div style="font-size: 13px; color: #4a5568; margin: 10px 0; line-height: 1.4;">
-                            {% set max_length = 200 %}
-                            {% if book.description|length <= max_length %}
-                                {{ book.description }}
-                            {% else %}
-                                {% set truncated = book.description[:max_length] %}
-                                {% set last_space = truncated.rfind(' ') %}
-                                {% if last_space > max_length - 50 %}
-                                    {{ truncated[:last_space] }}...
-                                {% else %}
-                                    {{ truncated }}...
-                                {% endif %}
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="book-actions" style="clear: both; margin-top: 15px;">
-                        {% if book.purchase_links %}
-                        <div style="margin-bottom: 10px; font-weight: 600; font-size: 13px;">Buy:</div>
-                        <div class="purchase-links">
-                            {% if book.purchase_links.amazon %}
-                            <a href="{{ book.purchase_links.amazon }}" class="retailer-btn amazon-btn" target="_blank" rel="noopener">Amazon</a>
-                            {% endif %}
-                            {% if book.purchase_links.google_books %}
-                            <a href="{{ book.purchase_links.google_books }}" class="retailer-btn google-btn" target="_blank" rel="noopener">Google</a>
-                            {% endif %}
-                            {% if book.purchase_links.barnes_noble %}
-                            <a href="{{ book.purchase_links.barnes_noble }}" class="retailer-btn bn-btn" target="_blank" rel="noopener">B&N</a>
-                            {% endif %}
-                            {% if book.purchase_links.bookshop %}
-                            <a href="{{ book.purchase_links.bookshop }}" class="retailer-btn bookshop-btn" target="_blank" rel="noopener">Bookshop</a>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
+                </p>
+                {% endif %}
             </div>
-            {% else %}
-            <p>No similar books found for "{{ original_book.title }}" at the moment.</p>
+            {% if book.purchase_links %}
+            <div class="book-actions">
+                <div class="text-sm font-semibold mb-2">Buy:</div>
+                <div class="retailer-links">
+                    {% if book.purchase_links.amazon %}
+                    <a href="{{ book.purchase_links.amazon }}" class="retailer-btn amazon-btn" target="_blank" rel="noopener">Amazon</a>
+                    {% endif %}
+                    {% if book.purchase_links.google_books %}
+                    <a href="{{ book.purchase_links.google_books }}" class="retailer-btn google-btn" target="_blank" rel="noopener">Google</a>
+                    {% endif %}
+                    {% if book.purchase_links.barnes_noble %}
+                    <a href="{{ book.purchase_links.barnes_noble }}" class="retailer-btn bn-btn" target="_blank" rel="noopener">B&N</a>
+                    {% endif %}
+                    {% if book.purchase_links.bookshop %}
+                    <a href="{{ book.purchase_links.bookshop }}" class="retailer-btn bookshop-btn" target="_blank" rel="noopener">Bookshop</a>
+                    {% endif %}
+                </div>
+            </div>
             {% endif %}
         </div>
+        {% endfor %}
     </div>
 </div>
+{% else %}
+<div class="empty-state card">
+    <div class="empty-state-icon">&#128214;</div>
+    <p class="empty-state-text">No similar books found for "{{ original_book.title }}" at the moment.</p>
+</div>
+{% endif %}
 {% endblock %}

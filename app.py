@@ -22,6 +22,9 @@ from routes.images import register_image_routes
 from routes.seo_pages import register_seo_routes
 from routes.auth import auth_bp
 from routes.billing import billing_bp
+from routes.collections import collections_bp
+from routes.goals import goals_bp
+from routes.dashboard import dashboard_bp
 
 load_dotenv()
 
@@ -196,6 +199,9 @@ register_image_routes(app, limiter)
 register_seo_routes(app, limiter)
 app.register_blueprint(auth_bp)
 app.register_blueprint(billing_bp)
+app.register_blueprint(collections_bp)
+app.register_blueprint(goals_bp)
+app.register_blueprint(dashboard_bp)
 
 
 # Main routes
@@ -209,13 +215,20 @@ def index():
 def account():
     """User account page with subscription management."""
     from models.subscription import Subscription
+    from services.goals_service import GoalsService
 
     # Get active subscription
     subscription = Subscription.get_active_for_user(current_user.id)
 
+    # Get goal progress for Pro users
+    goal_progress = None
+    if current_user.is_pro():
+        goal_progress = GoalsService.get_progress(current_user.id)
+
     return render_template('account.html',
                          user=current_user,
-                         subscription=subscription)
+                         subscription=subscription,
+                         goal_progress=goal_progress)
 
 
 @app.route('/history')

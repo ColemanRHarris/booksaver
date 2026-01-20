@@ -3,30 +3,30 @@
 {% block title %}Check Your Email - BookSaver{% endblock %}
 
 {% block content %}
-<div class="main-content" style="display: flex; justify-content: center; align-items: center;">
-    <div class="upload-section" style="max-width: 500px; height: auto; text-align: center;">
-        <div style="font-size: 4rem; margin-bottom: 20px;">📧</div>
-        <h2 style="margin-bottom: 20px;">Check Your Email!</h2>
-        <p style="color: #4a5568; margin-bottom: 30px;">
+<div class="container-narrow">
+    <div class="card text-center">
+        <div style="font-size: 3rem; margin-bottom: var(--space-4);">📧</div>
+        <h1>Check Your Email!</h1>
+        <p class="text-muted mb-6">
             We've sent a magic link to <strong>{{ email }}</strong>
         </p>
 
-        <div style="background: #ebf8ff; border: 2px solid #bee3f8; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
-            <h3 style="font-size: 16px; margin-bottom: 10px;">Next Steps:</h3>
-            <ol style="text-align: left; color: #4a5568; font-size: 14px; line-height: 1.8;">
+        <div class="alert alert-info text-left mb-6">
+            <strong>Next Steps:</strong>
+            <ol style="margin: var(--space-2) 0 0; padding-left: var(--space-4);">
                 <li>Check your inbox for an email from BookSaver</li>
                 <li>Click the magic link in the email</li>
                 <li>You'll be automatically logged in!</li>
             </ol>
         </div>
 
-        <p style="font-size: 13px; color: #718096;">
+        <p class="text-muted text-sm mb-4">
             The link will expire in 15 minutes for security.
             <br>
             Didn't receive it? Check your spam folder or try again.
         </p>
 
-        <a href="{{ url_for('auth.send_magic_link') }}" class="scan-btn" style="margin-top: 20px; text-decoration: none;">
+        <a href="{{ url_for('auth.send_magic_link') }}" class="btn btn-secondary">
             Send Another Link
         </a>
     </div>

@@ -8,343 +8,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #1a365d; /* Navy text */
-            background-color: #f7f5f3;
-            padding: 10px;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        h1, h2, h3 {
-            color: #1a365d;
-            margin-bottom: 10px;
-        }
-        
-        header {
-            padding: 15px;
-
-            margin-bottom: 15px;
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            gap: 20px;
-            align-items: center;
-            flex-shrink: 0;
-        }
-        
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            flex: 1;
-            overflow: hidden;
-        }
-        
-        .upload-section, .results-section {
-            padding: 15px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            height: 100%;
-            overflow-y: auto;
-        }
-        
-        .upload-area {
-            border: 2px dashed #cbd5e0;
-            border-radius: 8px;
-            padding: 30px 15px;
-            text-align: center;
-            background: #f7fafc;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 15px 0;
-        }
-        
-        .upload-area:hover,
-        .upload-area.dragover {
-            border-color: #4299e1;
-            background: #ebf8ff;
-        }
-        
-        .upload-icon {
-            font-size: 3rem;
-            margin-bottom: 15px;
-        }
-        
-        .upload-btn {
-            background: #1a365d;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-        
-        .upload-btn:hover {
-            background: #2d3748;
-        }
-        
-        .preview-section {
-            margin: 20px 0;
-        }
-        
-        .preview-container {
-            position: relative;
-            text-align: center;
-        }
-        
-        .preview-image {
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .clear-btn {
-            position: absolute;
-            top: -10px;
-            right: 10px;
-            background: #e53e3e;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            cursor: pointer;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        
-        .clear-btn:hover {
-            background: #c53030;
-        }
-        
-        .scan-btn {
-            width: 100%;
-            background: #1a365d;
-            color: white;
-            border: none;
-            padding: 15px;
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        
-        .scan-btn:hover:not(:disabled) {
-            background: #2d3748;
-        }
-        
-        .scan-btn:disabled {
-            background: #a0aec0;
-            cursor: not-allowed;
-        }
-        
-        .loading-spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top: 2px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .instructions {
-            margin-top: 30px;
-            padding: 15px;
-            background: #f7fafc;
-            border-radius: 4px;
-            border-left: 4px solid #1a365d;
-        }
-        
-        .instructions h4 {
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-        
-        .instructions ul {
-            list-style-position: inside;
-            font-size: 13px;
-            color: #4a5568;
-        }
-        
-        .instructions li {
-            margin-bottom: 5px;
-        }
-        
-        .error {
-            background: #fed7d7;
-            color: #9b2c2c;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            border: 1px solid #feb2b2;
-        }
-        
-        /* Books grid styles */
-        .books-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-            margin-top: 20px;
-        }
-        
-        .book-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 15px;
-            background: #faf8f6;
-        }
-        
-        .book-title {
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: #1a365d;
-        }
-        
-        .book-authors {
-            color: #4a5568;
-            font-style: italic;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-        
-        .book-actions {
-            margin-top: 15px;
-        }
-        
-        .purchase-links, .reader-links {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-        }
-        
-        .retailer-btn {
-            padding: 5px 10px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 12px;
-            font-weight: 600;
-            color: white;
-            display: inline-block;
-            background: #1a365d; /* Navy background for all buttons */
-            min-width: 94px; /* Consistent width to fit "LibraryThing" */
-            text-align: center;
-            transition: background-color 0.3s ease;
-        }
-        
-        /* Hover colors - Purchase buttons */
-        .amazon-btn:hover { background: #ff9900; }
-        .audible-btn:hover { background: #f46500; }
-        .bn-btn:hover { background: #00704a; }
-        .bookshop-btn:hover { background: #664228; }
-        .google-btn:hover { background: #4285f4; }
-        
-        /* Hover colors - Reader app buttons */
-        .goodreads-btn:hover { background: #BFB8A8; }
-        .storygraph-btn:hover { background: #000000; }
-        .overdrive-btn:hover { background: #006595; }
-        .librarything-btn:hover { background: #891D13; }
-        
-        .user-menu {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .user-info {
-            font-size: 14px;
-            color: #4a5568;
-        }
-
-        .nav-link {
-            color: #1a365d;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            padding: 8px 16px;
-            border-radius: 4px;
-            transition: background 0.3s ease;
-        }
-
-        .nav-link:hover {
-            background: #e2e8f0;
-        }
-
-        .btn-primary {
-            background: #1a365d;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            border: none;
-            cursor: pointer;
-        }
-
-        .btn-primary:hover {
-            background: #2d3748;
-        }
-
-        /* Responsive design */
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-
-            body {
-                padding: 10px;
-            }
-
-            .upload-area {
-                padding: 30px 15px;
-            }
-
-            header {
-                grid-template-columns: 1fr;
-                gap: 10px;
-                text-align: center;
-                justify-items: center;
-            }
-
-            .user-menu {
-                flex-direction: column;
-                gap: 10px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/simple.css') }}">
+    {% block head %}{% endblock %}
 </head>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17497319659"></script>
@@ -352,43 +17,65 @@
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-
   gtag('config', 'AW-17497319659');
 </script>
 <body>
-    <div class="container">
-        <header>
-            <a href="{{ url_for('index') }}" style="text-decoration: none;">
-                <img src="{{ url_for('static', filename='booksaver_logo.png') }}" alt="Booksaver" style="height: 75px; width: auto;">
-            </a>
-            <p style="margin: 0; color: #1a365d; font-style: italic; text-align: center;">Identify books instantly with your camera!</p>
+    <div class="page">
+        <header class="header">
+            <div class="container flex flex-between flex-center">
+                <a href="{{ url_for('index') }}" class="logo">
+                    <img src="{{ url_for('static', filename='booksaver_logo.png') }}" alt="Booksaver" style="height: 50px; width: auto;">
+                </a>
 
-            <div class="user-menu">
-                {% if current_user.is_authenticated %}
-                    <div class="user-info">
+                <nav class="nav">
+                    {% if current_user.is_authenticated %}
                         {% if current_user.is_pro() %}
-                            <span style="color: #1a365d; font-weight: 600;">Pro</span>
-                        {% else %}
-                            <span>{{ current_user.get_usage_status() }}</span>
+                            <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
+                            <a href="{{ url_for('collections.index') }}">Collections</a>
                         {% endif %}
-                    </div>
-                    {% if current_user.is_pro() %}
-                        <a href="{{ url_for('history') }}" class="nav-link">History</a>
+                        <a href="{{ url_for('history') }}">History</a>
+                        <a href="{{ url_for('account') }}">Account</a>
+                        {% if current_user.is_pro() %}
+                            <span class="badge badge-pro">Pro</span>
+                        {% endif %}
+                    {% else %}
+                        <a href="{{ url_for('auth.send_magic_link') }}" class="btn btn-primary btn-sm">Log In</a>
                     {% endif %}
-                    <a href="{{ url_for('account') }}" class="nav-link">Account</a>
-                {% else %}
-                    <a href="{{ url_for('auth.send_magic_link') }}" class="btn-primary">Log In</a>
-                {% endif %}
+                </nav>
             </div>
         </header>
-        
-        <main style="flex: 1; display: flex; flex-direction: column;">
-            {% block content %}{% endblock %}
+
+        <main class="main">
+            <div class="container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="flash-messages">
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category if category in ['success', 'error', 'warning', 'info'] else 'info' }}">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
         </main>
-        
-        <footer style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #e2e8f0; text-align: center; font-size: 12px; color: #718096; flex-shrink: 0;">
-            <p>&copy; 2025 Booksaver. Made with ❤️ for book lovers.</p>
+
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <span>&copy; 2025 Booksaver</span>
+                    <span>
+                        <a href="{{ url_for('privacy') }}">Privacy</a> &middot;
+                        <a href="{{ url_for('terms') }}">Terms</a>
+                    </span>
+                </div>
+            </div>
         </footer>
     </div>
+
+    {% block scripts %}{% endblock %}
 </body>
 </html>

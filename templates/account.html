@@ -3,114 +3,151 @@
 {% block title %}My Account - BookSaver{% endblock %}
 
 {% block content %}
-<div class="main-content" style="display: flex; justify-content: center; align-items: center;">
-    <div class="upload-section" style="max-width: 700px; height: auto;">
-        <h2 style="margin-bottom: 30px;">My Account</h2>
+<div class="container-narrow">
+    <h1>My Account</h1>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="{{ category }} error" style="margin-bottom: 20px;">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <!-- Account Info -->
-        <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: white;">
-            <h3 style="font-size: 18px; margin-bottom: 15px;">Account Information</h3>
-            <div style="display: grid; grid-template-columns: 150px 1fr; gap: 15px; color: #4a5568;">
-                <div style="font-weight: 600;">Email:</div>
-                <div>{{ user.email }}</div>
-
-                <div style="font-weight: 600;">Member Since:</div>
-                <div>{{ user.created_at.strftime('%B %d, %Y') }}</div>
-
-                <div style="font-weight: 600;">Plan:</div>
-                <div>
+    <!-- Account Info -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Account Information</h3>
+        </div>
+        <table class="table">
+            <tr>
+                <th style="width: 150px;">Email</th>
+                <td>{{ user.email }}</td>
+            </tr>
+            <tr>
+                <th>Member Since</th>
+                <td>{{ user.created_at.strftime('%B %d, %Y') }}</td>
+            </tr>
+            <tr>
+                <th>Plan</th>
+                <td>
                     {% if user.is_pro() %}
-                        <span style="color: #1a365d; font-weight: 600;">Pro {{ user.subscription_plan.title() }}</span>
+                    <span class="badge badge-pro">Pro{% if user.subscription_plan %} {{ user.subscription_plan.title() }}{% endif %}</span>
                     {% else %}
-                        <span>Free Tier</span>
+                    Free Tier
                     {% endif %}
-                </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Usage Stats -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Usage</h3>
+        </div>
+        {% if user.is_pro() %}
+        <div class="stat-card">
+            <div class="stat-value">Unlimited</div>
+            <div class="stat-label">Scans with Pro subscription</div>
+        </div>
+        {% else %}
+        <div class="stat-card">
+            <div class="stat-value">$0.99</div>
+            <div class="stat-label">Per scan</div>
+            <a href="{{ url_for('billing.upgrade') }}" class="btn btn-primary mt-4">Upgrade to Pro for Unlimited</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Reading Goal (Pro users only) -->
+    {% if user.is_pro() %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Reading Goal for {{ goal_progress.year if goal_progress.has_goal else 'this year' }}</h3>
+        </div>
+
+        {% if goal_progress and goal_progress.has_goal %}
+        <!-- Goal Progress -->
+        <div class="mb-4">
+            <div class="flex flex-between mb-2">
+                <strong>{{ goal_progress.current_count }} of {{ goal_progress.target_count }} books</strong>
+                <span>{{ goal_progress.percentage }}%</span>
+            </div>
+            <div class="progress">
+                <div class="progress-bar" style="width: {{ [goal_progress.percentage, 100]|min }}%; {% if goal_progress.percentage >= 100 %}background: var(--accent-success);{% endif %}"></div>
             </div>
         </div>
 
-        <!-- Usage Stats -->
-        <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: white;">
-            <h3 style="font-size: 18px; margin-bottom: 15px;">Usage Statistics</h3>
-
-            {% if user.is_pro() %}
-                <div style="text-align: center; padding: 30px;">
-                    <div style="font-size: 3rem; margin-bottom: 10px;">♾️</div>
-                    <p style="font-size: 20px; font-weight: 600; color: #1a365d; margin-bottom: 5px;">Unlimited Scans</p>
-                    <p style="color: #4a5568; font-size: 14px;">Enjoy unlimited book scanning with your Pro subscription</p>
-                </div>
-            {% else %}
-                <div style="text-align: center; padding: 30px;">
-                    <div style="font-size: 3rem; margin-bottom: 10px;">💳</div>
-                    <p style="font-size: 18px; font-weight: 600; color: #1a365d; margin-bottom: 10px;">Pay-Per-Scan</p>
-                    <p style="color: #4a5568; font-size: 14px; margin-bottom: 20px;">
-                        $0.99 per scan, or upgrade to Pro for unlimited access
-                    </p>
-                    <a href="{{ url_for('billing.upgrade') }}" class="scan-btn" style="text-decoration: none; display: inline-block;">
-                        Upgrade to Pro for Unlimited Scans
-                    </a>
-                </div>
-            {% endif %}
-        </div>
-
-        <!-- Subscription Management -->
-        {% if subscription and subscription.is_active() %}
-        <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: white;">
-            <h3 style="font-size: 18px; margin-bottom: 15px;">Subscription Details</h3>
-            <div style="display: grid; grid-template-columns: 150px 1fr; gap: 15px; color: #4a5568; margin-bottom: 20px;">
-                <div style="font-weight: 600;">Status:</div>
-                <div>
-                    <span style="color: #38a169; font-weight: 600;">{{ subscription.get_status_display() }}</span>
-                </div>
-
-                <div style="font-weight: 600;">Plan:</div>
-                <div>{{ subscription.get_plan_display() }}</div>
-
-                {% if subscription.current_period_end %}
-                <div style="font-weight: 600;">Next Billing:</div>
-                <div>{{ subscription.current_period_end.strftime('%B %d, %Y') }}</div>
-                {% endif %}
-
-                {% if subscription.cancel_at_period_end %}
-                <div style="font-weight: 600; color: #e53e3e;">Notice:</div>
-                <div style="color: #e53e3e;">Subscription will cancel on {{ subscription.current_period_end.strftime('%B %d, %Y') if subscription.current_period_end else 'the end of your billing period' }}</div>
-                {% endif %}
-            </div>
-
-            <form method="GET" action="{{ url_for('billing.customer_portal') }}">
-                <button type="submit" class="scan-btn">
-                    Manage Subscription
-                </button>
-            </form>
-            <p style="font-size: 12px; color: #718096; margin-top: 10px; text-align: center;">
-                Cancel or update payment method through Stripe's secure portal
-            </p>
-        </div>
-        {% elif not user.is_pro() %}
-        <div style="border: 2px solid #bee3f8; border-radius: 8px; padding: 20px; background: #ebf8ff;">
-            <h3 style="font-size: 18px; margin-bottom: 10px; color: #1a365d;">Upgrade to Pro</h3>
-            <p style="color: #4a5568; margin-bottom: 20px;">
-                Get unlimited book scans and support BookSaver's development for just $2.99/month
-            </p>
-            <a href="{{ url_for('billing.upgrade') }}" class="scan-btn" style="text-decoration: none;">
-                View Pro Plans
-            </a>
+        {% if goal_progress.current_count >= goal_progress.target_count %}
+        <div class="alert alert-success mb-4 text-center">
+            Congratulations! You've reached your goal!
         </div>
         {% endif %}
 
-        <!-- Account Actions -->
-        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
-            <a href="{{ url_for('auth.logout') }}" style="color: #e53e3e; text-decoration: none; font-weight: 600;">
-                Log Out
-            </a>
+        <!-- Edit goal form -->
+        <form method="POST" action="{{ url_for('goals.set_goal') }}" class="flex flex-gap flex-center" style="flex-wrap: wrap;">
+            <input type="number" name="target_count" value="{{ goal_progress.target_count }}" min="1" max="1000" required class="form-input" style="width: 80px;">
+            <span>books in</span>
+            <input type="number" name="year" value="{{ goal_progress.year }}" min="2024" max="2030" required class="form-input" style="width: 100px;">
+            <button type="submit" class="btn btn-primary">Update Goal</button>
+        </form>
+
+        {% else %}
+        <!-- No goal set -->
+        <div class="empty-state">
+            <div class="empty-state-icon">🎯</div>
+            <p class="empty-state-text">Set a reading goal to track your progress!</p>
         </div>
+
+        <form method="POST" action="{{ url_for('goals.set_goal') }}" class="flex flex-gap flex-center" style="flex-wrap: wrap; justify-content: center;">
+            <span>I want to read</span>
+            <input type="number" name="target_count" value="24" min="1" max="1000" required class="form-input" style="width: 80px;">
+            <span>books in</span>
+            <input type="number" name="year" value="{{ goal_progress.year }}" min="2024" max="2030" required class="form-input" style="width: 100px;">
+            <button type="submit" class="btn btn-primary">Set Goal</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Subscription Management -->
+    {% if subscription and subscription.is_active() %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Subscription Details</h3>
+        </div>
+        <table class="table">
+            <tr>
+                <th style="width: 150px;">Status</th>
+                <td><span class="badge badge-success">{{ subscription.get_status_display() }}</span></td>
+            </tr>
+            <tr>
+                <th>Plan</th>
+                <td>{{ subscription.get_plan_display() }}</td>
+            </tr>
+            {% if subscription.current_period_end %}
+            <tr>
+                <th>Next Billing</th>
+                <td>{{ subscription.current_period_end.strftime('%B %d, %Y') }}</td>
+            </tr>
+            {% endif %}
+            {% if subscription.cancel_at_period_end %}
+            <tr>
+                <th style="color: var(--accent-error);">Notice</th>
+                <td style="color: var(--accent-error);">Cancels {{ subscription.current_period_end.strftime('%B %d, %Y') if subscription.current_period_end else 'at period end' }}</td>
+            </tr>
+            {% endif %}
+        </table>
+
+        <form method="GET" action="{{ url_for('billing.customer_portal') }}" class="mt-4">
+            <button type="submit" class="btn btn-secondary btn-block">Manage Subscription</button>
+        </form>
+        <p class="text-muted text-xs text-center mt-2">Cancel or update payment method through Stripe's secure portal</p>
+    </div>
+    {% elif not user.is_pro() %}
+    <div class="card mb-4" style="background: var(--bg-tertiary);">
+        <h3>Upgrade to Pro</h3>
+        <p class="text-muted">Get unlimited book scans for just $2.99/month</p>
+        <a href="{{ url_for('billing.upgrade') }}" class="btn btn-primary mt-2">View Pro Plans</a>
+    </div>
+    {% endif %}
+
+    <!-- Logout -->
+    <div class="text-center mt-6" style="padding-top: var(--space-4); border-top: 1px solid var(--border-light);">
+        <a href="{{ url_for('auth.logout') }}" style="color: var(--accent-error);">Log Out</a>
     </div>
 </div>
 {% endblock %}
