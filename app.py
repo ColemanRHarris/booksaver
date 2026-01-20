@@ -3,7 +3,7 @@ Main Flask application for BookSaver.
 Streamlined version with modular structure.
 """
 
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
 from datetime import datetime
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -208,6 +208,18 @@ app.register_blueprint(dashboard_bp)
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/results')
+@login_required
+def results():
+    """Display scan results (loaded via redirect after processing)."""
+    books = session.pop('scan_results', None)
+    if books is None:
+        # No results in session, redirect to home
+        flash('No scan results available. Please upload an image to scan.', 'info')
+        return redirect(url_for('index'))
+    return render_template('results.html', books=books, query="Image analysis")
 
 
 @app.route('/account')

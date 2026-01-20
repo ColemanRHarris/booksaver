@@ -4,7 +4,7 @@ Image processing routes for book detection.
 
 import os
 import uuid
-from flask import request, render_template, current_app, redirect, url_for, flash
+from flask import request, render_template, current_app, redirect, url_for, flash, session
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
@@ -119,7 +119,10 @@ def register_image_routes(app, limiter):
                             # Don't fail the request if history save fails
                             db.session.rollback()
 
-                    return render_template('results.html', books=books, query="Image analysis")
+                    # Store results in session and redirect (PRG pattern)
+                    # This ensures form submissions from results page work correctly
+                    session['scan_results'] = books
+                    return redirect(url_for('results'))
                 else:
                     error_msg = result.get('error', 'Processing failed')
                     current_app.logger.error(f"❌ Processing failed: {error_msg}")
