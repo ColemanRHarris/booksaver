@@ -55,11 +55,10 @@ Thumbs.db
 *.log
 logs/
 
-# Test files
-test_*.py
-
-# Package manager
-uv.lock
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
 
 # Deployment
 *.pyc
@@ -83,3 +82,7 @@ requirements_uv_backup.txt
 *.avi
 *.mov
 tmp/
+
+# SQLite databases
+instance/*.db
+instance/*.db-journal
