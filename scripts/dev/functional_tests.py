@@ -1,7 +1,13 @@
 """
-Functional tests for Booksaver Pro features.
+Manual dev script, not part of CI or the pytest suite.
+Functional smoke tests for Booksaver Pro features.
 Tests all 5 Pro features using Flask's test client.
 """
+
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from app import app
 from models import db
