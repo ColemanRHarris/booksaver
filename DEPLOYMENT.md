@@ -1,129 +1,80 @@
 # BookSaver Deployment Guide
 
-## Environment Variables Setup
+## Environment Variables
 
-### Required Gmail SMTP Configuration
-
-For password reset functionality to work, configure these Gmail SMTP variables:
+Copy `.env.example` to `.env` and fill in real values. Required for core functionality:
 
 ```bash
-# Gmail SMTP Configuration
-SMTP_SERVER=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your_gmail@gmail.com
-SMTP_PASSWORD=your_16_character_app_password
-FROM_EMAIL=your_gmail@gmail.com
+GEMINI_API_KEY=...        # Google Gemini API key (book identification + recommendations)
+SECRET_KEY=...            # Flask session secret
+MAGIC_LINK_SECRET=...     # Signs passwordless login links (defaults to SECRET_KEY if unset)
 ```
 
-### Gmail App Password Setup
+### Email (passwordless magic-link login)
 
-1. **Enable 2-Factor Authentication** on your Gmail account
-2. Go to **Google Account Settings → Security**
-3. Under **"2-Step Verification"** → **"App passwords"**
-4. Select **"Mail"** as the app type  
-5. Copy the generated **16-character app password**
-6. Use this app password in `SMTP_PASSWORD` (NOT your regular Gmail password)
-
-### Other Environment Variables
+The app sends login links via **SendGrid** if `SENDGRID_API_KEY` is set, falling back to
+**Mailgun** if `MAILGUN_API_KEY`/`MAILGUN_DOMAIN` are set instead (see `services/email_service.py`).
+At least one provider must be configured for login to work.
 
 ```bash
-# Core Application
-SECRET_KEY=your-secure-secret-key-here
-FLASK_ENV=production  # or development
-GEMINI_API_KEY=your_gemini_api_key
-REDIS_URL=your_redis_url
+# Primary
+SENDGRID_API_KEY=your_sendgrid_api_key
 
-# Optional
-GOOGLE_BOOKS_KEY=your_google_books_api_key
+# Fallback (used only if SENDGRID_API_KEY is unset)
+MAILGUN_API_KEY=your_mailgun_api_key
+MAILGUN_DOMAIN=your_mailgun_domain
+```
+
+### Stripe (billing)
+
+Optional — only needed if you want pay-per-scan / Pro subscription billing enabled.
+
+```bash
+STRIPE_SECRET_KEY=...
+STRIPE_PUBLISHABLE_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+```
+
+### Other
+
+```bash
+GOOGLE_BOOKS_KEY=...      # Optional, raises Google Books API rate limits
+APP_URL=https://your-domain.com   # Used to build absolute links in emails
 PORT=5000
 ```
 
 ## Render.com Deployment
 
-### Step 1: Environment Variables in Render
+This repo is set up to deploy on [Render](https://render.com) via `render.yaml`:
 
-In your Render.com dashboard:
+1. Create a new Web Service from this repo; Render will read `render.yaml` automatically.
+2. In the service's **Environment** settings, fill in the `sync: false` variables listed in
+   `render.yaml` (API keys, secrets) — these aren't stored in the repo.
+3. Render runs `build.sh` on deploy, which installs Python dependencies and applies database
+   migrations (`flask db upgrade head`), then starts the app with `gunicorn`.
+4. The SQLite database lives on a persistent disk mounted at `instance/` (see the `disk:` block
+   in `render.yaml`) so it survives redeploys.
 
-1. Go to your service settings
-2. Navigate to "Environment Variables"
-3. Add all the variables listed above
-4. **Critical**: Use the Gmail App Password for `SMTP_PASSWORD`
+## Local Development
 
-### Step 2: Verify Email Configuration
-
-After deployment:
-
-1. Test password reset functionality
-2. Check Render logs for email-related errors
-
-### Step 3: Gmail Security Settings
-
-- Ensure the Gmail account has 2FA enabled
-- The app password should be specific to this application
-- Monitor Gmail's sending limits (500 emails/day for personal accounts)
-
-## Development Setup
-
-### Local Environment
-
-1. Copy `.env.example` to `.env`
-2. Configure Gmail SMTP variables
-3. Run: `python app.py`
-
-### Testing Email Configuration
-
-Test the password reset functionality by attempting to reset a password for a known email address.
+1. Copy `.env.example` to `.env` and fill in at minimum `GEMINI_API_KEY`, `SECRET_KEY`, and an
+   email provider key.
+2. Install dependencies: `uv sync` (or `pip install -r requirements.txt`).
+3. Run migrations: `flask db upgrade`.
+4. Start the app: `python app.py`.
 
 ## Troubleshooting
 
-### Email Not Sending
+**Login emails not sending**
+- Confirm `SENDGRID_API_KEY` or both `MAILGUN_API_KEY`/`MAILGUN_DOMAIN` are set.
+- Check logs for the exception raised by `services/email_service.py` — it names the missing
+  config explicitly.
 
-**Error**: `SMTP not configured`
-- **Solution**: Check `SMTP_USERNAME` and `SMTP_PASSWORD` are set
+**Migrations fail on deploy**
+- `build.sh` falls back to `db.create_all()` if `flask db upgrade head` fails, to avoid a broken
+  deploy on a fresh database; check Render build logs for the actual migration error.
 
-**Error**: `Authentication failed`  
-- **Solution**: Use App Password, not regular Gmail password
-- **Solution**: Verify 2FA is enabled on Gmail account
+## Security
 
-**Error**: `Connection refused`
-- **Solution**: Check `SMTP_SERVER=smtp.gmail.com` and `SMTP_PORT=587`
-
-### Gmail Limits
-
-- **Personal Gmail**: 500 emails/day
-- **Google Workspace**: 2000 emails/day
-- Monitor usage if you have many users
-
-### Security Considerations
-
-1. **Never commit credentials** to version control
-2. **Rotate app passwords** periodically  
-3. **Monitor failed login attempts** in Gmail security settings
-4. **Consider Gmail Workspace** for higher sending limits in production
-
-## Production Recommendations
-
-### Email Service Upgrade
-
-For production with high email volume, consider:
-
-- **SendGrid**: Better deliverability, analytics
-- **AWS SES**: Scalable, cost-effective
-- **Mailgun**: Developer-friendly APIs
-
-### Monitoring
-
-- Set up alerts for email delivery failures
-- Monitor Gmail quota usage
-- Track password reset success rates
-
-### Backup Plans
-
-- Document manual password reset process for administrators
-- Have alternative contact methods for users
-- Consider implementing admin password reset functionality
-
-## Support
-
-- Check application logs for detailed error messages
-- Gmail App Password help: [support.google.com](https://support.google.com/accounts/answer/185833)
+- Never commit `.env` or any file containing real credentials.
+- Rotate API keys periodically, especially after any suspected exposure.
