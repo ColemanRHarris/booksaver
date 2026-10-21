@@ -1,0 +1,27 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+      - run: pip install pytest pytest-cov pytest-flask pytest-mock faker python-dateutil
+
+      - name: Run tests
+        env:
+          GEMINI_API_KEY: test_gemini_key
+          SECRET_KEY: test
+          MAGIC_LINK_SECRET: test
+          STRIPE_SECRET_KEY: sk_test_123
+          STRIPE_PUBLISHABLE_KEY: pk_test_123
+        run: pytest --cov=. --cov-report=term-missing

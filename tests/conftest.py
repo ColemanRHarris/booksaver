@@ -81,6 +81,16 @@ def app():
         """Main landing page."""
         return render_template('index.html')
 
+    @app.route('/terms')
+    def terms():
+        """Terms of service page."""
+        return render_template('terms.html')
+
+    @app.route('/privacy')
+    def privacy():
+        """Privacy policy page."""
+        return render_template('privacy.html')
+
     @app.route('/account')
     @login_required
     def account():
